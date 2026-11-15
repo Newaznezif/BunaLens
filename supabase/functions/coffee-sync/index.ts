@@ -40,11 +40,14 @@ Deno.serve(async(req)=>{
   const imagePath=stationId+"/"+idempotencyKey+"."+ext;
   const {error:uploadError}=await db.storage.from("coffee-samples").upload(imagePath,bytes,{contentType:mime,upsert:true});
   if(uploadError){console.error("Sample upload failed",uploadError);return reply({error:"Could not store the sample image. Retry synchronization."},503)}
+  const {data:benchmark}=await db.from("market_benchmarks").select("id,min_etb_per_feresula,max_etb_per_feresula,source_label,effective_date,is_demo").eq("sample_type",sampleType).eq("ecx_style_grade",result.ecx_grade).eq("active",true).order("effective_date",{ascending:false}).limit(1).maybeSingle();
+  let pricing:any=undefined;
+  if(benchmark){const mid=(Number(benchmark.min_etb_per_feresula)+Number(benchmark.max_etb_per_feresula))/2;pricing={benchmark_id:benchmark.id,source_label:benchmark.source_label,effective_date:benchmark.effective_date,is_demo:benchmark.is_demo,min_etb_per_feresula:Number(benchmark.min_etb_per_feresula),max_etb_per_feresula:Number(benchmark.max_etb_per_feresula),estimated_price_per_feresula_etb:Math.round(mid),estimated_price_per_kg_etb:Number((mid/17).toFixed(2)),estimated_lot_value_etb:Math.round(mid*weight/17),min_lot_value_etb:Math.round(Number(benchmark.min_etb_per_feresula)*weight/17),max_lot_value_etb:Math.round(Number(benchmark.max_etb_per_feresula)*weight/17),potential_sorting_gain_etb:Math.round((Number(benchmark.max_etb_per_feresula)-mid)*weight/17)};}
   const batchCode="BNL-JMA-"+Math.random().toString(36).slice(2,6).toUpperCase();
   const {data:created,error:createError}=await db.from("coffee_batches").insert({
    id:idempotencyKey,station_id:stationId,batch_code:batchCode,sample_type:sampleType,woreda,
    lot_weight_kg:weight,image_path:imagePath,grading_result:result,idempotency_key:idempotencyKey,
-   created_at:body.captured_at||new Date().toISOString()
+   pricing_result:pricing||null,created_at:body.captured_at||new Date().toISOString()
   }).select("id,batch_code,sample_type,woreda,created_at,lot_weight_kg,station_id,verification_id,grading_result,pricing_result").single();
   if(createError){
    console.error("Batch persistence failed",createError);

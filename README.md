@@ -80,7 +80,7 @@ Never put `GEMINI_API_KEY`, `CHAPA_SECRET_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, or 
 7. Deploy the Edge Functions listed below.
 8. Register a station from the app's Station tab → Sign in / Register station.
 
-The app stores local station and batch data when cloud credentials are absent. Cloud operations require a signed-in user and an owned station UUID. RLS policies scope station and batch access to the authenticated owner.
+The app stores local station and batch data when cloud credentials are absent. Cloud operations require a signed-in user and an owned station UUID. RLS policies scope station and batch access to the authenticated owner. Column-level grants prevent mobile clients from changing station credits or Pro expiry, and clients cannot insert grading records directly; trusted Edge Functions own those writes.
 
 ### Edge Functions
 
@@ -107,7 +107,7 @@ Set secrets with the Supabase CLI or Dashboard. Do not commit a local `.env` con
 
 ## AI vision and quality controls
 
-The mobile app sends the image, MIME type, sample category, woreda, station ID and stable capture idempotency key to the authenticated `gemini-grade` Edge Function. The function verifies the user and station, invokes `gemini-2.5-flash`, validates the structured result and returns only visual assessment fields. Prices are never requested from Gemini.
+The mobile app sends the image, MIME type, sample category, woreda, station ID, lot weight and stable capture idempotency key to the authenticated `coffee-sync` Edge Function. That function invokes `gemini-grade` server-to-server, stores the image in private Storage, derives prices from the database benchmark table and persists the canonical batch. Gemini returns visual assessment fields only; it is never asked to generate prices.
 
 A valid coffee assessment consumes one scan credit through an idempotent database function. A retry with the same capture key does not debit a second credit. Non-coffee images do not consume a credit. The local credit count is a UI cache; the database is authoritative.
 
@@ -184,7 +184,7 @@ types/                  Domain interfaces
 
 ## Current limitations
 
-- The repository contains the mobile client, SQL migrations and Edge Function source; they still need to be deployed and configured in the user's Supabase project.
+- The repository contains the mobile client, SQL migrations and Edge Function source; they still need to be deployed and configured in the user's Supabase project. Cloud grading, persistence, payment and verification are not live until the migrations and functions have been deployed and the server secrets configured.
 - Live market benchmark data has not been connected. Seeded prices are labelled demonstration data.
 - Physical-device camera, offline restart/recovery, real Chapa test transactions, and Android/iOS EAS builds must be exercised before production release.
 - A visual model cannot certify coffee quality; qualified grading and lab workflows remain necessary.

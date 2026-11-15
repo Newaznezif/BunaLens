@@ -63,9 +63,6 @@ Scan the QR code with an SDK 54-compatible Expo Go client. Camera capture, galle
 | `EXPO_PUBLIC_APP_ENV` | `development` or `production` |
 | `EXPO_PUBLIC_DEMO_MODE` | `true` by default; enables local demo flows without backend credentials |
 | `EXPO_PUBLIC_ENABLE_REAL_PAYMENTS` | `false` by default; real Chapa checkout requires explicit opt-in |
-| `EXPO_PUBLIC_BUNALENS_SYNC_URL` | Authenticated `coffee-sync` Edge Function endpoint |
-| `EXPO_PUBLIC_CHAPA_INITIALIZE_URL` | Authenticated `chapa-initialize` Edge Function endpoint |
-| `EXPO_PUBLIC_CERTIFICATE_VERIFY_BASE_URL` | Public read-only certificate verification endpoint |
 | `EXPO_PUBLIC_CHAPA_DEMO_MODE` | Backward-compatible local payment demo switch |
 
 The example file intentionally leaves Supabase endpoints and public keys blank. With `EXPO_PUBLIC_DEMO_MODE=true` and `EXPO_PUBLIC_ENABLE_REAL_PAYMENTS=false`, the app launches into local/demo workflows without any private API credential or live payment configuration.

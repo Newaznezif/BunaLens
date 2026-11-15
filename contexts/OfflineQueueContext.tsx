@@ -15,7 +15,7 @@ interface OfflineQueueValue {
 const Context = createContext<OfflineQueueValue | null>(null);
 
 export function OfflineQueueProvider({ children }: { children: React.ReactNode }) {
-  const { addBatch } = useStation();
+  const { addBatch, consumeCredit, station } = useStation();
   const [online, setOnline] = useState(true);
   const [pendingCount, setPendingCount] = useState(0);
   const [syncing, setSyncing] = useState(false);
@@ -36,7 +36,7 @@ export function OfflineQueueProvider({ children }: { children: React.ReactNode }
     setSyncing(true);
     try {
       const result = await syncQueuedCaptures();
-      result.synced.forEach((batch: CoffeeBatch) => addBatch(batch));
+      result.synced.forEach((batch: CoffeeBatch) => { addBatch(batch); if (!(station.pro_expires_at && new Date(station.pro_expires_at).getTime() > Date.now())) consumeCredit(); });
       if (mounted.current) setPendingCount(result.remaining);
       if (result.synced.length > 0) Alert.alert('Sync complete', result.synced.length + ' queued sample(s) synchronized.');
     } catch (error) {

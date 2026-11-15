@@ -84,6 +84,7 @@ const translations = {
     createAccountStation: 'Create account and station', signOut: 'Sign out of current account',
     languageEnglish: 'English', languageOromo: 'Afaan Oromo',
     coffeeValueDisclaimer: 'AI-assisted visual assessment · Not an official ECX laboratory certificate',
+    feresulaConversion: 'Equivalent weight', photoReady: 'Photograph ready for assessment', retake: 'Retake', submitForAssessment: 'Submit for assessment', takePhoto: 'Take photograph', noCreditsHint: 'No scan credits remain. Top up your station or contact the administrator.',
   },
   om: {
     home: 'Mana', scan: 'Buna Sakatta’i', batches: 'Baachii', station: 'Buufata',
@@ -165,6 +166,7 @@ const translations = {
     createAccountStation: 'Herregaa fi buufata uumaa', signOut: 'Herrega keessaa ba’i',
     languageEnglish: 'English', languageOromo: 'Afaan Oromo',
     coffeeValueDisclaimer: 'Madaallii suuraa AI’n gargaarame · Ragaa laaboraatorii ECX ofiisaa miti',
+    feresulaConversion: 'Ulfaatina walqixa', photoReady: 'Suuraan madaallii qophaa’eera', retake: 'Irra deebi’ii suuraa ka’i', submitForAssessment: 'Madaallii ergi', takePhoto: 'Suuraa ka’i', noCreditsHint: 'Kireeditii sakatta’iinsaa hin hafne. Buufata keessan irratti kireeditii dabalaa ykn bulchaa quunnamaa.',
   },
 } as const;
 

@@ -8,6 +8,7 @@ import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useStation } from '@/contexts/StationContext';
+import { useOfflineQueue } from '@/contexts/OfflineQueueContext';
 import { JIMMA_WOREDAS } from '@/constants/jimmaData';
 import { getDemoAssessment } from '@/constants/demoSamples';
 import type { CoffeeBatch, SampleType } from '@/types';
@@ -22,6 +23,7 @@ type Preview = { base64: string; uri: string; mimeType: string };
 export default function Scan() {
   const { t } = useLanguage();
   const { station, addBatch, consumeCredit } = useStation();
+  const { refresh: refreshQueue } = useOfflineQueue();
   const [perm, ask] = useCameraPermissions();
   const [type, setType] = useState<SampleType>('green_bean');
   const [woreda, setWoreda] = useState(station.woreda);
@@ -72,6 +74,7 @@ export default function Scan() {
           lot_weight_kg: weightInKg, created_at: new Date().toISOString(),
           station_id: station.id, mime_type: preview.mimeType,
         });
+        await refreshQueue();
         setPreview(null);
         Alert.alert(t('savedForLater'), t('offlineQueue'));
         return;
@@ -111,6 +114,7 @@ export default function Scan() {
             lot_weight_kg: weightInKg, created_at: new Date().toISOString(),
             station_id: station.id, mime_type: preview.mimeType,
           });
+          await refreshQueue();
           setPreview(null);
           Alert.alert(t('savedForRetry'), t('retryHint'));
         } catch { Alert.alert(t('gradingFailed'), message); }

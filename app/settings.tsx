@@ -18,8 +18,8 @@ function SettingRow({ icon: Icon, title, detail, action, trailing }: { icon: Rea
 export default function Settings() {
   const { t, language, setLanguage } = useLanguage();
   const { online, pendingCount, syncing, syncNow, refresh } = useOfflineQueue();
-  const { station } = useStation();
-  const [permission, setPermission] = useState<Location.PermissionStatus | 'unknown'>('unknown');
+  const { station, setStation } = useStation();
+  const [permission, setPermission] = useState<string>('unknown');
   const [permissionBusy, setPermissionBusy] = useState(false);
   const version = Constants.expoConfig?.version ?? '1.0.0';
   const readPermission = useCallback(async () => {
@@ -38,6 +38,7 @@ export default function Settings() {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      setStation({ id: 'station-demo', name: 'Gomma Coffee Washing Station', woreda: 'Gomma', manager: 'Station Manager', credits: 10, feresula_price_etb: 6200 });
       router.replace('/auth');
     } catch (error) { Alert.alert(t('accountError'), error instanceof Error ? error.message : t('accountError')); }
   };

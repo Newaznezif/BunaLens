@@ -43,13 +43,13 @@ Scan the Expo Go QR code with the Expo Go app. Press `a` for a configured Androi
 
 | Variable | Purpose |
 |---|---|
-| `EXPO_PUBLIC_GEMINI_API_KEY` | Gemini API key for image screening. Public Expo variables are bundled into the client; restrict the key and use a backend proxy in production. |
+| `EXPO_PUBLIC_GEMINI_PROXY_URL` | HTTPS server endpoint that securely calls Gemini and returns a validated grading JSON object. |
 | `EXPO_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Supabase publishable / anon key. Never use service-role here. |
 | `EXPO_PUBLIC_CHAPA_INITIALIZE_URL` | Trusted backend endpoint that initializes Chapa checkout and returns `checkout_url`. |
 | `EXPO_PUBLIC_APP_ENV` | `demo` by default |
 
-Never put a Chapa secret key or Supabase service-role key in an Expo public environment variable. Chapa initialization and payment verification must happen server-side.
+Never put a Gemini API key, Chapa secret key or Supabase service-role key in an Expo public environment variable. Chapa initialization and payment verification must happen server-side.
 
 ## Supabase setup
 
@@ -59,15 +59,15 @@ Never put a Chapa secret key or Supabase service-role key in an Expo public envi
 4. Add the project URL and publishable/anon key to `.env`.
 5. Keep RLS enabled and test policies with a non-owner account.
 
-The `coffee-samples` Storage bucket is private. Store objects under the station UUID folder, e.g. `<station-uuid>/<batch-id>.jpg`. The bundled seeded station is demo-only; production cloud writes must use a real authenticated station UUID.
+The `coffee-samples` Storage bucket is private. Store objects under the station UUID folder, e.g. `<station-uuid>/<batch-id>.jpg`. The bundled seeded station is demo-only; production cloud writes must use a real authenticated station UUID. Supabase persistence is not yet wired into the mobile batch workflow.
 
 ## AI grading and demo mode
 
-Without a Gemini key, deterministic local fixtures keep the pitch demo usable. With a key, `services/geminiVision.ts` sends the sample to `gemini-2.5-flash` and validates the JSON result. The schema is an application screening contract, not an official ECX standard. A production rollout requires a secured inference proxy, curated Jimma training/evaluation images, confidence calibration, human review and audit logs.
+Without a Gemini key, deterministic local fixtures keep the pitch demo usable. With a configured proxy, `services/geminiVision.ts` sends the sample, MIME type, sample category and woreda to your server; the server calls `gemini-2.5-flash` and returns a validated JSON result. Without the proxy, real-photo grading fails explicitly rather than silently returning a fabricated demo grade. Use the built-in demo presets only when presenting sample results. The schema is an application screening contract, not an official ECX standard. A production rollout requires a secured inference proxy, curated Jimma training/evaluation images, confidence calibration, human review and audit logs.
 
 ## Offline behavior
 
-Station profile and batch history persist in AsyncStorage. Captures can be queued locally. A production sync worker must upload image objects and metadata after connectivity returns, reconcile server IDs, retry transient failures and expose queue state. A locally queued record is not a cloud-verified certificate.
+Station profile and batch history persist in AsyncStorage. When the device is offline, selected sample images are added to a local queue and are not presented as graded batches. Automatic queue processing, server upload, retry/backoff and reconciliation are not yet implemented. A locally queued record is not a cloud-verified certificate.
 
 ## Payments
 
@@ -95,7 +95,7 @@ types/               Strict domain interfaces
 
 ## Production roadmap
 
-- Move Gemini inference behind a secured API and restrict API keys.
+- Deploy and monitor the secured Gemini inference API configured by `EXPO_PUBLIC_GEMINI_PROXY_URL`.
 - Complete authenticated station onboarding and ownership-safe cloud persistence.
 - Implement a durable background sync worker with retry/backoff and image upload.
 - Implement Chapa webhook verification and an idempotent credit ledger.

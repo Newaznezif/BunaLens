@@ -6,6 +6,7 @@ import { useStation } from '@/contexts/StationContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import OfflineBanner from '@/components/OfflineBanner';
 import { BunaLensTheme as theme } from '@/constants/theme';
+import LanguageToggle from '@/components/LanguageToggle';
 
 export default function Batches() {
   const { batches, addBatch } = useStation();
@@ -23,15 +24,13 @@ export default function Batches() {
       <View className="flex-row items-center justify-between mb-5">
         <View>
           <Text className="text-2xl font-black" style={{ color: theme.colors.espresso }}>{t('batches')}</Text>
-          <Text className="text-xs mt-1" style={{ color: theme.colors.secondary }}>Your coffee quality records</Text>
+          <Text className="text-xs mt-1" style={{ color: theme.colors.secondary }}>{t('scanHistory')}</Text>
         </View>
-        <View className="h-11 w-11 rounded-2xl items-center justify-center" style={{ backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.line }}>
-          <Layers3 size={21} color={theme.colors.espresso} />
-        </View>
+        <LanguageToggle />
       </View>
       <View className="rounded-2xl p-4 mb-4 flex-row items-center" style={{ backgroundColor: theme.colors.espresso }}>
         <View className="flex-1">
-          <Text className="text-[11px] font-semibold" style={{ color: '#C7B6AC' }}>TOTAL SAVED RECORDS</Text>
+          <Text className="text-[11px] font-semibold" style={{ color: '#C7B6AC' }}>{t('totalBatches')}</Text>
           <Text className="text-3xl font-black text-white mt-1">{batches.length}</Text>
         </View>
         <View className="h-11 w-11 rounded-xl items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}>
@@ -41,7 +40,7 @@ export default function Batches() {
       <OfflineBanner onSynced={(synced) => synced.forEach(addBatch)} />
       <View className="flex-row items-center rounded-2xl border px-4 mt-4 mb-4" style={{ backgroundColor: theme.colors.surface, borderColor: theme.colors.line }}>
         <Search size={18} color={theme.colors.secondary} />
-        <TextInput value={q} onChangeText={setQ} placeholder="Search batch ID or woreda" placeholderTextColor={theme.colors.muted} className="flex-1 py-3.5 px-3 text-sm" style={{ color: theme.colors.espresso }} />
+        <TextInput value={q} onChangeText={setQ} placeholder={t("searchBatchId")} placeholderTextColor={theme.colors.muted} className="flex-1 py-3.5 px-3 text-sm" style={{ color: theme.colors.espresso }} />
         <SlidersHorizontal size={16} color={theme.colors.secondary} />
       </View>
       <View className="flex-row gap-2 mb-4">
@@ -52,8 +51,8 @@ export default function Batches() {
         ))}
       </View>
       <View className="flex-row items-center justify-between mb-3">
-        <Text className="text-sm font-extrabold" style={{ color: theme.colors.espresso }}>Batch history</Text>
-        <Text className="text-[11px] font-semibold" style={{ color: theme.colors.secondary }}>{rows.length} {rows.length === 1 ? 'record' : 'records'}</Text>
+        <Text className="text-sm font-extrabold" style={{ color: theme.colors.espresso }}>{t('batchHistory')}</Text>
+        <Text className="text-[11px] font-semibold" style={{ color: theme.colors.secondary }}>{rows.length} {rows.length === 1 ? t('record') : t('records')}</Text>
       </View>
       {rows.length === 0 ? (
         <View className="rounded-2xl border p-7 items-center mt-2" style={{ backgroundColor: theme.colors.surface, borderColor: theme.colors.line }}>
@@ -62,7 +61,7 @@ export default function Batches() {
           </View>
           <Text className="text-sm font-extrabold mt-4" style={{ color: theme.colors.espresso }}>{q || filter !== 'all' ? 'No matching records' : 'No batches recorded yet'}</Text>
           <Text className="text-xs text-center leading-5 mt-1" style={{ color: theme.colors.secondary }}>{q || filter !== 'all' ? 'Try a different search or filter.' : 'Your saved coffee samples and assessments will appear here.'}</Text>
-          {!q && filter === 'all' ? <Pressable onPress={() => router.push('/(tabs)/scan')} className="rounded-xl px-5 py-3 mt-4" style={{ backgroundColor: theme.colors.cherry }}><Text className="text-xs font-extrabold text-white">Scan first sample</Text></Pressable> : null}
+          {!q && filter === 'all' ? <Pressable onPress={() => router.push('/(tabs)/scan')} className="rounded-xl px-5 py-3 mt-4" style={{ backgroundColor: theme.colors.cherry }}><Text className="text-xs font-extrabold text-white">{t('scanFirstSample')}</Text></Pressable> : null}
         </View>
       ) : rows.map((batch: any) => (
         <Pressable key={batch.id} onPress={() => router.push('/batch/' + batch.id)} className="rounded-2xl border p-4 mb-3 flex-row items-center" style={{ backgroundColor: theme.colors.surface, borderColor: theme.colors.line }}>
@@ -86,7 +85,7 @@ export default function Batches() {
           <ChevronRight size={16} color={theme.colors.muted} />
         </Pressable>
       ))}
-      <Text className="text-[10px] text-center mt-3 leading-4" style={{ color: theme.colors.secondary }}>AI-assisted visual assessments are indicative and are not official ECX laboratory certificates.</Text>
+      <Text className="text-[10px] text-center mt-3 leading-4" style={{ color: theme.colors.secondary }}>{t('disclaimer')}</Text>
     </ScrollView>
   );
 }

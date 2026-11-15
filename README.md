@@ -68,17 +68,18 @@ Never put `GEMINI_API_KEY`, `CHAPA_SECRET_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, or 
 
 1. Create a Supabase project and configure email/password Auth.
 2. Run `supabase/schema.sql` in the SQL Editor.
-3. Apply all files in `supabase/migrations/` in chronological order. These add payment records, benchmark data, certificate identifiers, Pro expiry, idempotency and transactional credit functions.
-4. Configure the private `coffee-samples` Storage bucket. The base schema creates it with a 10 MB file limit.
-5. Add the project URL and public anon / publishable key to the mobile `.env`.
-6. Set Edge Function secrets:
+3. Apply all files in `supabase/migrations/` in chronological order. These add the current Edge Functions' payment/market compatibility objects, certificate identifiers, Pro expiry, idempotency and transactional credit functions.
+4. In **Project Settings → API → Data API**, expose the public tables used by the mobile client (`stations`, `coffee_batches`, `station_credits`, `grading_results`, `payment_transactions`, `market_prices`, `station_payments` and `market_benchmarks`). New Supabase projects no longer expose new public tables automatically. Table grants and RLS policies in the schema still control what each role can do.
+5. The schema creates the private `coffee-samples` Storage bucket with a 10 MB file limit and station-owner path policies. Do not make this bucket public.
+6. Add the project URL and public anon / publishable key to the mobile `.env`.
+7. Set Edge Function secrets:
    - `GEMINI_API_KEY`
    - `BUNALENS_INTERNAL_FUNCTION_KEY` (random server-only shared secret used only by `coffee-sync` and `gemini-grade`)
    - `CHAPA_SECRET_KEY`
    - `SUPABASE_SERVICE_ROLE_KEY`
    - Optional `CHAPA_CALLBACK_URL` and `CHAPA_RETURN_URL`
-7. Deploy the Edge Functions listed below.
-8. Register a station from the app's Station tab → Sign in / Register station.
+8. Deploy the Edge Functions listed below.
+9. Register a station from the app's Station tab → Sign in / Register station.
 
 The app stores local station and batch data when cloud credentials are absent. Cloud operations require a signed-in user and an owned station UUID. RLS policies scope station and batch access to the authenticated owner. Column-level grants prevent mobile clients from changing station credits or Pro expiry, and clients cannot insert grading records directly; trusted Edge Functions own those writes.
 

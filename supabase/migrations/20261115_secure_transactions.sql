@@ -4,8 +4,13 @@ alter table public.station_payments add column if not exists idempotency_key tex
 alter table public.station_payments add column if not exists checkout_url text;
 create unique index if not exists station_payments_idempotency_uq on public.station_payments(station_id,idempotency_key) where idempotency_key is not null;
 
-grant select,insert,update on public.stations to authenticated;
-grant select,insert on public.coffee_batches to authenticated;
+-- Preserve profile editing without allowing mobile clients to mint credits or
+-- alter Pro expiry. The owner_id and station ownership are guarded by RLS.
+revoke insert,update on public.stations from anon, authenticated;
+grant select on public.stations to authenticated;
+grant insert(owner_id,name,manager,woreda) on public.stations to authenticated;
+grant update(name,manager,woreda,phone,email) on public.stations to authenticated;
+grant select on public.coffee_batches to authenticated;
 grant select on public.market_benchmarks to authenticated;
 grant select on public.station_payments to authenticated;
 grant select on public.station_credit_ledger to authenticated;

@@ -9,6 +9,8 @@ import { startChapaCheckout } from '@/services/chapaService';
 import { supabase } from '@/services/supabaseClient';
 import { BunaLensTheme as theme } from '@/constants/theme';
 import LanguageToggle from '@/components/LanguageToggle';
+import ChapaTopUpModal from '@/components/ChapaTopUpModal';
+import type { ChapaPackage } from '@/services/chapaService';
 
 export default function Station() {
   const { station, setStation, addCredits } = useStation();
@@ -17,6 +19,8 @@ export default function Station() {
   const [manager, setManager] = useState(station.manager);
   const [woreda, setWoreda] = useState(station.woreda);
   const [edit, setEdit] = useState(false);
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [paymentBusy, setPaymentBusy] = useState(false);
 
   const refreshBalance = async () => {
     if (!supabase || station.id === 'station-demo') {
@@ -33,20 +37,24 @@ export default function Station() {
     }
   };
 
-  const checkout = async (packageId: 'starter_50' | 'station_pro_monthly') => {
+  const checkout = async (packageId: ChapaPackage) => {
+    setPaymentBusy(true);
     try {
-      const mode = await startChapaCheckout(packageId, station.id);
-      if (mode === 'sandbox') {
-        if (packageId === 'starter_50') addCredits(50);
-        else setStation({ ...station, pro_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() });
-        Alert.alert(t('paymentDemo'), packageId === 'starter_50' ? t('demoCreditsAdded') : t('demoProActivated'));
+      const result = await startChapaCheckout(packageId, station.id);
+      setPaymentOpen(false);
+      if (result.mode === 'demo') {
+        if (!result.alreadyGranted) {
+          if (result.credits > 0) addCredits(result.credits);
+          if (result.proDays > 0) setStation({ ...station, pro_expires_at: new Date(Date.now() + result.proDays * 24 * 60 * 60 * 1000).toISOString() });
+        }
+        Alert.alert(t('paymentDemo'), result.alreadyGranted ? t('demoPaymentAlreadyApplied') : packageId === 'starter_50' ? t('demoCreditsAdded') : t('demoProActivated'));
       } else {
         await refreshBalance();
         Alert.alert(t('paymentPending'), t('paymentPendingHint'));
       }
     } catch (error) {
       Alert.alert(t('checkoutError'), error instanceof Error ? error.message : t('unableCheckout'));
-    }
+    } finally { setPaymentBusy(false); }
   };
 
   return (
@@ -83,11 +91,8 @@ export default function Station() {
         <Text className="text-4xl font-black text-white mt-3">{station.credits}</Text>
         <Text className="text-xs mt-1" style={{ color: '#C7B6AC' }}>{t('availableCredits')}</Text>
         {station.pro_expires_at ? <Text className="text-[10px] mt-2" style={{ color: '#C7B6AC' }}>Pro expiry: {new Date(station.pro_expires_at).toLocaleDateString()}</Text> : null}
-        <Pressable onPress={() => checkout('starter_50')} className="rounded-xl p-3.5 mt-5 items-center" style={{ backgroundColor: theme.colors.cherry }}>
-          <Text className="text-white text-sm font-extrabold">{t('starterPack')}</Text>
-        </Pressable>
-        <Pressable onPress={() => checkout('station_pro_monthly')} className="rounded-xl p-3.5 mt-2 items-center" style={{ backgroundColor: '#FFFFFF' }}>
-          <Text className="text-sm font-extrabold" style={{ color: theme.colors.espresso }}>{t('proPlan')}</Text>
+        <Pressable onPress={() => setPaymentOpen(true)} className="rounded-xl p-3.5 mt-5 items-center" style={{ backgroundColor: theme.colors.cherry }}>
+          <Text className="text-white text-sm font-extrabold">{t('buyCreditsAndPlans')}</Text>
         </Pressable>
         <Pressable onPress={refreshBalance} className="rounded-xl p-3 mt-2 flex-row items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.10)' }}>
           <RefreshCw size={13} color="#FFFFFF" />
@@ -139,6 +144,7 @@ export default function Station() {
         <Sparkles size={12} color={theme.colors.harvest} />
         <Text className="text-[10px] font-semibold ml-1.5" style={{ color: theme.colors.secondary }}>{t('madeForCoffee')}</Text>
       </View>
+      <ChapaTopUpModal visible={paymentOpen} onClose={() => setPaymentOpen(false)} onConfirm={checkout} busy={paymentBusy} demoMode={!process.env.EXPO_PUBLIC_CHAPA_INITIALIZE_URL || process.env.EXPO_PUBLIC_CHAPA_DEMO_MODE === 'true'} />
     </ScrollView>
   );
 }

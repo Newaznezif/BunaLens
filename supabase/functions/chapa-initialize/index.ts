@@ -32,13 +32,13 @@ Deno.serve(async(req)=>{
   if(insertError)return reply({error:"Could not create payment record. Retry with the same idempotency key."},409);
   const fullName=String(userData.user.user_metadata?.full_name||station.manager||"BunaLens Customer").trim().split(/\s+/);
   const callbackUrl=Deno.env.get("CHAPA_CALLBACK_URL")||url+"/functions/v1/chapa-webhook";
-  const returnUrl=Deno.env.get("CHAPA_RETURN_URL")||"https://bunalens.app/payment-return";
+  const returnUrl=Deno.env.get("CHAPA_RETURN_URL");
   const chapaResponse=await fetch("https://api.chapa.co/v1/transaction/initialize",{
    method:"POST",headers:{"Authorization":"Bearer "+chapa,"Content-Type":"application/json"},
    body:JSON.stringify({
     amount:String(amount),currency:"ETB",email:userData.user.email,
     first_name:fullName[0]||"BunaLens",last_name:fullName.slice(1).join(" ")||"Station",
-    tx_ref:txRef,callback_url:callbackUrl,return_url:returnUrl,
+    tx_ref:txRef,callback_url:callbackUrl,...(returnUrl?{return_url:returnUrl}:{}),
     customization:{title:"BunaLens Station",description:packageId==="starter_50"?"50 coffee batch scans":"30-day washing station Pro pass"}
    })
   });

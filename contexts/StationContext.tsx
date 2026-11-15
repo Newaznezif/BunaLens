@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type { CoffeeBatch, Station } from '@/types';
+import { getDemoAssessment } from '@/constants/demoSamples';
+import { priceAssessment } from '@/services/pricing';
 
 const STORAGE_KEYS = ['bunalens.station', 'bunalens.batches'] as const;
 const seed: Station = {
@@ -30,7 +32,7 @@ export function StationProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let active = true;
     AsyncStorage.multiGet([...STORAGE_KEYS])
-      .then((values) => {
+      .then(async (values) => {
         if (!active) return;
         const stationValue = values[0]?.[1];
         const batchesValue = values[1]?.[1];
@@ -39,6 +41,15 @@ export function StationProvider({ children }: { children: React.ReactNode }) {
         }
         if (batchesValue) {
           try { setBatches(JSON.parse(batchesValue) as CoffeeBatch[]); } catch { /* retain empty history */ }
+        } else if (!stationValue || (() => { try { return (JSON.parse(stationValue) as Station).id === 'station-demo'; } catch { return true; } })()) {
+          // First-run sample records are explicitly marked DEMO and excluded from live AI metrics.
+          const now = Date.now();
+          const demoBatches: CoffeeBatch[] = [
+            { id: 'demo-seed-clean', batch_code: 'BNL-JMA-DEMO1', sample_type: 'green_bean', woreda: 'Gomma', created_at: new Date(now - 86400000).toISOString(), result: getDemoAssessment(false, 'green_bean'), lot_weight_kg: 170, status: 'demo', station_id: 'station-demo', pricing: priceAssessment('green_bean', 'Grade 1', 170), verification_id: 'demo-seed-clean' },
+            { id: 'demo-seed-defective', batch_code: 'BNL-JMA-DEMO2', sample_type: 'red_cherry', woreda: 'Limmu Kossa', created_at: new Date(now - 43200000).toISOString(), result: getDemoAssessment(true, 'red_cherry'), lot_weight_kg: 170, status: 'demo', station_id: 'station-demo', pricing: priceAssessment('red_cherry', 'Grade 3', 170), verification_id: 'demo-seed-defective' },
+          ];
+          setBatches(demoBatches);
+          await AsyncStorage.setItem(STORAGE_KEYS[1], JSON.stringify(demoBatches));
         }
       })
       .catch(() => undefined);

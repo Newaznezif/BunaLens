@@ -12,8 +12,6 @@ function validateResult(value: unknown): GradingResult {
   const values = Object.values(v.breakdown);
   if (values.length !== 5 || values.some(n => typeof n !== 'number' || !Number.isFinite(n) || n < 0 || n > 100)) throw new Error('Invalid defect percentages.');
   if (Math.abs(values.reduce((a,n) => a + n, 0) - 100) > 2) throw new Error('Defect percentages must total approximately 100%.');
-  if (typeof v.estimated_price_per_feresula_etb !== 'number' || v.estimated_price_per_feresula_etb < 0) throw new Error('Invalid price estimate.');
-  if (typeof v.potential_gain_if_sorted_etb !== 'number' || v.potential_gain_if_sorted_etb < 0) throw new Error('Invalid sorting gain estimate.');
   if (!['Specialty Export','Commercial Export','Local Market Only','Reject / Re-sort'].includes(String(v.export_readiness))) throw new Error('Invalid export readiness classification.');
   return v as GradingResult;
 }

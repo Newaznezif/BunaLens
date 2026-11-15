@@ -5,6 +5,8 @@ const reply=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status
 Deno.serve(async(req)=>{
  if(req.method==="OPTIONS")return new Response("ok",{headers:cors});
  if(req.method!=="POST")return reply({error:"Method not allowed"},405);
+ const contentLength=Number(req.headers.get("content-length")||0);
+ if(contentLength>16*1024)return reply({error:"Request body is too large"},413);
  const token=(req.headers.get("Authorization")||"").replace(/^Bearer\s+/i,"");
  if(!token)return reply({error:"Sign in is required"},401);
  const url=Deno.env.get("SUPABASE_URL"),anon=Deno.env.get("SUPABASE_ANON_KEY")||Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
@@ -14,7 +16,10 @@ Deno.serve(async(req)=>{
   const userClient=createClient(url,anon,{global:{headers:{Authorization:"Bearer "+token}},auth:{persistSession:false,autoRefreshToken:false}});
   const {data:userData,error:userError}=await userClient.auth.getUser(token);
   if(userError||!userData.user?.email)return reply({error:"A valid signed-in email account is required"},401);
-  const body=await req.json();const stationId=body.stationId;const packageId=body.packageId;const idempotencyKey=body.idempotencyKey;
+  let body:Record<string,unknown>;
+  try{body=await req.json()}catch{return reply({error:"Request body must be valid JSON"},400)}
+  if(!body||typeof body!=="object"||Array.isArray(body))return reply({error:"Invalid request body"},400);
+  const stationId=body.stationId;const packageId=body.packageId;const idempotencyKey=body.idempotencyKey;
   if(typeof stationId!=="string"||!/^([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i.test(stationId))return reply({error:"Invalid station"},400);
   if(typeof packageId!=="string"||!Object.prototype.hasOwnProperty.call(packages,packageId))return reply({error:"Unsupported package"},400);
   if(typeof idempotencyKey!=="string"||idempotencyKey.length<8||idempotencyKey.length>128)return reply({error:"Invalid idempotency key"},400);

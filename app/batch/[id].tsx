@@ -84,17 +84,9 @@ export default function Detail() {
   const confidence = result.confidence_score ?? Math.round((result.confidence ?? 0) * 100);
   const cherry = batch.sample_type === 'red_cherry';
   const explanations = cherry ? [
-    'Share of visibly mature, sound red cherries in the photographed sample.',
-    'Green or visibly immature cherries that may reduce uniformity.',
-    'Blackened, rotten or over-fermented-looking cherries visible in the image.',
-    'Visible pest damage or physically broken cherry fruit.',
-    'Leaves, twigs, stones and other visible non-coffee material.',
+    t('cherrySoundDesc'), t('cherryUnripeDesc'), t('cherryBlackDesc'), t('cherryDamageDesc'), t('cherryForeignDesc'),
   ] : [
-    'Share of intact, visually normal green coffee beans.',
-    'Pale, malformed or immature-looking beans; density is not measured.',
-    'Blackened, discoloured or fermented-looking beans visible in the image.',
-    'Visible insect holes, pest damage, chips or broken beans.',
-    'Parchment, husk, stones and other visible non-bean material.',
+    t('beanSoundDesc'), t('beanUnripeDesc'), t('beanBlackDesc'), t('beanDamageDesc'), t('beanForeignDesc'),
   ];
   const gradeColor = result.ecx_grade === 'Unclassified' ? '#78716C' : result.ecx_grade === 'Grade 1' ? '#065F46' : result.ecx_grade === 'Grade 2' ? '#047857' : '#D97706';
 

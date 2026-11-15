@@ -6,8 +6,8 @@ Deno.serve(async(req)=>{
  if(req.method!=="POST")return reply({error:"Method not allowed"},405);
  const token=(req.headers.get("Authorization")||"").replace(/^Bearer\s+/i,"");
  if(!token)return reply({error:"Sign in is required"},401);
- const url=Deno.env.get("SUPABASE_URL"),anon=Deno.env.get("SUPABASE_ANON_KEY")||Deno.env.get("SUPABASE_PUBLISHABLE_KEY"),service=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
- if(!url||!anon||!service)return reply({error:"Sync service is not configured"},503);
+ const url=Deno.env.get("SUPABASE_URL"),anon=Deno.env.get("SUPABASE_ANON_KEY")||Deno.env.get("SUPABASE_PUBLISHABLE_KEY"),service=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"),internalKey=Deno.env.get("BUNALENS_INTERNAL_FUNCTION_KEY");
+ if(!url||!anon||!service||!internalKey)return reply({error:"Sync service is not configured"},503);
  try{
   const userClient=createClient(url,anon,{global:{headers:{Authorization:"Bearer "+token}},auth:{persistSession:false,autoRefreshToken:false}});
   const {data:userData,error:userError}=await userClient.auth.getUser(token);
@@ -28,7 +28,7 @@ Deno.serve(async(req)=>{
   const {data:existing}=await db.from("coffee_batches").select("*").eq("station_id",stationId).eq("idempotency_key",idempotencyKey).maybeSingle();
   if(existing)return reply({batch:{id:existing.id,batch_code:existing.batch_code,sample_type:existing.sample_type,woreda:existing.woreda,created_at:existing.created_at,result:existing.grading_result,lot_weight_kg:Number(existing.lot_weight_kg),status:"synced",station_id:existing.station_id,verification_id:existing.verification_id,pricing:existing.pricing_result||undefined}});
   const gradeResponse=await fetch(url+"/functions/v1/gemini-grade",{
-   method:"POST",headers:{"Content-Type":"application/json",apikey:anon,Authorization:"Bearer "+token},
+   method:"POST",headers:{"Content-Type":"application/json",apikey:anon,Authorization:"Bearer "+token,"x-bunalens-internal-key":internalKey},
    body:JSON.stringify({imageBase64:base64,mimeType:mime,sampleType,woreda,stationId,idempotencyKey})
   });
   const gradePayload=await gradeResponse.json().catch(()=>({}));

@@ -69,7 +69,7 @@ Never put `GEMINI_API_KEY`, `CHAPA_SECRET_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, or 
 1. Create a Supabase project and configure email/password Auth.
 2. Run `supabase/schema.sql` in the SQL Editor.
 3. Apply all files in `supabase/migrations/` in chronological order. These add the current Edge Functions' payment/market compatibility objects, certificate identifiers, Pro expiry, idempotency and transactional credit functions.
-4. In **Project Settings → API → Data API**, expose the public tables used by the mobile client (`stations`, `coffee_batches`, `station_credits`, `grading_results`, `payment_transactions` and `market_prices`). New Supabase projects no longer expose new public tables automatically. Table grants and RLS policies in the schema still control what each role can do.
+4. In **Project Settings → API → Data API**, expose the public tables used by the mobile client (`stations`, `coffee_batches`, `station_credits`, `grading_results`, `payment_transactions`, `market_prices`, `station_payments` and `market_benchmarks`). New Supabase projects no longer expose new public tables automatically. Table grants and RLS policies in the schema still control what each role can do.
 5. The schema creates the private `coffee-samples` Storage bucket with a 10 MB file limit and station-owner path policies. Do not make this bucket public.
 6. Add the project URL and public anon / publishable key to the mobile `.env`.
 7. Set Edge Function secrets:

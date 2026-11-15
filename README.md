@@ -93,11 +93,12 @@ The example file intentionally leaves Supabase endpoints and public keys blank. 
 
 Set these in **Supabase Dashboard → Edge Functions → Secrets**. Do not add them to the mobile `.env`.
 
-Required:
+Set these custom secrets:
 - `GEMINI_API_KEY` — Gemini API key used only by `gemini-grade`.
 - `CHAPA_SECRET_KEY` — Chapa merchant secret used only by payment initialization and verification functions.
-- `SUPABASE_SERVICE_ROLE_KEY` — privileged database/Storage key used only inside trusted Edge Functions. Supabase also injects its project URL and API keys; use the injected values where possible.
 - `BUNALENS_INTERNAL_FUNCTION_KEY` — long random shared secret protecting the internal `gemini-grade` endpoint from direct invocation.
+
+`SUPABASE_SERVICE_ROLE_KEY` is injected by Supabase into hosted Edge Function environments (legacy service-role key name); do not try to create a custom Dashboard secret with the reserved `SUPABASE_` prefix. For local function development only, provide the local service-role key in the ignored `supabase/functions/.env` file. Treat it as a root credential.
 
 Generate a high-entropy internal key locally (never commit it), then enter its value in the Supabase secret manager. For example, on macOS/Linux use `openssl rand -hex 32`; on PowerShell use `[Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))`.
 
@@ -110,7 +111,7 @@ supabase link --project-ref YOUR_PROJECT_REF
 supabase secrets set --env-file ./supabase/functions/.env
 supabase secrets list
 ```
-The list command shows configured names, not secret values. Secrets can also be added individually with `supabase secrets set NAME=value`; avoid placing secret values in shell history or CI logs. Supabase Edge Functions receive project-provided variables such as `SUPABASE_URL` and the public key at runtime. Never add a `SUPABASE_*` custom secret name: that prefix is reserved by Supabase.
+The list command shows configured names, not secret values. Secrets can also be added individually with `supabase secrets set NAME=value`; avoid placing secret values in shell history or CI logs. Supabase Edge Functions receive project-provided variables such as `SUPABASE_URL`, `SUPABASE_ANON_KEY` and the legacy `SUPABASE_SERVICE_ROLE_KEY` at runtime. Never create a custom `SUPABASE_*` secret: that prefix is reserved by Supabase.
 
 ### Security and privacy defaults
 

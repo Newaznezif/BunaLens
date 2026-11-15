@@ -102,7 +102,7 @@ Set these custom secrets:
 
 Generate a high-entropy internal key locally (never commit it), then enter its value in the Supabase secret manager. For example, on macOS/Linux use `openssl rand -hex 32`; on PowerShell use `[Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))`.
 
-For local Edge Function development, create `supabase/functions/.env` with the same server-side variable names and real local values. This file is ignored by Git. Start the local stack after creating it. Do not use `.env.example` as a secrets file.
+For local Edge Function development, create `supabase/functions/.env` with the three custom secrets above and real local values. Supabase supplies its local project URL and service-role key to the local runtime; do not add the reserved `SUPABASE_*` names to the hosted secrets file. This file is ignored by Git. Start the local stack after creating it. Do not use `.env.example` as a secrets file.
 
 Using the Supabase CLI, link the project and set the secrets from a private file outside version control:
 ```bash

@@ -78,7 +78,7 @@ export async function submitCoffeeSample(
   idempotencyKey: string, lotWeightKg: number, mimeType = 'image/jpeg',
   coordinates?: { latitude: number; longitude: number }, batchCode?: string,
 ): Promise<CoffeeBatch> {
-  if (process.env.EXPO_PUBLIC_DEMO_MODE !== 'false') {
+  if (process.env.EXPO_PUBLIC_DEMO_MODE === 'true') {
     throw new GradingServiceError('Demo mode is enabled. Use a clearly labelled demo sample or set EXPO_PUBLIC_DEMO_MODE=false to enable authenticated cloud grading.', 'configuration');
   }
   if (!SYNC_URL) throw new GradingServiceError('Cloud grading is not configured. Use a clearly labelled offline demonstration or configure the secure sync service.', 'configuration');

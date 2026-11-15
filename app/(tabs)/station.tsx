@@ -26,7 +26,19 @@ export default function Station() {
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [paymentBusy, setPaymentBusy] = useState(false);
 
-  useEffect(() => { void getDemoPaymentHistory().then(setPaymentHistory); }, []);
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      const demoRows = await getDemoPaymentHistory();
+      let cloudRows: Array<Record<string, unknown>> = [];
+      if (supabase && station.id !== 'station-demo') {
+        const { data } = await supabase.from('station_payments').select('chapa_tx_ref,package_id,amount_etb,status,created_at').eq('station_id', station.id).order('created_at', { ascending: false }).limit(10);
+        cloudRows = (data || []).map((row: any) => ({ transactionId: row.chapa_tx_ref, packageId: row.package_id, amountEtb: row.amount_etb, status: row.status, createdAt: row.created_at }));
+      }
+      if (active) setPaymentHistory([...cloudRows, ...demoRows].slice(0, 10));
+    })();
+    return () => { active = false; };
+  }, [station.id]);
 
   const refreshBalance = async () => {
     if (!supabase || station.id === 'station-demo') {
@@ -150,7 +162,7 @@ export default function Station() {
 
       <View className="rounded-2xl border p-4 mt-5" style={{ backgroundColor: theme.colors.surface, borderColor: theme.colors.line }}>
         <View className="flex-row items-center mb-3"><Receipt size={16} color={theme.colors.espresso} /><Text className="text-sm font-extrabold ml-2" style={{ color: theme.colors.espresso }}>{t('paymentHistory')}</Text></View>
-        {paymentHistory.length === 0 ? <Text className="text-xs" style={{ color: theme.colors.secondary }}>{t('noPayments')}</Text> : paymentHistory.slice(0, 5).map((item, index) => <View key={String(item.transactionId || index)} className="py-2 border-t border-stone-100"><View className="flex-row justify-between"><Text className="text-xs font-bold" style={{ color: theme.colors.espresso }}>{String(item.packageId || 'Package').replaceAll('_', ' ')}</Text><Text className="text-xs font-extrabold" style={{ color: theme.colors.harvest }}>{Number(item.amountEtb || 0).toLocaleString()} ETB</Text></View><Text className="text-[10px] mt-1" style={{ color: theme.colors.secondary }}>DEMO · {String(item.status || 'demo_succeeded')} · {String(item.createdAt || '')}</Text></View>)}
+        {paymentHistory.length === 0 ? <Text className="text-xs" style={{ color: theme.colors.secondary }}>{t('noPayments')}</Text> : paymentHistory.slice(0, 5).map((item, index) => <View key={String(item.transactionId || index)} className="py-2 border-t border-stone-100"><View className="flex-row justify-between"><Text className="text-xs font-bold" style={{ color: theme.colors.espresso }}>{String(item.packageId || 'Package').replaceAll('_', ' ')}</Text><Text className="text-xs font-extrabold" style={{ color: theme.colors.harvest }}>{Number(item.amountEtb || 0).toLocaleString()} ETB</Text></View><Text className="text-[10px] mt-1" style={{ color: theme.colors.secondary }}>{String(item.status || 'unknown').toUpperCase()} · {String(item.createdAt || '')}</Text></View>)}
       </View>
       <Pressable onPress={() => router.push('/settings')} className="rounded-xl p-4 mt-3 flex-row items-center justify-between" style={{ backgroundColor: theme.colors.surface }}><View><Text className="text-sm font-extrabold" style={{ color: theme.colors.espresso }}>{t('settings')}</Text><Text className="text-[11px] mt-1" style={{ color: theme.colors.secondary }}>{t('stationSettings')}</Text></View><ChevronRight size={17} color={theme.colors.secondary} /></Pressable>
       <View className="flex-row items-start mt-5 px-1">

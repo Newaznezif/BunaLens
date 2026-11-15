@@ -90,13 +90,26 @@ export default function Scan() {
         return;
       }
       let coordinates: { latitude: number; longitude: number } | undefined;
-      try {
-        const permission = await Location.requestForegroundPermissionsAsync();
-        if (permission.granted) {
-          const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-          coordinates = { latitude: position.coords.latitude, longitude: position.coords.longitude };
-        }
-      } catch { /* GPS is optional; the operator can still assess the sample. */ }
+      const wantsLocation = await new Promise<boolean>((resolve) => {
+        Alert.alert(
+          t('locationConsentTitle'),
+          t('locationConsentBody'),
+          [
+            { text: t('notNow'), style: 'cancel', onPress: () => resolve(false) },
+            { text: t('allowLocation'), onPress: () => resolve(true) },
+          ],
+          { cancelable: true, onDismiss: () => resolve(false) },
+        );
+      });
+      if (wantsLocation) {
+        try {
+          const permission = await Location.requestForegroundPermissionsAsync();
+          if (permission.granted) {
+            const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+            coordinates = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+          }
+        } catch { /* GPS is optional; the operator can still assess the sample. */ }
+      }
       const batch = await submitCoffeeSample(preview.base64, type, woreda, station.id, captureId, weightInKg, preview.mimeType, coordinates, batchCode);
       if (!hasPro) consumeCredit();
       const savedImage = await persistLocalImage(preview.uri, captureId, preview.mimeType).catch(() => preview.uri);

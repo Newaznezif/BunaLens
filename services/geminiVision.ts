@@ -1,2 +1,42 @@
-import{GoogleGenerativeAI}from'@google/generative-ai';import type{GradingResult,SampleType}from'@/types';import{DEMO_CLEAN,DEMO_DEFECTIVE}from'@/constants/demoSamples';const schema='Return JSON only: is_coffee_sample:boolean, rejection_reason:string|null, ecx_grade:Grade 1|Grade 2|Grade 3|Grade 4|Undergrade, quality_score:0-100, breakdown percentages sound_or_ripe_pct/unripe_green_pct/black_overfermented_pct/insect_broken_pct/foreign_matter_pct summing 100, estimated_price_per_feresula_etb:number, potential_gain_if_sorted_etb:number, export_readiness:Specialty Export|Commercial Export|Local Market Only|Reject / Re-sort, confidence:number, assessment_note:string. You are a visual screening assistant, not an official ECX inspector or Q-Grader. Price is illustrative ETB only, not live data.';
-export async function gradeCoffeeImage(base64:string,sampleType:SampleType,woreda:string):Promise<GradingResult>{const key=process.env.EXPO_PUBLIC_GEMINI_API_KEY;if(!key)return sampleType==='green_bean'?DEMO_CLEAN:DEMO_DEFECTIVE;const ai=new GoogleGenerativeAI(key);const model=ai.getGenerativeModel({model:'gemini-2.5-flash',generationConfig:{responseMimeType:'application/json',temperature:.15}});const res=await model.generateContent([{text:schema+' Sample type: '+sampleType+'. Woreda: '+woreda+'.'}, {inlineData:{data:base64.replace(/^data:image\/[a-z]+;base64,/,'').replace(/\s/g,''),mimeType:'image/jpeg'}}]);const v=JSON.parse(res.response.text()) as GradingResult;const p=Object.values(v.breakdown);if(typeof v.is_coffee_sample!=='boolean'||p.some(n=>!Number.isFinite(n)||n<0||n>100)||Math.abs(p.reduce((a,b)=>a+b,0)-100)>2||v.quality_score<0||v.quality_score>100)throw Error('Invalid grading response');return v;}
+import type { GradingResult, SampleType } from '@/types';
+
+const PROXY_URL = process.env.EXPO_PUBLIC_GEMINI_PROXY_URL;
+
+function validateResult(value: unknown): GradingResult {
+  if (!value || typeof value !== 'object') throw new Error('The grading service returned invalid data.');
+  const v = value as Partial<GradingResult>;
+  if (typeof v.is_coffee_sample !== 'boolean') throw new Error('Missing coffee-sample classification.');
+  if (!['Grade 1','Grade 2','Grade 3','Grade 4','Undergrade'].includes(String(v.ecx_grade))) throw new Error('Invalid grade in response.');
+  if (typeof v.quality_score !== 'number' || !Number.isFinite(v.quality_score) || v.quality_score < 0 || v.quality_score > 100) throw new Error('Invalid quality score.');
+  if (!v.breakdown) throw new Error('Missing defect breakdown.');
+  const values = Object.values(v.breakdown);
+  if (values.length !== 5 || values.some(n => typeof n !== 'number' || !Number.isFinite(n) || n < 0 || n > 100)) throw new Error('Invalid defect percentages.');
+  if (Math.abs(values.reduce((a,n) => a + n, 0) - 100) > 2) throw new Error('Defect percentages must total approximately 100%.');
+  if (typeof v.estimated_price_per_feresula_etb !== 'number' || v.estimated_price_per_feresula_etb < 0) throw new Error('Invalid price estimate.');
+  if (typeof v.potential_gain_if_sorted_etb !== 'number' || v.potential_gain_if_sorted_etb < 0) throw new Error('Invalid sorting gain estimate.');
+  if (!['Specialty Export','Commercial Export','Local Market Only','Reject / Re-sort'].includes(String(v.export_readiness))) throw new Error('Invalid export readiness classification.');
+  return v as GradingResult;
+}
+
+/**
+ * Calls a trusted server-side inference endpoint. Gemini credentials must remain
+ * on the server; never embed a Gemini API key in an Expo public environment variable.
+ */
+export async function gradeCoffeeImage(
+  base64: string,
+  sampleType: SampleType,
+  woreda: string,
+  mimeType: string = 'image/jpeg',
+): Promise<GradingResult> {
+  if (!PROXY_URL) {
+    throw new Error('AI grading is not configured. Add EXPO_PUBLIC_GEMINI_PROXY_URL or use one of the clearly labelled demo samples.');
+  }
+  const response = await fetch(PROXY_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ imageBase64: base64.replace(/^data:image\\/[a-z0-9.+-]+;base64,/i, '').replace(/\\s/g, ''), mimeType, sampleType, woreda }),
+  });
+  if (!response.ok) throw new Error(`AI grading service failed (HTTP ${response.status}).`);
+  const payload: unknown = await response.json();
+  return validateResult(payload);
+}

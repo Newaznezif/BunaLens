@@ -19,7 +19,7 @@ function validateResult(value: unknown): GradingResult {
 }
 
 /** Calls the authenticated Supabase Edge Function. Gemini credentials remain server-side. */
-export async function gradeCoffeeImage(base64: string, sampleType: SampleType, woreda: string, stationId: string, mimeType = 'image/jpeg'): Promise<GradingResult> {
+export async function gradeCoffeeImage(base64: string, sampleType: SampleType, woreda: string, stationId: string, idempotencyKey: string, mimeType = 'image/jpeg'): Promise<GradingResult> {
   if (!PROXY_URL) throw new Error('AI grading is not configured. Add EXPO_PUBLIC_GEMINI_PROXY_URL or use a clearly labelled demo sample.');
   if (!SUPABASE_ANON_KEY) throw new Error('Cloud authentication is not configured. Add the Supabase public anon key.');
   const token = await getSupabaseAccessToken();
@@ -27,7 +27,7 @@ export async function gradeCoffeeImage(base64: string, sampleType: SampleType, w
   const response = await fetch(PROXY_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + token },
-    body: JSON.stringify({ imageBase64: base64.replace(/^data:image\/[a-z0-9.+-]+;base64,/i, '').replace(/\s/g, ''), mimeType, sampleType, woreda, stationId }),
+    body: JSON.stringify({ imageBase64: base64.replace(/^data:image\/[a-z0-9.+-]+;base64,/i, '').replace(/\s/g, ''), mimeType, sampleType, woreda, stationId, idempotencyKey }),
   });
   const payload = await response.json().catch(() => ({})) as { result?: unknown; error?: string };
   if (!response.ok) throw new Error(payload.error || 'AI grading service failed (HTTP ' + response.status + ').');

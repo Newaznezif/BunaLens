@@ -2,11 +2,11 @@ import React,{useState}from'react';
 import{ActivityIndicator,Alert,Pressable,ScrollView,Text,TextInput,View}from'react-native';
 import{router}from'expo-router';
 import{JIMMA_WOREDAS}from'@/constants/jimmaData';import{useLanguage}from'@/contexts/LanguageContext';import LanguageToggle from'@/components/LanguageToggle';
-import{useStation}from'@/contexts/StationContext';
+import{useStation}from'@/contexts/StationContext';import{useOfflineQueue}from'@/contexts/OfflineQueueContext';
 import{isSupabaseConfigured,supabase}from'@/services/supabaseClient';import{assignQueuedStation}from'@/services/offlineQueue';
 
 export default function AuthScreen(){
- const{station,setStation}=useStation();const{t}=useLanguage();
+ const{station,setStation}=useStation();const{refresh:refreshQueue}=useOfflineQueue();const{t}=useLanguage();
  const[email,setEmail]=useState('');const[password,setPassword]=useState('');
  const[name,setName]=useState(station.name);const[manager,setManager]=useState(station.manager);
  const[woreda,setWoreda]=useState(station.woreda);const[mode,setMode]=useState<'signin'|'signup'>('signin');const[busy,setBusy]=useState(false);
@@ -26,7 +26,7 @@ export default function AuthScreen(){
     const{data:created,error:createError}=await supabase.from('stations').insert({owner_id:user.id,name:name.trim()||'My Coffee Station',manager:manager.trim()||user.email||'Station Manager',woreda}).select('id,name,manager,woreda,credits,pro_expires_at').single();
     if(createError)throw createError;record=created;
    }
-   setStation({id:record.id,name:record.name,manager:record.manager||'Station Manager',woreda:record.woreda,credits:record.credits,feresula_price_etb:station.feresula_price_etb,pro_expires_at:record.pro_expires_at||undefined});await assignQueuedStation(record.id);
+   setStation({id:record.id,name:record.name,manager:record.manager||'Station Manager',woreda:record.woreda,credits:record.credits,feresula_price_etb:station.feresula_price_etb,pro_expires_at:record.pro_expires_at||undefined});await assignQueuedStation(record.id);await refreshQueue();
    Alert.alert(t('stationConnected'),t('stationReady'));
    router.replace('/(tabs)/station');
   }catch(e){Alert.alert(t('accountError'),e instanceof Error?e.message:t('accountError'))}finally{setBusy(false)}

@@ -47,7 +47,7 @@
     "typescript": "5.9.2"
   },
   "overrides": {
-    "react": "$react",
-    "react-native": "$react-native"
+    "react": "19.1.0",
+    "react-native": "0.81.5"
   }
 }

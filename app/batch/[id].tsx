@@ -57,7 +57,7 @@ export default function Detail() {
   const shareImage = async () => {
     try {
       if (!cert.current) return;
-      const uri = await captureRef(cert, { format: 'png', quality: 1, result: 'tmpfile' });
+      const uri = await captureRef(cert, { format: 'png', quality: 1, result: 'tmpfile', width: 960 });
       if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: t('shareCertificate') });
       else Alert.alert(t('exportFailed'), t('sharingUnavailable'));
     } catch (error) { Alert.alert(t('exportFailed'), error instanceof Error ? error.message : t('exportFailed')); }

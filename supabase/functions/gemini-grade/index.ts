@@ -107,6 +107,14 @@ Deno.serve(async (req) => {
       console.error("Invalid Gemini structured response", error);
       return json({ error: "AI provider returned an invalid assessment. Retake the photograph." }, 502);
     }
+    if (assessment.is_coffee_sample) {
+      const { data: debitOk, error: debitError } = await userClient.rpc("consume_station_scan_credit", { p_station_id: stationId });
+      if (debitError) {
+        console.error("Scan credit debit failed", debitError);
+        return json({ error: "Could not confirm station scan entitlement. No assessment was saved." }, 503);
+      }
+      if (!debitOk) return json({ error: "No scan credits are available." }, 402);
+    }
     return json({ result: assessment, model: "gemini-2.5-flash", assessed_at: new Date().toISOString() });
   } catch (error) {
     console.error("gemini-grade failed", error);

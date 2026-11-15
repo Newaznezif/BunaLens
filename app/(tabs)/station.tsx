@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { router } from 'expo-router';
 import { ScrollView, Text, View, Pressable, TextInput, Alert } from 'react-native';
-import { Warehouse, UserRound, MapPin, Pencil, Check, CreditCard, RefreshCw, ShieldCheck, ChevronRight, Sparkles } from 'lucide-react-native';
+import { Warehouse, UserRound, MapPin, Pencil, Check, CreditCard, RefreshCw, ShieldCheck, ChevronRight, Sparkles, Settings as SettingsIcon, Receipt } from 'lucide-react-native';
 import { useStation } from '@/contexts/StationContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { JIMMA_WOREDAS } from '@/constants/jimmaData';
@@ -11,6 +11,7 @@ import { BunaLensTheme as theme } from '@/constants/theme';
 import LanguageToggle from '@/components/LanguageToggle';
 import ChapaTopUpModal from '@/components/ChapaTopUpModal';
 import type { ChapaPackage } from '@/services/chapaService';
+import { getDemoPaymentHistory } from '@/services/chapaService';
 
 export default function Station() {
   const { station, setStation, addCredits } = useStation();
@@ -18,9 +19,14 @@ export default function Station() {
   const [name, setName] = useState(station.name);
   const [manager, setManager] = useState(station.manager);
   const [woreda, setWoreda] = useState(station.woreda);
+  const [phone, setPhone] = useState(station.contact_phone || '');
+  const [email, setEmail] = useState(station.contact_email || '');
+  const [paymentHistory, setPaymentHistory] = useState<Array<Record<string, unknown>>>([]);
   const [edit, setEdit] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [paymentBusy, setPaymentBusy] = useState(false);
+
+  useEffect(() => { void getDemoPaymentHistory().then(setPaymentHistory); }, []);
 
   const refreshBalance = async () => {
     if (!supabase || station.id === 'station-demo') {
@@ -64,7 +70,7 @@ export default function Station() {
           <Text className="text-2xl font-black" style={{ color: theme.colors.espresso }}>{t('station')}</Text>
           <Text className="text-xs mt-1" style={{ color: theme.colors.secondary }}>{t('manageStation')}</Text>
         </View>
-        <LanguageToggle />
+        <View className="flex-row items-center gap-2"><Pressable onPress={() => router.push('/settings')} className="h-10 w-10 rounded-xl items-center justify-center" style={{ backgroundColor: theme.colors.surface }}><SettingsIcon size={18} color={theme.colors.espresso} /></Pressable><LanguageToggle /></View>
       </View>
 
       <Pressable onPress={() => router.push('/auth')} className="rounded-2xl border p-4 flex-row items-center" style={{ backgroundColor: theme.colors.surface, borderColor: theme.colors.line }}>
@@ -111,7 +117,7 @@ export default function Station() {
               <Text className="text-[10px]" style={{ color: theme.colors.secondary }}>{t('originContact')}</Text>
             </View>
           </View>
-          <Pressable accessibilityRole="button" onPress={() => { if (edit) setStation({ ...station, name, manager, woreda }); setEdit(!edit); }} className="rounded-xl px-3 py-2 flex-row items-center" style={{ backgroundColor: edit ? theme.colors.emeraldSoft : theme.colors.parchment }}>
+          <Pressable accessibilityRole="button" onPress={() => { if (edit) setStation({ ...station, name, manager, woreda, contact_phone: phone.trim() || undefined, contact_email: email.trim() || undefined }); setEdit(!edit); }} className="rounded-xl px-3 py-2 flex-row items-center" style={{ backgroundColor: edit ? theme.colors.emeraldSoft : theme.colors.parchment }}>
             {edit ? <Check size={14} color={theme.colors.emerald} /> : <Pencil size={13} color={theme.colors.espresso} />}
             <Text className="text-[11px] font-extrabold ml-1" style={{ color: edit ? theme.colors.emerald : theme.colors.espresso }}>{edit ? 'Save' : 'Edit'}</Text>
           </Pressable>
@@ -122,6 +128,10 @@ export default function Station() {
             <TextInput value={name} onChangeText={setName} placeholder="Station name" placeholderTextColor={theme.colors.muted} className="rounded-xl border p-3 mb-3 text-sm" style={{ borderColor: theme.colors.line, color: theme.colors.espresso }} />
             <Text className="text-[11px] font-bold mb-1" style={{ color: theme.colors.secondary }}>{t('manager')}</Text>
             <TextInput value={manager} onChangeText={setManager} placeholder="Manager" placeholderTextColor={theme.colors.muted} className="rounded-xl border p-3 mb-3 text-sm" style={{ borderColor: theme.colors.line, color: theme.colors.espresso }} />
+            <Text className="text-[11px] font-bold mb-1" style={{ color: theme.colors.secondary }}>{t('contactPhone')}</Text>
+            <TextInput value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder={t('noPhone')} placeholderTextColor={theme.colors.muted} className="rounded-xl border p-3 mb-3 text-sm" style={{ borderColor: theme.colors.line, color: theme.colors.espresso }} />
+            <Text className="text-[11px] font-bold mb-1" style={{ color: theme.colors.secondary }}>{t('contactEmail')}</Text>
+            <TextInput value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder={t('noEmail')} placeholderTextColor={theme.colors.muted} className="rounded-xl border p-3 mb-3 text-sm" style={{ borderColor: theme.colors.line, color: theme.colors.espresso }} />
             <Text className="text-[11px] font-bold mb-2" style={{ color: theme.colors.secondary }}>{t('stationWoreda')}</Text>
             <View className="flex-row flex-wrap">
               {JIMMA_WOREDAS.map((item) => <Pressable key={item} onPress={() => setWoreda(item)} className="p-2.5 m-1 rounded-full" style={{ backgroundColor: item === woreda ? theme.colors.espresso : theme.colors.parchment }}><Text className="text-[11px] font-bold" style={{ color: item === woreda ? '#FFFFFF' : theme.colors.espresso }}>{item}</Text></Pressable>)}
@@ -132,10 +142,17 @@ export default function Station() {
             <Text className="text-lg font-black" style={{ color: theme.colors.espresso }}>{station.name}</Text>
             <View className="flex-row items-center mt-2"><UserRound size={13} color={theme.colors.secondary}/><Text className="text-xs ml-2" style={{ color: theme.colors.secondary }}>{station.manager}</Text></View>
             <View className="flex-row items-center mt-2"><MapPin size={13} color={theme.colors.secondary}/><Text className="text-xs ml-2" style={{ color: theme.colors.secondary }}>{station.woreda} · Jimma Zone, Oromia</Text></View>
+            <Text className="text-xs mt-2" style={{ color: theme.colors.secondary }}>{t('contactPhone')}: {station.contact_phone || t('noPhone')}</Text>
+            <Text className="text-xs mt-1" style={{ color: theme.colors.secondary }}>{t('contactEmail')}: {station.contact_email || t('noEmail')}</Text>
           </>
         )}
       </View>
 
+      <View className="rounded-2xl border p-4 mt-5" style={{ backgroundColor: theme.colors.surface, borderColor: theme.colors.line }}>
+        <View className="flex-row items-center mb-3"><Receipt size={16} color={theme.colors.espresso} /><Text className="text-sm font-extrabold ml-2" style={{ color: theme.colors.espresso }}>{t('paymentHistory')}</Text></View>
+        {paymentHistory.length === 0 ? <Text className="text-xs" style={{ color: theme.colors.secondary }}>{t('noPayments')}</Text> : paymentHistory.slice(0, 5).map((item, index) => <View key={String(item.transactionId || index)} className="py-2 border-t border-stone-100"><View className="flex-row justify-between"><Text className="text-xs font-bold" style={{ color: theme.colors.espresso }}>{String(item.packageId || 'Package').replaceAll('_', ' ')}</Text><Text className="text-xs font-extrabold" style={{ color: theme.colors.harvest }}>{Number(item.amountEtb || 0).toLocaleString()} ETB</Text></View><Text className="text-[10px] mt-1" style={{ color: theme.colors.secondary }}>DEMO · {String(item.status || 'demo_succeeded')} · {String(item.createdAt || '')}</Text></View>)}
+      </View>
+      <Pressable onPress={() => router.push('/settings')} className="rounded-xl p-4 mt-3 flex-row items-center justify-between" style={{ backgroundColor: theme.colors.surface }}><View><Text className="text-sm font-extrabold" style={{ color: theme.colors.espresso }}>{t('settings')}</Text><Text className="text-[11px] mt-1" style={{ color: theme.colors.secondary }}>{t('stationSettings')}</Text></View><ChevronRight size={17} color={theme.colors.secondary} /></Pressable>
       <View className="flex-row items-start mt-5 px-1">
         <ShieldCheck size={14} color={theme.colors.secondary} />
         <Text className="text-[10px] leading-4 ml-2 flex-1" style={{ color: theme.colors.secondary }}>{t('chapaDisclaimer')}</Text>

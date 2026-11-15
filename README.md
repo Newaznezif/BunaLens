@@ -60,9 +60,14 @@ Scan the QR code with an SDK 54-compatible Expo Go client. Camera capture, galle
 | `EXPO_PUBLIC_BUNALENS_SYNC_URL` | `https://<project>.supabase.co/functions/v1/coffee-sync` |
 | `EXPO_PUBLIC_CHAPA_INITIALIZE_URL` | `https://<project>.supabase.co/functions/v1/chapa-initialize` |
 | `EXPO_PUBLIC_CERTIFICATE_VERIFY_BASE_URL` | `https://<project>.supabase.co/functions/v1/certificate-verify` |
-| `EXPO_PUBLIC_APP_ENV` | `demo` or `production` |
+| `EXPO_PUBLIC_APP_ENV` | `development` or `production` |
+| `EXPO_PUBLIC_DEMO_MODE` | `true` by default; enables local demo flows without backend credentials |
+| `EXPO_PUBLIC_ENABLE_REAL_PAYMENTS` | `false` by default; real Chapa checkout requires explicit opt-in |
+| `EXPO_PUBLIC_CHAPA_DEMO_MODE` | Backward-compatible local payment demo switch |
 
-Never put `GEMINI_API_KEY`, `CHAPA_SECRET_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, or any private credential in an `EXPO_PUBLIC_*` variable.
+The example file intentionally leaves Supabase endpoints and public keys blank. With `EXPO_PUBLIC_DEMO_MODE=true` and `EXPO_PUBLIC_ENABLE_REAL_PAYMENTS=false`, the app launches into local/demo workflows without any private API credential or live payment configuration.
+
+**Never put `GEMINI_API_KEY`, `CHAPA_SECRET_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, or `BUNALENS_INTERNAL_FUNCTION_KEY` in an `EXPO_PUBLIC_*` variable, app config, source file, or mobile build.** Expo inlines every `EXPO_PUBLIC_*` value into the client bundle. Only the Supabase URL and anon/publishable key are public-client configuration; RLS is mandatory.
 
 ## Supabase setup
 
@@ -80,6 +85,41 @@ Never put `GEMINI_API_KEY`, `CHAPA_SECRET_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, or 
    - Optional `CHAPA_CALLBACK_URL` and `CHAPA_RETURN_URL`
 8. Deploy the Edge Functions listed below.
 9. Register a station from the app's Station tab → Sign in / Register station.
+
+### Edge Function secrets (server-side only)
+
+Set these in **Supabase Dashboard → Edge Functions → Secrets**. Do not add them to the mobile `.env`.
+
+Set these custom secrets:
+- `GEMINI_API_KEY` — Gemini API key used only by `gemini-grade`.
+- `CHAPA_SECRET_KEY` — Chapa merchant secret used only by payment initialization and verification functions.
+- `BUNALENS_INTERNAL_FUNCTION_KEY` — long random shared secret protecting the internal `gemini-grade` endpoint from direct invocation.
+
+`SUPABASE_SERVICE_ROLE_KEY` is injected by Supabase into hosted Edge Function environments (legacy service-role key name); do not try to create a custom Dashboard secret with the reserved `SUPABASE_` prefix. For local function development only, provide the local service-role key in the ignored `supabase/functions/.env` file. Treat it as a root credential.
+
+Generate a high-entropy internal key locally (never commit it), then enter its value in the Supabase secret manager. For example, on macOS/Linux use `openssl rand -hex 32`; on PowerShell use `[Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))`.
+
+For local Edge Function development, create `supabase/functions/.env` with the three custom secrets above and real local values. Supabase supplies its local project URL and service-role key to the local runtime; do not add the reserved `SUPABASE_*` names to the hosted secrets file. This file is ignored by Git. Start the local stack after creating it. Do not use `.env.example` as a secrets file.
+
+Using the Supabase CLI, link the project and set the secrets from a private file outside version control:
+```bash
+supabase login
+supabase link --project-ref YOUR_PROJECT_REF
+supabase secrets set --env-file ./supabase/functions/.env
+supabase secrets list
+```
+The list command shows configured names, not secret values. Secrets can also be added individually with `supabase secrets set NAME=value`; avoid placing secret values in shell history or CI logs. Supabase Edge Functions receive project-provided variables such as `SUPABASE_URL`, `SUPABASE_ANON_KEY` and the legacy `SUPABASE_SERVICE_ROLE_KEY` at runtime. Never create a custom `SUPABASE_*` secret: that prefix is reserved by Supabase.
+
+### Security and privacy defaults
+
+- Mobile code uses only the Supabase URL and anon/publishable key. Database RLS and least-privilege grants remain the authorization boundary; the public key is not an authorization mechanism.
+- Gemini grading, Chapa initialization/verification, and privileged database writes run in Edge Functions. Never trust a payment return URL or mobile-supplied amount as proof of payment.
+- Cloud sync requires a signed-in user and a station owned by that user. Capture/payment idempotency keys prevent duplicate processing.
+- Validate sample type, woreda, lot weight, MIME type, image size and coordinates on the server. Use private Storage paths scoped to station ownership.
+- Location tagging is optional. The operator can deny OS location permission and still grade a sample; omit coordinates unless permission is granted.
+- Errors shown to the app are sanitized. Do not log tokens, credentials, full image payloads, or unnecessary personal data.
+- Local/demo data is not a real AI assessment, market quotation, payment, or certificate.
+- Use HTTPS for deployed endpoints, rotate any credential that was ever exposed, and test RLS/storage/payment policies in staging before production.
 
 The app stores local station and batch data when cloud credentials are absent. Cloud operations require a signed-in user and an owned station UUID. RLS policies scope station and batch access to the authenticated owner. Column-level grants prevent mobile clients from changing station credits or Pro expiry, and clients cannot insert grading records directly; trusted Edge Functions own those writes.
 

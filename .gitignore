@@ -7,6 +7,12 @@ coverage/
 .env
 .env.*
 !.env.example
+supabase/functions/.env
+supabase/functions/.env.*
+!.env.example
+.env.local
+.env.development.local
+.env.production.local
 *.log
 .DS_Store
 *.pem

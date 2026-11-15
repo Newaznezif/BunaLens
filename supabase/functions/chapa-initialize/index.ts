@@ -5,6 +5,8 @@ const reply=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status
 Deno.serve(async(req)=>{
  if(req.method==="OPTIONS")return new Response("ok",{headers:cors});
  if(req.method!=="POST")return reply({error:"Method not allowed"},405);
+ const contentLength=Number(req.headers.get("content-length")||0);
+ if(contentLength>16*1024)return reply({error:"Request body is too large"},413);
  const token=(req.headers.get("Authorization")||"").replace(/^Bearer\s+/i,"");
  if(!token)return reply({error:"Sign in is required"},401);
  const url=Deno.env.get("SUPABASE_URL"),anon=Deno.env.get("SUPABASE_ANON_KEY")||Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
@@ -14,7 +16,10 @@ Deno.serve(async(req)=>{
   const userClient=createClient(url,anon,{global:{headers:{Authorization:"Bearer "+token}},auth:{persistSession:false,autoRefreshToken:false}});
   const {data:userData,error:userError}=await userClient.auth.getUser(token);
   if(userError||!userData.user?.email)return reply({error:"A valid signed-in email account is required"},401);
-  const body=await req.json();const stationId=body.stationId;const packageId=body.packageId;const idempotencyKey=body.idempotencyKey;
+  let body:Record<string,unknown>;
+  try{body=await req.json()}catch{return reply({error:"Request body must be valid JSON"},400)}
+  if(!body||typeof body!=="object"||Array.isArray(body))return reply({error:"Invalid request body"},400);
+  const stationId=body.stationId;const packageId=body.packageId;const idempotencyKey=body.idempotencyKey;
   if(typeof stationId!=="string"||!/^([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i.test(stationId))return reply({error:"Invalid station"},400);
   if(typeof packageId!=="string"||!Object.prototype.hasOwnProperty.call(packages,packageId))return reply({error:"Unsupported package"},400);
   if(typeof idempotencyKey!=="string"||idempotencyKey.length<8||idempotencyKey.length>128)return reply({error:"Invalid idempotency key"},400);
@@ -46,15 +51,24 @@ Deno.serve(async(req)=>{
   const fullName=String(userData.user.user_metadata?.full_name||station.manager||"BunaLens Customer").trim().split(/\s+/);
   const callbackUrl=Deno.env.get("CHAPA_CALLBACK_URL")||url+"/functions/v1/chapa-webhook";
   const returnUrl=Deno.env.get("CHAPA_RETURN_URL");
-  const chapaResponse=await fetch("https://api.chapa.co/v1/transaction/initialize",{
-   method:"POST",headers:{"Authorization":"Bearer "+chapa,"Content-Type":"application/json"},
+  const chapaController=new AbortController();
+  const chapaTimeout=setTimeout(()=>chapaController.abort(),20_000);
+  let chapaResponse:Response;
+  try{
+   chapaResponse=await fetch("https://api.chapa.co/v1/transaction/initialize",{
+   method:"POST",signal:chapaController.signal,
+   headers:{"Authorization":"Bearer "+chapa,"Content-Type":"application/json"},
    body:JSON.stringify({
     amount:String(amount),currency:"ETB",email:userData.user.email,
     first_name:fullName[0]||"BunaLens",last_name:fullName.slice(1).join(" ")||"Station",
     tx_ref:txRef,callback_url:callbackUrl,...(returnUrl?{return_url:returnUrl}:{}),
     customization:{title:"BunaLens Station",description:packageId==="starter_50"?"50 coffee batch scans":"30-day washing station Pro pass"}
    })
-  });
+   });
+  }catch(error){
+   if(error instanceof Error&&error.name==="AbortError")return reply({error:"Chapa initialization timed out. Retry with the same payment reference."},504);
+   return reply({error:"Chapa is temporarily unreachable."},502);
+  }finally{clearTimeout(chapaTimeout)}
   const result=await chapaResponse.json().catch(()=>({}));
   const checkoutUrl=result?.data?.checkout_url;
   if(!chapaResponse.ok||result?.status!=="success"||typeof checkoutUrl!=="string"){
@@ -63,5 +77,5 @@ Deno.serve(async(req)=>{
   }
   await serviceClient.from("station_payments").update({checkout_url:checkoutUrl,provider_payload:{initialize_status:result.status}}).eq("id",paymentId);
   return reply({checkout_url:checkoutUrl,tx_ref:txRef});
- }catch(error){console.error("chapa-initialize error",error);return reply({error:"Unable to initialize payment"},500)}
+ }catch(error){console.error("chapa-initialize failed; request details omitted.");return reply({error:"Unable to initialize payment"},500)}
 });

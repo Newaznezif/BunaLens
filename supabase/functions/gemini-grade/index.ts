@@ -9,6 +9,12 @@ const percentKeys = ["sound_or_ripe_pct", "unripe_green_pct", "black_overferment
 const grades = ["Unclassified"] as const;
 const readiness = ["Specialty Export", "Commercial Export", "Local Market Only", "Reject / Re-sort", "Insufficient Evidence"] as const;
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { ...cors, "Content-Type": "application/json" } });
+const imageSignatureMatches = (bytes: Uint8Array, mime: string) => {
+  if (mime === "image/jpeg") return bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  if (mime === "image/png") return bytes.length > 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47 && bytes[4] === 0x0d && bytes[5] === 0x0a && bytes[6] === 0x1a && bytes[7] === 0x0a;
+  if (mime === "image/webp") return bytes.length > 12 && String.fromCharCode(...bytes.slice(0, 4)) === "RIFF" && String.fromCharCode(...bytes.slice(8, 12)) === "WEBP";
+  return false;
+};
 
 function validateAssessment(raw: unknown) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("Model response was not an object.");
@@ -46,6 +52,8 @@ function validateAssessment(raw: unknown) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "Method not allowed." }, 405);
+  const contentLength = Number(req.headers.get("content-length") || 0);
+  if (contentLength > 15 * 1024 * 1024) return json({ error: "Request exceeds the 10 MB image upload limit." }, 413);
   const internalKey = Deno.env.get("BUNALENS_INTERNAL_FUNCTION_KEY");
   if (!internalKey || req.headers.get("x-bunalens-internal-key") !== internalKey) return json({ error: "This grading endpoint is internal to the sync service." }, 403);
   const authHeader = req.headers.get("Authorization") || "";
@@ -63,7 +71,10 @@ Deno.serve(async (req) => {
   try {
     const { data: userData, error: userError } = await userClient.auth.getUser(token);
     if (userError || !userData.user) return json({ error: "Session is invalid or expired." }, 401);
-    const body = await req.json();
+    let body: Record<string, any>;
+    try { body = await req.json(); }
+    catch { return json({ error: "Request body must be valid JSON." }, 400); }
+    if (!body || typeof body !== "object" || Array.isArray(body)) return json({ error: "Invalid request body." }, 400);
     const imageBase64 = typeof body.imageBase64 === "string" ? body.imageBase64.replace(/^data:image\/[a-z0-9.+-]+;base64,/i, "").replace(/\s/g, "") : "";
     const mimeType = body.mimeType, sampleType = body.sampleType, woreda = body.woreda;
     const stationId = body.stationId, idempotencyKey = body.idempotencyKey;
@@ -72,7 +83,11 @@ Deno.serve(async (req) => {
     if (!["Gomma", "Limmu Kossa", "Mana", "Seka Chekorsa", "Gera", "Kersa", "Jimma Town"].includes(woreda)) return json({ error: "Invalid origin woreda." }, 400);
     if (typeof stationId !== "string" || !/^[0-9a-f-]{36}$/i.test(stationId)) return json({ error: "A registered washing station is required for cloud grading." }, 400);
     if (typeof idempotencyKey !== "string" || !/^[a-zA-Z0-9_-]{8,128}$/.test(idempotencyKey)) return json({ error: "A valid capture idempotency key is required." }, 400);
-    if (!imageBase64 || imageBase64.length > 14_000_000) return json({ error: "Image is missing or exceeds the 10 MB limit." }, 413);
+    if (!imageBase64 || imageBase64.length > 14_000_000 || !/^[A-Za-z0-9+/]+={0,2}$/.test(imageBase64)) return json({ error: "Image is missing, malformed or exceeds the 10 MB limit." }, 413);
+    let imageBytes: Uint8Array;
+    try { imageBytes = Uint8Array.from(atob(imageBase64), (c) => c.charCodeAt(0)); }
+    catch { return json({ error: "Image encoding is invalid." }, 400); }
+    if (imageBytes.length === 0 || imageBytes.length > 10 * 1024 * 1024 || !imageSignatureMatches(imageBytes, mimeType)) return json({ error: "Image content does not match its declared format or exceeds 10 MB." }, 415);
     const { data: station, error: stationError } = await userClient.from("stations").select("id,owner_id,credits,pro_expires_at").eq("id", stationId).eq("owner_id", userData.user.id).maybeSingle();
     if (stationError || !station) return json({ error: "You do not have access to this washing station." }, 403);
     const proActive = station.pro_expires_at && new Date(station.pro_expires_at).getTime() > Date.now();
@@ -120,8 +135,7 @@ Return only JSON. Include specific, actionable sorting_action_advice and an asse
       return json({ error: "AI grading provider is temporarily unreachable." }, 502);
     } finally { clearTimeout(timeout); }
     if (!modelResponse.ok) {
-      const details = await modelResponse.text();
-      console.error("Gemini request failed", modelResponse.status, details.slice(0, 700));
+      console.error("Gemini request failed", modelResponse.status);
       return json({ error: "AI grading provider is temporarily unavailable." }, 502);
     }
     const modelJson = await modelResponse.json();
@@ -140,7 +154,7 @@ Return only JSON. Include specific, actionable sorting_action_advice and an asse
     }
     return json({ result: assessment, model: "gemini-2.5-flash", assessed_at: new Date().toISOString() });
   } catch (error) {
-    console.error("gemini-grade failed", error);
+    console.error("gemini-grade failed; request details omitted.");
     return json({ error: "Unable to complete the grading request." }, 500);
   }
 });

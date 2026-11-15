@@ -78,9 +78,17 @@ export async function submitCoffeeSample(
   idempotencyKey: string, lotWeightKg: number, mimeType = 'image/jpeg',
   coordinates?: { latitude: number; longitude: number }, batchCode?: string,
 ): Promise<CoffeeBatch> {
+  if (process.env.EXPO_PUBLIC_DEMO_MODE === 'true') {
+    throw new GradingServiceError('Demo mode is enabled. Use a clearly labelled demo sample or set EXPO_PUBLIC_DEMO_MODE=false to enable authenticated cloud grading.', 'configuration');
+  }
   if (!SYNC_URL) throw new GradingServiceError('Cloud grading is not configured. Use a clearly labelled offline demonstration or configure the secure sync service.', 'configuration');
   if (!SUPABASE_ANON_KEY) throw new GradingServiceError('Supabase public credentials are missing.', 'configuration');
-  if (!Number.isFinite(lotWeightKg) || lotWeightKg <= 0) throw new GradingServiceError('Enter a valid positive lot weight before grading.', 'invalid_response');
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(mimeType) ||
+      typeof base64 !== 'string' || base64.length < 32 || base64.length > 14_000_000 ||
+      !/^[A-Za-z0-9+/]+={0,2}$/.test(base64.replace(/^data:image\/[a-z0-9.+-]+;base64,/i, '').replace(/\s/g, ''))) {
+    throw new GradingServiceError('The selected image is invalid or exceeds the 10 MB limit.', 'invalid_response');
+  }
+  if (!Number.isFinite(lotWeightKg) || lotWeightKg <= 0 || lotWeightKg > 100000) throw new GradingServiceError('Enter a valid positive lot weight before grading.', 'invalid_response');
   const token = await getSupabaseAccessToken();
   if (!token) throw new GradingServiceError('Sign in to a registered washing station before grading a real sample.', 'auth');
   const controller = new AbortController();

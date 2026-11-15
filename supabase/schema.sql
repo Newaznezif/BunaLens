@@ -485,7 +485,7 @@ end;
 $$;
 
 revoke all on function public.apply_verified_payment_transaction(text, jsonb) from public, anon, authenticated;
-grant execute on function public.apply_verified_chapa_payment(text, jsonb) to service_role;
+grant execute on function public.apply_verified_payment_transaction(text, jsonb) to service_role;
 
 -- ---------------------------------------------------------------------------
 -- Row Level Security

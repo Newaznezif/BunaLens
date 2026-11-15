@@ -137,6 +137,8 @@ create table if not exists public.coffee_batches (
   )),
   latitude double precision check (latitude is null or latitude between -90 and 90),
   longitude double precision check (longitude is null or longitude between -180 and 180),
+  gps_latitude double precision check (gps_latitude is null or gps_latitude between -90 and 90),
+  gps_longitude double precision check (gps_longitude is null or gps_longitude between -180 and 180),
   -- The mobile contract sends kg. Feresula is stored as a generated conversion.
   lot_weight_kg numeric(12,2) not null check (lot_weight_kg > 0),
   lot_weight_feresula numeric(12,4)
@@ -162,8 +164,8 @@ create table if not exists public.coffee_batches (
   updated_at timestamptz not null default now(),
   constraint coffee_batches_idempotency_unique unique (station_id, idempotency_key),
   constraint coffee_batches_geo_pair check (
-    (latitude is null and longitude is null)
-    or (latitude is not null and longitude is not null)
+    (coalesce(latitude, gps_latitude) is null and coalesce(longitude, gps_longitude) is null)
+    or (coalesce(latitude, gps_latitude) is not null and coalesce(longitude, gps_longitude) is not null)
   )
 );
 
@@ -177,6 +179,27 @@ create index if not exists coffee_batches_status_idx
   on public.coffee_batches(grading_status);
 create index if not exists coffee_batches_grading_result_gin_idx
   on public.coffee_batches using gin(grading_result);
+
+-- Compatibility with the current sync Edge Function, which writes gps_latitude /
+-- gps_longitude while the canonical schema exposes latitude / longitude.
+create or replace function public.sync_batch_coordinate_aliases()
+returns trigger
+language plpgsql
+set search_path = pg_catalog
+as $
+begin
+  if new.latitude is null then new.latitude := new.gps_latitude; end if;
+  if new.longitude is null then new.longitude := new.gps_longitude; end if;
+  if new.gps_latitude is null then new.gps_latitude := new.latitude; end if;
+  if new.gps_longitude is null then new.gps_longitude := new.longitude; end if;
+  return new;
+end;
+$;
+
+drop trigger if exists coffee_batches_sync_coordinate_aliases on public.coffee_batches;
+create trigger coffee_batches_sync_coordinate_aliases
+before insert or update on public.coffee_batches
+for each row execute function public.sync_batch_coordinate_aliases();
 
 drop trigger if exists coffee_batches_set_updated_at on public.coffee_batches;
 create trigger coffee_batches_set_updated_at
@@ -513,7 +536,14 @@ create policy "authenticated read market prices" on public.market_prices
 
 -- Explicit grants: RLS still governs rows. No client-side entitlement,
 -- payment, batch, grading or market-price writes are granted.
-grant select, insert, update on public.stations to authenticated;
+-- Restrict station writes to profile fields. In particular, credits and Pro
+-- entitlement columns are not writable by the mobile client.
+revoke insert, update on public.stations from anon, authenticated;
+grant select on public.stations to authenticated;
+grant insert (owner_id, station_name, name, owner_name, manager, email, phone, woreda, zone)
+  on public.stations to authenticated;
+grant update (station_name, name, owner_name, manager, email, phone, woreda, zone)
+  on public.stations to authenticated;
 grant select on public.station_credits to authenticated;
 grant select on public.coffee_batches to authenticated;
 grant select on public.grading_results to authenticated;

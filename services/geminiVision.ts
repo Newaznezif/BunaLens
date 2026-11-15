@@ -16,25 +16,14 @@ function validateResult(value: unknown): GradingResult {
   return v as GradingResult;
 }
 
-/**
- * Calls a trusted server-side inference endpoint. Gemini credentials must remain
- * on the server; never embed a Gemini API key in an Expo public environment variable.
- */
-export async function gradeCoffeeImage(
-  base64: string,
-  sampleType: SampleType,
-  woreda: string,
-  mimeType: string = 'image/jpeg',
-): Promise<GradingResult> {
-  if (!PROXY_URL) {
-    throw new Error('AI grading is not configured. Add EXPO_PUBLIC_GEMINI_PROXY_URL or use one of the clearly labelled demo samples.');
-  }
+/** Calls a trusted server-side inference endpoint; no Gemini secret is bundled in the app. */
+export async function gradeCoffeeImage(base64: string, sampleType: SampleType, woreda: string, mimeType = 'image/jpeg'): Promise<GradingResult> {
+  if (!PROXY_URL) throw new Error('AI grading is not configured. Add EXPO_PUBLIC_GEMINI_PROXY_URL or use a clearly labelled demo sample.');
   const response = await fetch(PROXY_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ imageBase64: base64.replace(/^data:image\\/[a-z0-9.+-]+;base64,/i, '').replace(/\\s/g, ''), mimeType, sampleType, woreda }),
+    body: JSON.stringify({ imageBase64: base64.replace(/^data:image\/[a-z0-9.+-]+;base64,/i, '').replace(/\s/g, ''), mimeType, sampleType, woreda }),
   });
-  if (!response.ok) throw new Error(`AI grading service failed (HTTP ${response.status}).`);
-  const payload: unknown = await response.json();
-  return validateResult(payload);
+  if (!response.ok) throw new Error(\`AI grading service failed (HTTP \${response.status}).\`);
+  return validateResult(await response.json());
 }

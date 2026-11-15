@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import * as FileSystem from 'expo-file-system/legacy';
 import type { CoffeeBatch, SampleType } from '@/types';
+import { getSupabaseAccessToken } from '@/services/supabaseClient';
 
 const KEY='bunalens.offline.queue';
 const QUEUE_DIR=(FileSystem.documentDirectory||'')+'bunalens-queue/';
@@ -24,18 +25,20 @@ export async function enqueueCapture(item:QueuedCapture){
 }
 export async function isOnline(){const s=await NetInfo.fetch();return Boolean(s.isConnected&&s.isInternetReachable!==false)}
 export async function syncQueuedCaptures():Promise<{synced:CoffeeBatch[];remaining:number}>{
-  if(!endpoint)throw new Error('Offline sync is not configured. Set EXPO_PUBLIC_BUNALENS_SYNC_URL to your authenticated sync endpoint.');
+  if(!endpoint)throw new Error('Offline sync is not configured. Set EXPO_PUBLIC_BUNALENS_SYNC_URL to the coffee-sync Edge Function URL.');
+  const token=await getSupabaseAccessToken();const anonKey=process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+  if(!token||!anonKey)throw new Error('Sign in to a registered station before synchronizing queued captures.');
   if(!(await isOnline()))throw new Error('No internet connection.');
   const queue=await getQueue();
   const synced:CoffeeBatch[]=[];
   for(const item of queue){
     try{
       const imageBase64=await FileSystem.readAsStringAsync(item.image_uri,{encoding:FileSystem.EncodingType.Base64});
-      const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({idempotency_key:item.id,station_id:item.station_id,sample_type:item.sample_type,woreda:item.woreda,lot_weight_kg:item.lot_weight_kg,captured_at:item.created_at,image_mime_type:item.mime_type||'image/jpeg',image_base64:imageBase64})});
+      const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json',apikey:anonKey,Authorization:'Bearer '+token},body:JSON.stringify({idempotency_key:item.id,station_id:item.station_id,sample_type:item.sample_type,woreda:item.woreda,lot_weight_kg:item.lot_weight_kg,captured_at:item.created_at,image_mime_type:item.mime_type||'image/jpeg',image_base64:imageBase64})});
       if(!response.ok)break;
       const payload=await response.json() as {batch?:CoffeeBatch};
       if(!payload.batch?.id||!payload.batch.batch_code||!payload.batch.result)break;
-      synced.push(payload.batch);
+      synced.push({...payload.batch,image_uri:item.image_uri});
       const latest=await getQueue();
       await saveQueue(latest.filter(x=>x.id!==item.id));
       await FileSystem.deleteAsync(item.image_uri,{idempotent:true}).catch(()=>undefined);

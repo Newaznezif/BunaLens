@@ -51,6 +51,19 @@ create table if not exists public.stations (
   )
 );
 
+-- Upgrade path for projects that previously ran the minimal BunaLens schema.
+alter table public.stations add column if not exists station_name text;
+alter table public.stations add column if not exists owner_name text;
+alter table public.stations add column if not exists email text;
+alter table public.stations add column if not exists phone text;
+alter table public.stations add column if not exists zone text not null default 'Jimma';
+alter table public.stations add column if not exists pro_expires_at timestamptz;
+alter table public.stations add column if not exists updated_at timestamptz not null default now();
+update public.stations
+   set station_name = coalesce(station_name, name),
+       owner_name = coalesce(owner_name, manager)
+ where station_name is null or owner_name is null;
+
 -- Keep the two station-name fields compatible with the currently deployed
 -- mobile/Edge Function contract while the app transitions to station_name.
 create or replace function public.sync_station_name_aliases()
@@ -168,6 +181,35 @@ create table if not exists public.coffee_batches (
     or (coalesce(latitude, gps_latitude) is not null and coalesce(longitude, gps_longitude) is not null)
   )
 );
+
+-- Add the canonical columns when upgrading an installation that already has
+-- the original compact coffee_batches table.
+alter table public.coffee_batches add column if not exists idempotency_key text;
+update public.coffee_batches set idempotency_key = id where idempotency_key is null;
+alter table public.coffee_batches alter column idempotency_key set not null;
+create unique index if not exists coffee_batches_station_idempotency_uidx
+  on public.coffee_batches(station_id, idempotency_key);
+alter table public.coffee_batches add column if not exists latitude double precision;
+alter table public.coffee_batches add column if not exists longitude double precision;
+alter table public.coffee_batches add column if not exists gps_latitude double precision;
+alter table public.coffee_batches add column if not exists gps_longitude double precision;
+alter table public.coffee_batches add column if not exists lot_weight_feresula numeric(12,4)
+  generated always as (round(lot_weight_kg / 17.0, 4)) stored;
+alter table public.coffee_batches add column if not exists grading_status text not null default 'completed';
+alter table public.coffee_batches add column if not exists ecx_grade text not null default 'Unclassified';
+alter table public.coffee_batches add column if not exists quality_score numeric(5,2);
+alter table public.coffee_batches add column if not exists confidence_score numeric(5,2);
+alter table public.coffee_batches add column if not exists estimated_price_per_feresula_etb numeric(14,2);
+alter table public.coffee_batches add column if not exists total_estimated_value_etb numeric(16,2);
+alter table public.coffee_batches add column if not exists potential_gain_if_sorted_etb numeric(16,2);
+alter table public.coffee_batches add column if not exists pricing_result jsonb;
+alter table public.coffee_batches add column if not exists verification_id uuid default gen_random_uuid();
+alter table public.coffee_batches add column if not exists is_demo boolean not null default false;
+alter table public.coffee_batches add column if not exists updated_at timestamptz not null default now();
+update public.coffee_batches set verification_id = gen_random_uuid() where verification_id is null;
+alter table public.coffee_batches alter column verification_id set not null;
+create unique index if not exists coffee_batches_verification_id_uidx
+  on public.coffee_batches(verification_id);
 
 create index if not exists coffee_batches_station_created_idx
   on public.coffee_batches(station_id, created_at desc);

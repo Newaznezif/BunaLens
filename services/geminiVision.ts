@@ -24,6 +24,6 @@ export async function gradeCoffeeImage(base64: string, sampleType: SampleType, w
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ imageBase64: base64.replace(/^data:image\/[a-z0-9.+-]+;base64,/i, '').replace(/\s/g, ''), mimeType, sampleType, woreda }),
   });
-  if (!response.ok) throw new Error(\`AI grading service failed (HTTP \${response.status}).\`);
+  if (!response.ok) throw new Error('AI grading service failed (HTTP ' + response.status + ').');
   return validateResult(await response.json());
 }

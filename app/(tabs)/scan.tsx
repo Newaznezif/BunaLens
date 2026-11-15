@@ -174,7 +174,7 @@ export default function Scan() {
       </ScrollView>
 
       <View className="mb-5">
-        <View className="flex-row items-center mb-2"><Scale size={14} color={theme.colors.secondary} /><Text className="text-sm font-extrabold text-espresso ml-1.5">{t('lotWeight')} (Feresula)</Text></View>
+        <View className="flex-row items-center mb-2"><Scale size={14} color={theme.colors.secondary} /><Text className="text-sm font-extrabold text-espresso ml-1.5">{t('lotSizeFeresula')}</Text></View>
         <TextInput keyboardType="decimal-pad" value={feresula} onChangeText={setFeresula} className="bg-white border border-line rounded-xl px-4 py-3.5 text-espresso font-bold" placeholder="10" placeholderTextColor={theme.colors.muted} />
         <Text className="text-[10px] text-secondary mt-1.5">{t('feresulaConversion')}: {validWeight ? weightInKg.toLocaleString() : '—'} kg · 1 Feresula = 17 kg</Text>
       </View>

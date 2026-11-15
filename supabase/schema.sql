@@ -72,6 +72,22 @@ language plpgsql
 set search_path = pg_catalog
 as $$
 begin
+  if tg_op = 'UPDATE' then
+    if new.name is distinct from old.name
+       and new.station_name is not distinct from old.station_name then
+      new.station_name := new.name;
+    elsif new.station_name is distinct from old.station_name
+       and new.name is not distinct from old.name then
+      new.name := new.station_name;
+    end if;
+    if new.manager is distinct from old.manager
+       and new.owner_name is not distinct from old.owner_name then
+      new.owner_name := new.manager;
+    elsif new.owner_name is distinct from old.owner_name
+       and new.manager is not distinct from old.manager then
+      new.manager := new.owner_name;
+    end if;
+  end if;
   if new.station_name is null then new.station_name := new.name; end if;
   if new.name is null then new.name := new.station_name; end if;
   if new.owner_name is null then new.owner_name := new.manager; end if;
@@ -490,6 +506,9 @@ begin
     update public.stations set credits = v_new_credits
       where id = v_payment.station_id;
   elsif v_payment.package_type = 'station_pro_monthly' then
+    insert into public.station_credits(station_id, available_credits, subscription_type)
+    values (v_payment.station_id, 10, 'pro')
+    on conflict (station_id) do nothing;
     update public.station_credits
        set subscription_type = 'pro',
            subscription_expires_at = greatest(

@@ -133,6 +133,11 @@ create trigger stations_initialize_credits
 after insert on public.stations
 for each row execute function public.initialize_station_credits();
 
+-- Backfill the entitlement snapshot for stations created before this schema.
+insert into public.station_credits(station_id, available_credits)
+select id, credits from public.stations
+on conflict (station_id) do nothing;
+
 -- ---------------------------------------------------------------------------
 -- Coffee batches
 -- ---------------------------------------------------------------------------
@@ -171,11 +176,10 @@ create table if not exists public.coffee_batches (
     check (potential_gain_if_sorted_etb is null or potential_gain_if_sorted_etb >= 0),
   grading_result jsonb not null default '{}'::jsonb,
   pricing_result jsonb,
-  verification_id uuid not null default gen_random_uuid() unique,
+  verification_id uuid not null default gen_random_uuid(),
   is_demo boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint coffee_batches_idempotency_unique unique (station_id, idempotency_key),
   constraint coffee_batches_geo_pair check (
     (coalesce(latitude, gps_latitude) is null and coalesce(longitude, gps_longitude) is null)
     or (coalesce(latitude, gps_latitude) is not null and coalesce(longitude, gps_longitude) is not null)
@@ -580,23 +584,23 @@ create policy "authenticated read market prices" on public.market_prices
 -- payment, batch, grading or market-price writes are granted.
 -- Restrict station writes to profile fields. In particular, credits and Pro
 -- entitlement columns are not writable by the mobile client.
-revoke insert, update on public.stations from anon, authenticated;
+revoke all on public.stations from anon, authenticated;
 grant select on public.stations to authenticated;
 grant insert (owner_id, station_name, name, owner_name, manager, email, phone, woreda, zone)
   on public.stations to authenticated;
 grant update (station_name, name, owner_name, manager, email, phone, woreda, zone)
   on public.stations to authenticated;
+revoke all on public.station_credits from anon, authenticated;
+revoke all on public.coffee_batches from anon, authenticated;
+revoke all on public.grading_results from anon, authenticated;
+revoke all on public.payment_transactions from anon, authenticated;
+revoke all on public.market_prices from anon, authenticated;
+
 grant select on public.station_credits to authenticated;
 grant select on public.coffee_batches to authenticated;
 grant select on public.grading_results to authenticated;
 grant select on public.payment_transactions to authenticated;
 grant select on public.market_prices to authenticated;
-
-revoke insert, update, delete on public.station_credits from anon, authenticated;
-revoke insert, update, delete on public.coffee_batches from anon, authenticated;
-revoke insert, update, delete on public.grading_results from anon, authenticated;
-revoke insert, update, delete on public.payment_transactions from anon, authenticated;
-revoke insert, update, delete on public.market_prices from anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Private sample-image bucket. Object path must start with station UUID.

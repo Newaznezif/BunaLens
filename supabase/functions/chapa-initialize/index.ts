@@ -21,15 +21,28 @@ Deno.serve(async(req)=>{
   const serviceClient=createClient(url,service,{auth:{persistSession:false,autoRefreshToken:false}});
   const {data:station,error:stationError}=await userClient.from("stations").select("id,name,manager").eq("id",stationId).eq("owner_id",userData.user.id).maybeSingle();
   if(stationError||!station)return reply({error:"Station access denied"},403);
-  const {data:existing}=await serviceClient.from("station_payments").select("chapa_tx_ref,checkout_url,status").eq("station_id",stationId).eq("idempotency_key",idempotencyKey).maybeSingle();
+  const {data:existing}=await serviceClient.from("station_payments").select("id,chapa_tx_ref,checkout_url,status").eq("station_id",stationId).eq("idempotency_key",idempotencyKey).maybeSingle();
   if(existing?.checkout_url&&existing.status==="pending")return reply({checkout_url:existing.checkout_url,tx_ref:existing.chapa_tx_ref});
+  if(existing?.status==="pending")return reply({error:"This payment initialization is still processing. Retry shortly with the same checkout."},409);
+  if(existing?.status==="verified")return reply({error:"This checkout was already paid. Start a new top-up to create another transaction."},409);
   const txRef="BNL-"+crypto.randomUUID();
   const amount=packages[packageId as keyof typeof packages].amount;
-  const {data:payment,error:insertError}=await serviceClient.from("station_payments").insert({
-   station_id:stationId,package_id:packageId,amount_etb:amount,currency:"ETB",
-   chapa_tx_ref:txRef,idempotency_key:idempotencyKey,status:"pending"
-  }).select("id").single();
-  if(insertError)return reply({error:"Could not create payment record. Retry with the same idempotency key."},409);
+  let paymentId:string;
+  if(existing){
+   const {error:updateError}=await serviceClient.from("station_payments").update({
+    package_id:packageId,amount_etb:amount,currency:"ETB",chapa_tx_ref:txRef,status:"pending",
+    checkout_url:null,provider_payload:null
+   }).eq("id",existing.id);
+   if(updateError)return reply({error:"Could not reset the failed payment attempt. Retry later."},409);
+   paymentId=existing.id;
+  }else{
+   const {data:payment,error:insertError}=await serviceClient.from("station_payments").insert({
+    station_id:stationId,package_id:packageId,amount_etb:amount,currency:"ETB",
+    chapa_tx_ref:txRef,idempotency_key:idempotencyKey,status:"pending"
+   }).select("id").single();
+   if(insertError)return reply({error:"Could not create payment record. Retry with the same idempotency key."},409);
+   paymentId=payment.id;
+  }
   const fullName=String(userData.user.user_metadata?.full_name||station.manager||"BunaLens Customer").trim().split(/\s+/);
   const callbackUrl=Deno.env.get("CHAPA_CALLBACK_URL")||url+"/functions/v1/chapa-webhook";
   const returnUrl=Deno.env.get("CHAPA_RETURN_URL");
@@ -45,7 +58,7 @@ Deno.serve(async(req)=>{
   const result=await chapaResponse.json().catch(()=>({}));
   const checkoutUrl=result?.data?.checkout_url;
   if(!chapaResponse.ok||result?.status!=="success"||typeof checkoutUrl!=="string"){
-   await serviceClient.from("station_payments").update({status:"failed",provider_payload:result}).eq("id",payment.id);
+   await serviceClient.from("station_payments").update({status:"failed",provider_payload:result}).eq("id",paymentId);
    return reply({error:"Chapa could not initialize this payment"},502);
   }
   await serviceClient.from("station_payments").update({checkout_url:checkoutUrl,provider_payload:{initialize_status:result.status}}).eq("id",payment.id);

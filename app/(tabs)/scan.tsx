@@ -1,1 +1,209 @@
-import React,{useState}from'react';import{ScrollView,View,Text,Pressable,ActivityIndicator,Alert,TextInput}from'react-native';import{router}from'expo-router';import{Camera,ImagePlus,ScanLine}from'lucide-react-native';import{useLanguage}from'@/contexts/LanguageContext';import{useStation}from'@/contexts/StationContext';import{JIMMA_WOREDAS}from'@/constants/jimmaData';import{DEMO_CLEAN,DEMO_DEFECTIVE}from'@/constants/demoSamples';import type{CoffeeBatch,SampleType}from'@/types';import{CameraView,useCameraPermissions}from'expo-camera';import*as ImagePicker from'expo-image-picker';import*as Haptics from'expo-haptics';import*as Location from'expo-location';import{submitCoffeeSample}from'@/services/geminiVision';import{enqueueCapture,isOnline,persistLocalImage}from'@/services/offlineQueue';import{priceAssessment}from'@/services/pricing';import{BunaLensTheme as theme}from'@/constants/theme';import LanguageToggle from'@/components/LanguageToggle';import{Coffee,MapPin,Scale,Info,ShieldCheck}from'lucide-react-native';export default function Scan(){const{t}=useLanguage();const{station,addBatch,consumeCredit}=useStation();const[perm,ask]=useCameraPermissions();const[type,setType]=useState<SampleType>('green_bean');const[woreda,setWoreda]=useState(station.woreda);const[busy,setBusy]=useState(false);const[lotWeight,setLotWeight]=useState('170');const[cam,setCam]=useState<CameraView|null>(null);const go=async(base64:string,uri?:string,mimeType='image/jpeg')=>{const weight=Number(lotWeight);if(!Number.isFinite(weight)||weight<=0||weight>100000){Alert.alert(t('invalidWeight'),t('invalidWeightHint'));return}const captureId='bunalens-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);setBusy(true);try{if(!(await isOnline())){if(uri)await enqueueCapture({id:captureId,image_uri:uri,sample_type:type,woreda,lot_weight_kg:weight,created_at:new Date().toISOString(),station_id:station.id,mime_type:mimeType});Alert.alert(t('savedForLater'),t('offlineQueue'));return}if(station.id==='station-demo'){Alert.alert(t('registerStation'),t('registerStationHint'));return}const hasPro=Boolean(station.pro_expires_at&&new Date(station.pro_expires_at).getTime()>Date.now());let origin_coordinates:{latitude:number;longitude:number}|undefined;try{const p=await Location.requestForegroundPermissionsAsync();if(p.granted){const pos=await Location.getCurrentPositionAsync({accuracy:Location.Accuracy.Balanced});origin_coordinates={latitude:pos.coords.latitude,longitude:pos.coords.longitude}}}catch{}const serverBatch=await submitCoffeeSample(base64,type,woreda,station.id,captureId,weight,mimeType,origin_coordinates);if(!hasPro&&station.credits>0)consumeCredit();const savedImage=uri?await persistLocalImage(uri,captureId,mimeType).catch(()=>uri):undefined;const finalBatch:CoffeeBatch={...serverBatch,image_uri:savedImage,origin_coordinates,status:'synced'};addBatch(finalBatch);await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);router.push('/batch/'+finalBatch.id)}catch(e){const message=e instanceof Error?e.message:t('gradingFailed');const retryable=e instanceof TypeError||message.includes('HTTP 5');if(uri&&retryable){try{await enqueueCapture({id:captureId,image_uri:uri,sample_type:type,woreda,lot_weight_kg:weight,created_at:new Date().toISOString(),station_id:station.id,mime_type:mimeType});Alert.alert(t('savedForRetry'),t('retryHint'))}catch{alert(message)}}else alert(message)}finally{setBusy(false)}};const capture=async()=>{if(!perm?.granted){await ask();return}const p=await cam?.takePictureAsync({base64:true,quality:.85});if(p?.base64)go(p.base64,p.uri,'image/jpeg')};const gallery=async()=>{const p=await ImagePicker.launchImageLibraryAsync({mediaTypes:['images'],base64:true,quality:.85});if(!p.canceled&&p.assets[0]?.base64)go(p.assets[0].base64,p.assets[0].uri,p.assets[0].mimeType||'image/jpeg')};const demo=(defect:boolean)=>{const weight=Number(lotWeight);if(!Number.isFinite(weight)||weight<=0||weight>100000){Alert.alert('Invalid lot weight','Enter a lot weight between 0.1 and 100,000 kg.');return}const id='demo-'+Date.now();const b:CoffeeBatch={id,batch_code:'BNL-JMA-'+String(Date.now()).slice(-4),sample_type:type,woreda,created_at:new Date().toISOString(),result:defect?DEMO_DEFECTIVE:DEMO_CLEAN,lot_weight_kg:weight,status:'demo',station_id:station.id,pricing:priceAssessment(type,(defect?DEMO_DEFECTIVE:DEMO_CLEAN).ecx_grade,weight),verification_id:id};addBatch(b);router.push('/batch/'+id)};return <ScrollView className="flex-1 bg-parchment p-5" contentContainerStyle={{paddingBottom:34}} showsVerticalScrollIndicator={false}><View className="flex-row items-center justify-between mb-5"><View><Text className="text-2xl font-black text-espresso">{t('scanTitle')}</Text><Text className="text-xs text-secondary mt-1">{t('scanSubtitle')}</Text></View><LanguageToggle /></View><View className="flex-row items-start rounded-xl p-3 mb-4" style={{backgroundColor:'#FFF7ED',borderWidth:1,borderColor:'#FED7AA'}}><Info size={16} color={theme.colors.harvest}/><Text className="text-xs ml-2 flex-1 leading-5" style={{color:'#7C2D12'}}>{t('fieldLighting')}</Text></View><Text className="text-sm font-extrabold text-espresso mb-2">{t('selectSampleType')}</Text><View className="flex-row gap-3 mb-5">{(['red_cherry','green_bean']as const).map(x=><Pressable accessibilityRole="button" accessibilityState={{selected:type===x}} onPress={()=>setType(x)} key={x} className={`flex-1 p-4 rounded-2xl border-2 ${type===x?'bg-cherry-soft border-cherry':'bg-white border-line'}`}><View className="flex-row items-center justify-between"><Coffee color={type===x?theme.colors.cherry:theme.colors.secondary} size={21}/>{type===x?<ShieldCheck color={theme.colors.cherry} size={17}/>:null}</View><Text className="text-sm text-espresso font-extrabold mt-3">{x==='red_cherry'?t('redCherries'):t('greenBeans')}</Text><Text className="text-[10px] text-secondary mt-1">{x==='red_cherry'?t('red'):t('green')}</Text></Pressable>)}</View><Text className="text-sm font-extrabold text-espresso mb-2">{t('coffeeOrigin')}</Text><View className="flex-row items-center mb-2"><MapPin size={14} color={theme.colors.secondary}/><Text className="text-xs font-semibold text-secondary ml-1">{t('jimmaZone')} · {t('woreda')}</Text></View><ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-5">{JIMMA_WOREDAS.map(w=><Pressable key={w} onPress={()=>setWoreda(w)} className={`px-4 py-2.5 mr-2 rounded-full border ${w===woreda?'bg-espresso border-espresso':'bg-white border-line'}`}><Text className={`text-xs font-bold ${w===woreda?'text-white':'text-espresso'}`}>{w}</Text></Pressable>)}</ScrollView><View className="mb-5"><View className="flex-row items-center mb-2"><Scale size={14} color={theme.colors.secondary}/><Text className="text-sm font-extrabold text-espresso ml-1.5">{t('lotWeight')}</Text></View><TextInput keyboardType="decimal-pad" value={lotWeight} onChangeText={setLotWeight} className="bg-white border border-line rounded-xl px-4 py-3.5 text-espresso font-bold" placeholder="170" placeholderTextColor={theme.colors.muted}/><Text className="text-[10px] text-secondary mt-1.5">{t('lotWeightHint')}</Text></View><Text className="text-sm font-extrabold text-espresso mb-2">{t('captureSample')}</Text>{perm?.granted?<View className="rounded-3xl overflow-hidden border-2 border-white" style={{height:320,backgroundColor:'#1C1917'}}><CameraView ref={setCam} facing="back" style={{flex:1}}/><View className="absolute bottom-3 left-3 right-3 rounded-xl px-3 py-2" style={{backgroundColor:'rgba(0,0,0,0.55)'}}><Text className="text-white text-[11px] font-semibold text-center">{t('cameraHint')}</Text></View></View>:<Pressable onPress={ask} className="h-56 rounded-3xl items-center justify-center" style={{backgroundColor:theme.colors.espresso}}><Camera color="white" size={36}/><Text className="text-white font-extrabold mt-3">{t('enableCamera')}</Text><Text className="text-white/70 text-xs mt-1">{t('cameraPermission')}</Text></Pressable>}<Pressable accessibilityRole="button" disabled={busy} onPress={capture} className="p-4 rounded-2xl mt-4 items-center flex-row justify-center" style={{backgroundColor:theme.colors.cherry,opacity:busy?0.7:1}}>{busy?<ActivityIndicator color="white"/>:<><ScanLine color="white" size={19}/><Text className="text-white font-black ml-2">{t('captureAndAssess')}</Text></>}</Pressable><Pressable accessibilityRole="button" onPress={gallery} className="bg-white p-4 rounded-2xl mt-2 border border-line items-center flex-row justify-center"><ImagePlus color={theme.colors.espresso} size={18}/><Text className="text-espresso font-bold ml-2">{t('chooseGallery')}</Text></Pressable><View className="flex-row items-center mt-7 mb-2"><Text className="text-sm font-extrabold text-espresso">{t('demoTitle')}</Text><View className="ml-2 px-2 py-1 rounded-full" style={{backgroundColor:'#FEF3C7'}}><Text className="text-[9px] font-extrabold" style={{color:'#92400E'}}>{t('demoOnly')}</Text></View></View><Text className="text-[11px] text-secondary mb-3">{t('demoHint')}</Text><View className="flex-row gap-2"><Pressable onPress={()=>demo(false)} className="flex-1 bg-emerald p-4 rounded-xl"><Text className="text-white font-bold">{t('cleanDemo')}</Text></Pressable><Pressable onPress={()=>demo(true)} className="flex-1 bg-harvest p-4 rounded-xl"><Text className="text-white font-bold">{t('defectDemo')}</Text></Pressable></View><View className="flex-row items-start mt-5"><ShieldCheck size={13} color={theme.colors.secondary}/><Text className="text-[10px] text-secondary ml-2 flex-1 leading-4">{t('disclaimer')} AI-assisted visual assessment — not an official ECX laboratory certificate.</Text></View></ScrollView>}
+import React, { useRef, useState } from 'react';
+import { ScrollView, View, Text, Pressable, ActivityIndicator, Alert, TextInput, Image } from 'react-native';
+import { router } from 'expo-router';
+import { Camera, ImagePlus, ScanLine, Coffee, MapPin, Scale, Info, ShieldCheck, Zap, RotateCcw } from 'lucide-react-native';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
+import * as Haptics from 'expo-haptics';
+import * as Location from 'expo-location';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useStation } from '@/contexts/StationContext';
+import { JIMMA_WOREDAS } from '@/constants/jimmaData';
+import { getDemoAssessment } from '@/constants/demoSamples';
+import type { CoffeeBatch, SampleType } from '@/types';
+import { submitCoffeeSample } from '@/services/geminiVision';
+import { enqueueCapture, isOnline, persistLocalImage } from '@/services/offlineQueue';
+import { priceAssessment, KG_PER_FERESULA } from '@/services/pricing';
+import { BunaLensTheme as theme } from '@/constants/theme';
+import LanguageToggle from '@/components/LanguageToggle';
+
+type Preview = { base64: string; uri: string; mimeType: string };
+
+export default function Scan() {
+  const { t } = useLanguage();
+  const { station, addBatch, consumeCredit } = useStation();
+  const [perm, ask] = useCameraPermissions();
+  const [type, setType] = useState<SampleType>('green_bean');
+  const [woreda, setWoreda] = useState(station.woreda);
+  const [busy, setBusy] = useState(false);
+  const [feresula, setFeresula] = useState('10');
+  const [cam, setCam] = useState<CameraView | null>(null);
+  const [flash, setFlash] = useState(false);
+  const [preview, setPreview] = useState<Preview | null>(null);
+
+  const weightInKg = Number(feresula) * KG_PER_FERESULA;
+  const validWeight = Number.isFinite(Number(feresula)) && Number(feresula) > 0 && Number(feresula) <= 100000 / KG_PER_FERESULA;
+
+  const capture = async () => {
+    if (!perm?.granted) {
+      const permission = await ask();
+      if (!permission.granted) Alert.alert(t('enableCamera'), t('cameraPermission'));
+      return;
+    }
+    try {
+      const photo = await cam?.takePictureAsync({ base64: true, quality: 0.72, skipProcessing: false });
+      if (photo?.base64 && photo.uri) setPreview({ base64: photo.base64, uri: photo.uri, mimeType: 'image/jpeg' });
+      else Alert.alert(t('gradingFailed'), t('cameraHint'));
+    } catch (error) {
+      Alert.alert(t('gradingFailed'), error instanceof Error ? error.message : t('gradingFailed'));
+    }
+  };
+
+  const gallery = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], base64: true, quality: 0.72 });
+    if (!result.canceled && result.assets[0]?.base64 && result.assets[0]?.uri) {
+      setPreview({ base64: result.assets[0].base64, uri: result.assets[0].uri, mimeType: result.assets[0].mimeType || 'image/jpeg' });
+    }
+  };
+
+  const submitPreview = async () => {
+    if (!preview) return;
+    if (!validWeight) {
+      Alert.alert(t('invalidWeight'), t('invalidWeightHint'));
+      return;
+    }
+    const captureId = 'bunalens-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    const batchCode = 'BNL-JMA-' + Math.random().toString(36).slice(2, 6).toUpperCase();
+    setBusy(true);
+    try {
+      const queuedImage = await persistLocalImage(preview.uri, captureId, preview.mimeType).catch(() => preview.uri);
+      if (!(await isOnline())) {
+        await enqueueCapture({
+          id: captureId, batch_code: batchCode, image_uri: queuedImage, sample_type: type, woreda,
+          lot_weight_kg: weightInKg, created_at: new Date().toISOString(),
+          station_id: station.id, mime_type: preview.mimeType,
+        });
+        setPreview(null);
+        Alert.alert(t('savedForLater'), t('offlineQueue'));
+        return;
+      }
+      if (station.id === 'station-demo') {
+        Alert.alert(t('registerStation'), t('registerStationHint'));
+        return;
+      }
+      const hasPro = Boolean(station.pro_expires_at && new Date(station.pro_expires_at).getTime() > Date.now());
+      if (!hasPro && station.credits < 1) {
+        Alert.alert(t('credits'), t('noCreditsHint'));
+        return;
+      }
+      let coordinates: { latitude: number; longitude: number } | undefined;
+      try {
+        const permission = await Location.requestForegroundPermissionsAsync();
+        if (permission.granted) {
+          const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          coordinates = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+        }
+      } catch { /* GPS is optional; the operator can still assess the sample. */ }
+      const batch = await submitCoffeeSample(preview.base64, type, woreda, station.id, captureId, weightInKg, preview.mimeType, coordinates, batchCode);
+      if (!hasPro) consumeCredit();
+      const savedImage = await persistLocalImage(preview.uri, captureId, preview.mimeType).catch(() => preview.uri);
+      const finalBatch: CoffeeBatch = { ...batch, image_uri: savedImage, origin_coordinates: coordinates, status: 'synced' };
+      addBatch(finalBatch);
+      setPreview(null);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.push('/batch/' + finalBatch.id);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('gradingFailed');
+      const retryable = error instanceof TypeError || message.toLowerCase().includes('temporarily') || message.toLowerCase().includes('timed out') || message.toLowerCase().includes('could not reach');
+      if (retryable) {
+        try {
+          await enqueueCapture({
+            id: captureId, batch_code: batchCode, image_uri: preview.uri, sample_type: type, woreda,
+            lot_weight_kg: weightInKg, created_at: new Date().toISOString(),
+            station_id: station.id, mime_type: preview.mimeType,
+          });
+          setPreview(null);
+          Alert.alert(t('savedForRetry'), t('retryHint'));
+        } catch { Alert.alert(t('gradingFailed'), message); }
+      } else Alert.alert(t('gradingFailed'), message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const demo = (defective: boolean) => {
+    if (!validWeight) {
+      Alert.alert(t('invalidWeight'), t('invalidWeightHint'));
+      return;
+    }
+    const id = 'demo-' + Date.now();
+    const result = getDemoAssessment(defective, type);
+    const batch: CoffeeBatch = {
+      id, batch_code: 'BNL-JMA-' + String(Date.now()).slice(-4),
+      sample_type: type, woreda, created_at: new Date().toISOString(),
+      result, lot_weight_kg: weightInKg, status: 'demo', station_id: station.id,
+      pricing: priceAssessment(type, result.ecx_grade, weightInKg), verification_id: id,
+    };
+    addBatch(batch);
+    router.push('/batch/' + id);
+  };
+
+  return (
+    <ScrollView className="flex-1 bg-parchment p-5" contentContainerStyle={{ paddingBottom: 34 }} showsVerticalScrollIndicator={false}>
+      <View className="flex-row items-center justify-between mb-5">
+        <View><Text className="text-2xl font-black text-espresso">{t('scanTitle')}</Text><Text className="text-xs text-secondary mt-1">{t('scanSubtitle')}</Text></View>
+        <LanguageToggle />
+      </View>
+
+      <View className="flex-row items-start rounded-xl p-3 mb-4" style={{ backgroundColor: '#FFF7ED', borderWidth: 1, borderColor: '#FED7AA' }}>
+        <Info size={16} color={theme.colors.harvest} />
+        <Text className="text-xs ml-2 flex-1 leading-5" style={{ color: '#7C2D12' }}>{t('fieldLighting')}</Text>
+      </View>
+
+      <Text className="text-sm font-extrabold text-espresso mb-2">{t('selectSampleType')}</Text>
+      <View className="flex-row gap-3 mb-5">
+        {(['red_cherry', 'green_bean'] as const).map((sample) => (
+          <Pressable key={sample} accessibilityRole="button" accessibilityState={{ selected: type === sample }} onPress={() => setType(sample)}
+            className={`flex-1 p-4 rounded-2xl border-2 ${type === sample ? 'bg-cherry-soft border-cherry' : 'bg-white border-line'}`}>
+            <View className="flex-row items-center justify-between"><Coffee color={type === sample ? theme.colors.cherry : theme.colors.secondary} size={21} />{type === sample ? <ShieldCheck color={theme.colors.cherry} size={17} /> : null}</View>
+            <Text className="text-sm text-espresso font-extrabold mt-3">{sample === 'red_cherry' ? t('redCherries') : t('greenBeans')}</Text>
+            <Text className="text-[10px] text-secondary mt-1">{sample === 'red_cherry' ? t('red') : t('green')}</Text>
+          </Pressable>
+        ))}
+      </View>
+
+      <Text className="text-sm font-extrabold text-espresso mb-2">{t('coffeeOrigin')}</Text>
+      <View className="flex-row items-center mb-2"><MapPin size={14} color={theme.colors.secondary} /><Text className="text-xs font-semibold text-secondary ml-1">{t('jimmaZone')} · {t('woreda')}</Text></View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-5">
+        {JIMMA_WOREDAS.map((item) => <Pressable key={item} onPress={() => setWoreda(item)} className={`px-4 py-2.5 mr-2 rounded-full border ${item === woreda ? 'bg-espresso border-espresso' : 'bg-white border-line'}`}><Text className={`text-xs font-bold ${item === woreda ? 'text-white' : 'text-espresso'}`}>{item}</Text></Pressable>)}
+      </ScrollView>
+
+      <View className="mb-5">
+        <View className="flex-row items-center mb-2"><Scale size={14} color={theme.colors.secondary} /><Text className="text-sm font-extrabold text-espresso ml-1.5">{t('lotWeight')} (Feresula)</Text></View>
+        <TextInput keyboardType="decimal-pad" value={feresula} onChangeText={setFeresula} className="bg-white border border-line rounded-xl px-4 py-3.5 text-espresso font-bold" placeholder="10" placeholderTextColor={theme.colors.muted} />
+        <Text className="text-[10px] text-secondary mt-1.5">{t('feresulaConversion')}: {validWeight ? weightInKg.toLocaleString() : '—'} kg · 1 Feresula = 17 kg</Text>
+      </View>
+
+      <Text className="text-sm font-extrabold text-espresso mb-2">{t('captureSample')}</Text>
+      {preview ? (
+        <View className="rounded-3xl overflow-hidden bg-white border-2 border-emerald p-3">
+          <Image source={{ uri: preview.uri }} resizeMode="contain" style={{ width: '100%', height: 260, borderRadius: 14, backgroundColor: '#292524' }} />
+          <Text className="text-emerald font-bold text-xs text-center mt-3">{t('photoReady')}</Text>
+          <View className="flex-row gap-2 mt-3">
+            <Pressable onPress={() => setPreview(null)} disabled={busy} className="flex-1 bg-stone-100 p-3 rounded-xl flex-row items-center justify-center"><RotateCcw size={16} color={theme.colors.espresso} /><Text className="text-espresso font-bold ml-2">{t('retake')}</Text></Pressable>
+            <Pressable onPress={submitPreview} disabled={busy} className="flex-1 p-3 rounded-xl flex-row items-center justify-center" style={{ backgroundColor: theme.colors.cherry, opacity: busy ? 0.65 : 1 }}>{busy ? <ActivityIndicator color="white" /> : <><ScanLine size={16} color="white" /><Text className="text-white font-bold ml-2">{t('submitForAssessment')}</Text></>}</Pressable>
+          </View>
+        </View>
+      ) : perm?.granted ? (
+        <>
+          <View className="rounded-3xl overflow-hidden border-2 border-white" style={{ height: 320, backgroundColor: '#1C1917' }}>
+            <CameraView ref={setCam} facing="back" flash={flash ? 'on' : 'off'} style={{ flex: 1 }} />
+            <View pointerEvents="none" className="absolute inset-5 border-2 border-white/70 rounded-2xl" />
+            <View pointerEvents="none" className="absolute left-1/2 top-5 bottom-5" style={{ width: 1, backgroundColor: 'rgba(255,255,255,0.35)' }} />
+            <View className="absolute top-3 right-3"><Pressable onPress={() => setFlash((v) => !v)} className="rounded-full p-3" style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}><Zap size={18} color={flash ? '#FBBF24' : 'white'} /></Pressable></View>
+            <View className="absolute bottom-3 left-3 right-3 rounded-xl px-3 py-2" style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}><Text className="text-white text-[11px] font-semibold text-center">{t('cameraHint')}</Text></View>
+          </View>
+          <Pressable accessibilityRole="button" disabled={busy} onPress={capture} className="p-4 rounded-2xl mt-4 items-center flex-row justify-center" style={{ backgroundColor: theme.colors.cherry }}><Camera color="white" size={19} /><Text className="text-white font-black ml-2">{t('takePhoto')}</Text></Pressable>
+        </>
+      ) : (
+        <Pressable onPress={ask} className="h-56 rounded-3xl items-center justify-center" style={{ backgroundColor: theme.colors.espresso }}><Camera color="white" size={36} /><Text className="text-white font-extrabold mt-3">{t('enableCamera')}</Text><Text className="text-white/70 text-xs mt-1">{t('cameraPermission')}</Text></Pressable>
+      )}
+      {!preview ? <Pressable accessibilityRole="button" onPress={gallery} className="bg-white p-4 rounded-2xl mt-2 border border-line items-center flex-row justify-center"><ImagePlus color={theme.colors.espresso} size={18} /><Text className="text-espresso font-bold ml-2">{t('chooseGallery')}</Text></Pressable> : null}
+
+      <View className="flex-row items-center mt-7 mb-2"><Text className="text-sm font-extrabold text-espresso">{t('demoTitle')}</Text><View className="ml-2 px-2 py-1 rounded-full" style={{ backgroundColor: '#FEF3C7' }}><Text className="text-[9px] font-extrabold" style={{ color: '#92400E' }}>{t('demoOnly')}</Text></View></View>
+      <Text className="text-[11px] text-secondary mb-3">{t('demoHint')}</Text>
+      <View className="flex-row gap-2"><Pressable onPress={() => demo(false)} className="flex-1 bg-emerald p-4 rounded-xl"><Text className="text-white font-bold">{t('cleanDemo')}</Text></Pressable><Pressable onPress={() => demo(true)} className="flex-1 bg-harvest p-4 rounded-xl"><Text className="text-white font-bold">{t('defectDemo')}</Text></Pressable></View>
+      <View className="flex-row items-start mt-5"><ShieldCheck size={13} color={theme.colors.secondary} /><Text className="text-[10px] text-secondary ml-2 flex-1 leading-4">{t('disclaimer')} AI-assisted visual assessment — not an official ECX laboratory certificate.</Text></View>
+    </ScrollView>
+  );
+}

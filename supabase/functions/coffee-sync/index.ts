@@ -14,10 +14,11 @@ Deno.serve(async(req)=>{
   if(userError||!userData.user)return reply({error:"Session is invalid or expired"},401);
   const body=await req.json();
   const stationId=body.station_id,idempotencyKey=body.idempotency_key,sampleType=body.sample_type,woreda=body.woreda;
-  const weight=Number(body.lot_weight_kg),mime=body.image_mime_type;
+  const weight=Number(body.lot_weight_kg),mime=body.image_mime_type,batchCode=body.batch_code;
   const base64=typeof body.image_base64==="string"?body.image_base64.replace(/\s/g,""):"";
   if(typeof stationId!=="string"||!/^([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i.test(stationId))return reply({error:"Invalid station"},400);
   if(typeof idempotencyKey!=="string"||!/^[a-zA-Z0-9_-]{8,128}$/.test(idempotencyKey))return reply({error:"Invalid idempotency key"},400);
+  if(batchCode!==undefined&&(typeof batchCode!=="string"||!/^BNL-JMA-[A-Z0-9]{4}$/.test(batchCode)))return reply({error:"Invalid batch code"},400);
   if(!["red_cherry","green_bean"].includes(sampleType))return reply({error:"Invalid sample type"},400);
   if(!["Gomma","Limmu Kossa","Mana","Seka Chekorsa","Gera","Kersa","Jimma Town"].includes(woreda))return reply({error:"Invalid woreda"},400);
   if(!Number.isFinite(weight)||weight<=0||weight>100000)return reply({error:"Invalid lot weight"},400);
@@ -45,9 +46,9 @@ Deno.serve(async(req)=>{
   const {data:benchmark}=await db.from("market_benchmarks").select("id,min_etb_per_feresula,max_etb_per_feresula,source_label,effective_date,is_demo").eq("sample_type",sampleType).eq("ecx_style_grade",result.ecx_grade).eq("active",true).order("effective_date",{ascending:false}).limit(1).maybeSingle();
   let pricing:any=undefined;
   if(benchmark){const mid=(Number(benchmark.min_etb_per_feresula)+Number(benchmark.max_etb_per_feresula))/2;pricing={benchmark_id:benchmark.id,source_label:benchmark.source_label,effective_date:benchmark.effective_date,is_demo:benchmark.is_demo,min_etb_per_feresula:Number(benchmark.min_etb_per_feresula),max_etb_per_feresula:Number(benchmark.max_etb_per_feresula),estimated_price_per_feresula_etb:Math.round(mid),estimated_price_per_kg_etb:Number((mid/17).toFixed(2)),estimated_lot_value_etb:Math.round(mid*weight/17),min_lot_value_etb:Math.round(Number(benchmark.min_etb_per_feresula)*weight/17),max_lot_value_etb:Math.round(Number(benchmark.max_etb_per_feresula)*weight/17),potential_sorting_gain_etb:Math.round((Number(benchmark.max_etb_per_feresula)-mid)*weight/17)};}
-  const batchCode="BNL-JMA-"+Math.random().toString(36).slice(2,6).toUpperCase();
+  const finalBatchCode=typeof batchCode==="string"?batchCode:"BNL-JMA-"+Math.random().toString(36).slice(2,6).toUpperCase();
   const {data:created,error:createError}=await db.from("coffee_batches").insert({
-   id:idempotencyKey,station_id:stationId,batch_code:batchCode,sample_type:sampleType,woreda,
+   id:idempotencyKey,station_id:stationId,batch_code:finalBatchCode,sample_type:sampleType,woreda,
    lot_weight_kg:weight,image_path:imagePath,grading_result:result,idempotency_key:idempotencyKey,
    pricing_result:pricing||null,gps_latitude:hasGps?lat:null,gps_longitude:hasGps?lng:null,created_at:body.captured_at||new Date().toISOString()
   }).select("id,batch_code,sample_type,woreda,created_at,lot_weight_kg,station_id,verification_id,grading_result,pricing_result").single();

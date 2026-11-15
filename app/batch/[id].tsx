@@ -1,2 +1,158 @@
-import React,{useRef}from'react';import{ScrollView,Text,View,Pressable,Alert}from'react-native';import{useLocalSearchParams,router}from'expo-router';import{useStation}from'@/contexts/StationContext';import{useLanguage}from'@/contexts/LanguageContext';import{captureRef}from'react-native-view-shot';import*as Sharing from'expo-sharing';import*as Print from'expo-print';import CertificateCard from'@/components/CertificateCard';import LanguageToggle from'@/components/LanguageToggle';
-export default function Detail(){const{id}=useLocalSearchParams<{id:string}>();const{batches}=useStation();const{t}=useLanguage();const cert=useRef<View>(null);const b=batches.find((x:any)=>x.id===id);const sharePdf=async()=>{try{if(!b)return;const p=b.pricing;const html=`<html><body style="font-family:Arial;padding:32px;color:#2C1810"><h1>${t('certificateTitle')}</h1><h2>${b.batch_code}</h2><p>${b.woreda} · ${b.sample_type} · ${new Date(b.created_at).toLocaleString()}</p><h2>${b.result.ecx_grade} · ${b.result.quality_score}/100</h2><p>Lot: ${b.lot_weight_kg} kg</p><p>${t('value')}: ${p?.estimated_lot_value_etb?.toLocaleString()??'Not available'} ETB</p><p>Benchmark: ${p?.source_label??'Not available'} (${p?.effective_date??''})</p><p>Verification ID: ${b.verification_id||b.id}</p><hr/><p>${t('disclaimer')}</p></body></html>`;const file=await Print.printToFileAsync({html});if(await Sharing.isAvailableAsync())await Sharing.shareAsync(file.uri,{mimeType:'application/pdf',dialogTitle:t('shareCertificate')});else Alert.alert(t('pdfCreated'),file.uri)}catch(e){Alert.alert(t('pdfExportFailed'),e instanceof Error?e.message:t('pdfExportFailed'))}};const share=async()=>{try{if(!cert.current)return;const uri=await captureRef(cert,{format:'png',quality:1});if(await Sharing.isAvailableAsync())await Sharing.shareAsync(uri,{mimeType:'image/png',dialogTitle:t('shareCertificate')});else Alert.alert(t('exportFailed'),t('exportFailed'))}catch(e){Alert.alert(t('exportFailed'),e instanceof Error?e.message:t('exportFailed'))}};if(!b)return <View className="flex-1 bg-parchment p-5"><Text onPress={()=>router.back()}>{t('back')}</Text><Text>{t('batchNotFound')}</Text></View>;const val=b.pricing?.estimated_lot_value_etb??(b.result.estimated_price_per_feresula_etb??0)*b.lot_weight_kg/17;return <ScrollView className="flex-1 bg-parchment p-5"><View className="flex-row items-center justify-between"><Pressable onPress={()=>router.back()}><Text className="text-cherry font-bold">‹ {t('back')}</Text></Pressable><LanguageToggle /></View><Text className="text-espresso text-2xl font-black mt-4">{b.batch_code}</Text><Text className="text-stone-500">{b.woreda} · {new Date(b.created_at).toLocaleString()}</Text><View className="bg-white border border-line p-5 rounded-2xl mt-5"><Text className="text-stone-500">{t('quality')}</Text><Text className="text-emerald text-4xl font-black">{b.result.ecx_grade}</Text><Text className="text-espresso text-2xl font-black">{b.result.quality_score}/100</Text></View><View className="bg-white border border-line p-4 rounded-xl mt-3"><Text className="text-espresso font-bold">{t('visualDefects')}</Text>{Object.entries(b.result.breakdown).map(([k,v])=><View key={k} className="mt-3"><View className="flex-row justify-between"><Text className="text-stone-500 text-xs">{k.replaceAll('_',' ')}</Text><Text className="text-espresso font-bold">{v as number}%</Text></View><View className="h-2 bg-stone-100 rounded-full mt-1"><View className="h-2 bg-cherry rounded-full" style={{width:((v as number)+'%') as `${number}%`}}/></View></View>)}</View><View className="bg-white border border-line p-4 rounded-xl mt-3"><Text className="text-stone-500">{t('value')}</Text><Text className="text-espresso text-2xl font-black">{Math.round(val).toLocaleString()} ETB</Text><Text className="text-stone-500 text-xs mt-2">{t('indicative')} · {b.lot_weight_kg} kg · 17 kg {t('feresulaBasis')}</Text>{b.pricing?<><Text className="text-stone-500 text-xs mt-1">Per kg: {b.pricing.estimated_price_per_kg_etb.toLocaleString()} ETB</Text><Text className="text-stone-500 text-xs mt-1">{t('benchmarkRange')}: {b.pricing.min_etb_per_feresula.toLocaleString()}–{b.pricing.max_etb_per_feresula.toLocaleString()} ETB / Feresula</Text><Text className="text-stone-400 text-[10px] mt-1">{t('source')}: {b.pricing.source_label} · {b.pricing.effective_date}{b.pricing.is_demo ? ' · ' + t('demonstrationData') : ''}</Text></>:null}<Text className="text-emerald font-bold mt-2">{t('sortingUpside')}: {(b.pricing?.potential_sorting_gain_etb??b.result.potential_gain_if_sorted_etb??0).toLocaleString()} ETB</Text><Text className="text-stone-400 text-[10px] mt-1">{t('sortingDisclaimer')}</Text></View><Text className="text-stone-400 text-xs mt-4">{t('disclaimer')}</Text><View className="items-center mt-6"><Text className="text-espresso font-black text-lg mb-3">{t('certificate')}</Text><View ref={cert} collapsable={false}><CertificateCard batch={b}/></View></View><Pressable onPress={share} className="bg-cherry p-4 rounded-xl mt-5"><Text className="text-white font-bold text-center">{t('exportImage')}</Text></Pressable><Pressable onPress={sharePdf} className="bg-espresso p-4 rounded-xl mt-2"><Text className="text-white font-bold text-center">{t('exportPdf')}</Text></Pressable></ScrollView>}
+import React, { useEffect, useRef } from 'react';
+import { ScrollView, Text, View, Pressable, Alert, Image, Animated, Easing } from 'react-native';
+import { useLocalSearchParams, router } from 'expo-router';
+import { useStation } from '@/contexts/StationContext';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { captureRef } from 'react-native-view-shot';
+import * as Sharing from 'expo-sharing';
+import * as Print from 'expo-print';
+import * as FileSystem from 'expo-file-system/legacy';
+import CertificateCard from '@/components/CertificateCard';
+import LanguageToggle from '@/components/LanguageToggle';
+import type { CoffeeBatch } from '@/types';
+
+const DEFECTS = [
+  { key: 'sound_or_ripe_pct', label: 'Sound / ripe', color: '#065F46' },
+  { key: 'unripe_green_pct', label: 'Unripe / immature', color: '#D97706' },
+  { key: 'black_overfermented_pct', label: 'Black / over-fermented', color: '#44403C' },
+  { key: 'insect_broken_pct', label: 'Insect-damaged / broken', color: '#B91C1C' },
+  { key: 'foreign_matter_pct', label: 'Foreign matter', color: '#78716C' },
+] as const;
+
+function DefectBar({ label, value, color, description }: { label: string; value: number; color: string; description: string }) {
+  const progress = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(progress, { toValue: Math.max(0, Math.min(100, value)), duration: 650, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+  }, [progress, value]);
+  return (
+    <View className="mt-4">
+      <View className="flex-row justify-between items-center">
+        <Text className="text-xs font-bold text-espresso flex-1">{label}</Text>
+        <Text className="text-xs font-black text-espresso ml-3">{value.toFixed(1)}%</Text>
+      </View>
+      <View className="h-2.5 bg-stone-100 rounded-full mt-2 overflow-hidden">
+        <Animated.View style={{ height: 10, borderRadius: 20, backgroundColor: color, width: progress.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }) }} />
+      </View>
+      <Text className="text-[10px] text-stone-500 mt-1.5 leading-4">{description}</Text>
+    </View>
+  );
+}
+
+export default function Detail() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { batches } = useStation();
+  const { t } = useLanguage();
+  const cert = useRef<View>(null);
+  const batch = batches.find((item) => item.id === id);
+  const sharePdf = async () => {
+    try {
+      if (!batch) return;
+      const pricing = batch.pricing;
+      const html = `<html><body style="font-family:Arial;padding:32px;color:#2C1810"><h1>BUNALENS DIGITAL COFFEE QUALITY CERTIFICATE</h1><h2>${batch.batch_code}</h2><p>Jimma Zone, Oromia · ${batch.woreda} · ${batch.sample_type === 'red_cherry' ? 'Red Cherry' : 'Green Bean'} · ${new Date(batch.created_at).toLocaleString()}</p><h2>${batch.result.ecx_grade} · ${batch.result.quality_score}/100</h2><p>Confidence: ${batch.result.confidence_score ?? Math.round((batch.result.confidence ?? 0) * 100)}%</p><p>Lot: ${batch.lot_weight_kg} kg (${(batch.lot_weight_kg / 17).toFixed(2)} Feresula)</p><p>Estimated price: ${pricing?.estimated_price_per_feresula_etb?.toLocaleString() ?? 'Not available'} ETB / Feresula</p><p>Estimated lot value: ${pricing?.estimated_lot_value_etb?.toLocaleString() ?? 'Not available'} ETB</p><p>Verification ID: ${batch.verification_id || batch.id}</p><hr/><p>${batch.result.sorting_action_advice || batch.result.assessment_note || ''}</p><p>Limitations: ${(batch.result.assessment_limitations || []).join('; ')}</p><hr/><p>This certificate represents an AI-assisted visual assessment and is not an official Ethiopian Commodity Exchange certificate or laboratory quality report.</p></body></html>`;
+      const file = await Print.printToFileAsync({ html });
+      if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(file.uri, { mimeType: 'application/pdf', dialogTitle: t('shareCertificate') });
+      else Alert.alert(t('pdfCreated'), file.uri);
+    } catch (error) { Alert.alert(t('pdfExportFailed'), error instanceof Error ? error.message : t('pdfExportFailed')); }
+  };
+  const shareImage = async () => {
+    try {
+      if (!cert.current) return;
+      const uri = await captureRef(cert, { format: 'png', quality: 1, result: 'tmpfile', width: 960 });
+      if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: t('shareCertificate') });
+      else Alert.alert(t('exportFailed'), t('sharingUnavailable'));
+    } catch (error) { Alert.alert(t('exportFailed'), error instanceof Error ? error.message : t('exportFailed')); }
+  };
+  const saveImage = async () => {
+    try {
+      if (!cert.current || !FileSystem.documentDirectory) throw new Error('App storage is unavailable.');
+      const uri = await captureRef(cert, { format: 'png', quality: 1, result: 'tmpfile', width: 960 });
+      const directory = FileSystem.documentDirectory + 'bunalens-certificates/';
+      await FileSystem.makeDirectoryAsync(directory, { intermediates: true });
+      const destination = directory + (batch?.batch_code || 'certificate') + '.png';
+      await FileSystem.copyAsync({ from: uri, to: destination });
+      Alert.alert(t('certificateSaved'), t('certificateSavedHint'));
+    } catch (error) { Alert.alert(t('exportFailed'), error instanceof Error ? error.message : t('exportFailed')); }
+  };
+
+  if (!batch) return <View className="flex-1 bg-parchment p-5"><Text onPress={() => router.back()}>{t('back')}</Text><Text>{t('batchNotFound')}</Text></View>;
+
+  const result = batch.result;
+  const pricing = batch.pricing;
+  const lotFeresula = batch.lot_weight_kg / 17;
+  const totalValue = pricing?.estimated_lot_value_etb ?? null;
+  const sortingGain = pricing?.potential_sorting_gain_etb ?? null;
+  const confidence = result.confidence_score ?? Math.round((result.confidence ?? 0) * 100);
+  const cherry = batch.sample_type === 'red_cherry';
+  const explanations = cherry ? [
+    t('cherrySoundDesc'), t('cherryUnripeDesc'), t('cherryBlackDesc'), t('cherryDamageDesc'), t('cherryForeignDesc'),
+  ] : [
+    t('beanSoundDesc'), t('beanUnripeDesc'), t('beanBlackDesc'), t('beanDamageDesc'), t('beanForeignDesc'),
+  ];
+  const gradeColor = result.ecx_grade === 'Unclassified' ? '#78716C' : result.ecx_grade === 'Grade 1' ? '#065F46' : result.ecx_grade === 'Grade 2' ? '#047857' : '#D97706';
+
+  return (
+    <ScrollView className="flex-1 bg-parchment p-5" contentContainerStyle={{ paddingBottom: 36 }}>
+      <View className="flex-row items-center justify-between">
+        <Pressable onPress={() => router.back()}><Text className="text-cherry font-bold">‹ {t('back')}</Text></Pressable>
+        <LanguageToggle />
+      </View>
+      <Text className="text-espresso text-2xl font-black mt-4">{batch.batch_code}</Text>
+      <Text className="text-stone-500 text-xs mt-1">Jimma Zone, Oromia · {batch.woreda} · {new Date(batch.created_at).toLocaleString()}</Text>
+      {batch.image_uri ? <Image source={{ uri: batch.image_uri }} resizeMode="cover" style={{ width: '100%', height: 180, borderRadius: 18, marginTop: 16 }} /> : null}
+
+      <View className="bg-white border border-line p-5 rounded-2xl mt-4">
+        <View className="flex-row justify-between items-start">
+          <View className="flex-1">
+            <Text className="text-stone-500 text-xs">{t('quality')} · {cherry ? t('red') : t('green')}</Text>
+            <Text className="text-3xl font-black mt-1" style={{ color: gradeColor }}>{result.ecx_grade}</Text>
+            <Text className="text-espresso text-4xl font-black mt-2">{result.quality_score}<Text className="text-base text-stone-500">/100</Text></Text>
+          </View>
+          <View className="rounded-xl px-3 py-2" style={{ backgroundColor: '#F5F5F4' }}>
+            <Text className="text-[9px] font-bold text-stone-500">{t('confidence')}</Text>
+            <Text className="text-xl font-black text-espresso">{confidence}%</Text>
+          </View>
+        </View>
+        <View className="mt-4 pt-4 border-t border-stone-100">
+          <Text className="text-[10px] font-bold text-stone-500">{t('exportReadiness')}</Text>
+          <Text className="text-sm font-extrabold text-espresso mt-1">{result.export_readiness}</Text>
+          <Text className="text-[10px] text-stone-500 mt-2">{t('assessmentTime')}: {new Date(batch.created_at).toLocaleString()}</Text>
+          {batch.status === 'demo' ? <Text className="text-[10px] font-black text-amber-700 mt-2">{t('demonstrationData')}</Text> : null}
+        </View>
+      </View>
+
+      <View className="bg-white border border-line p-4 rounded-xl mt-3">
+        <Text className="text-espresso font-black">{t('financialImpact')}</Text>
+        <Text className="text-stone-500 text-[10px] mt-1">{t('indicative')} · {lotFeresula.toFixed(2)} Feresula × 17 kg</Text>
+        <View className="flex-row flex-wrap mt-3">
+          <View className="w-1/2 py-2 pr-2"><Text className="text-[10px] text-stone-500">{t('pricePerFeresula')}</Text><Text className="text-lg font-black text-espresso">{pricing ? pricing.estimated_price_per_feresula_etb.toLocaleString() + ' ETB' : '—'}</Text></View>
+          <View className="w-1/2 py-2 pl-2"><Text className="text-[10px] text-stone-500">{t('pricePerKg')}</Text><Text className="text-lg font-black text-espresso">{pricing ? pricing.estimated_price_per_kg_etb.toLocaleString() + ' ETB' : '—'}</Text></View>
+          <View className="w-1/2 py-2 pr-2"><Text className="text-[10px] text-stone-500">{t('totalLotValue')}</Text><Text className="text-lg font-black text-emerald">{totalValue !== null ? totalValue.toLocaleString() + ' ETB' : '—'}</Text></View>
+          <View className="w-1/2 py-2 pl-2"><Text className="text-[10px] text-stone-500">{t('potentialSortingGain')}</Text><Text className="text-lg font-black text-espresso">{sortingGain !== null ? sortingGain.toLocaleString() + ' ETB' : '—'}</Text></View>
+        </View>
+        {pricing ? <Text className="text-[10px] text-stone-400 mt-2">{t('source')}: {pricing.source_label} · {pricing.effective_date}{pricing.is_demo ? ' · ' + t('demonstrationData') : ''}</Text> : <Text className="text-[10px] text-stone-500 mt-2">{t('noPriceBenchmark')}</Text>}
+        <Text className="text-[10px] text-stone-400 mt-2">{t('sortingDisclaimer')}</Text>
+      </View>
+
+      <View className="bg-white border border-line p-4 rounded-xl mt-3">
+        <Text className="text-espresso font-black">{t('visualDefects')}</Text>
+        <Text className="text-[10px] text-stone-500 mt-1">{cherry ? t('cherryBreakdownNote') : t('beanBreakdownNote')}</Text>
+        {DEFECTS.map((defect, index) => <DefectBar key={defect.key} label={t(defect.key as never) || defect.label} value={result.breakdown[defect.key]} color={defect.color} description={explanations[index] ?? defect.label} />)}
+      </View>
+
+      <View className="bg-white border border-line p-4 rounded-xl mt-3">
+        <Text className="text-espresso font-black">{t('sortingRecommendations')}</Text>
+        <Text className="text-sm text-stone-700 leading-6 mt-2">{result.sorting_action_advice || result.assessment_note || t('noSortingAdvice')}</Text>
+        {result.assessment_limitations?.length ? <><Text className="text-xs font-extrabold text-stone-600 mt-4">{t('assessmentLimitations')}</Text>{result.assessment_limitations.map((item, index) => <Text key={index} className="text-[11px] text-stone-500 leading-5 mt-1">• {item}</Text>)}</> : null}
+      </View>
+      <Text className="text-stone-400 text-[10px] mt-4 leading-4">{t('disclaimer')} This is a visual estimate only. It cannot establish moisture, cup quality, screen size, density or laboratory results.</Text>
+
+      <View className="items-center mt-6">
+        <Text className="text-espresso font-black text-lg mb-3">{t('certificate')}</Text>
+        <View ref={cert} collapsable={false}><CertificateCard batch={batch} /></View>
+      </View>
+      <Pressable onPress={shareImage} className="bg-cherry p-4 rounded-xl mt-5"><Text className="text-white font-bold text-center">{t('exportImage')}</Text></Pressable>
+      <Pressable onPress={saveImage} className="bg-emerald p-4 rounded-xl mt-2"><Text className="text-white font-bold text-center">{t('saveCertificate')}</Text></Pressable>
+      <Pressable onPress={sharePdf} className="bg-espresso p-4 rounded-xl mt-2"><Text className="text-white font-bold text-center">{t('exportPdf')}</Text></Pressable>
+    </ScrollView>
+  );
+}

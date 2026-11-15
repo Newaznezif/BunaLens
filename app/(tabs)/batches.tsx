@@ -9,7 +9,7 @@ import { BunaLensTheme as theme } from '@/constants/theme';
 import LanguageToggle from '@/components/LanguageToggle';
 
 export default function Batches() {
-  const { batches, addBatch } = useStation();
+  const { batches } = useStation();
   const { t } = useLanguage();
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<'all' | 'ai' | 'demo'>('all');
@@ -37,7 +37,7 @@ export default function Batches() {
           <Coffee size={22} color="#FFFFFF" />
         </View>
       </View>
-      <OfflineBanner onSynced={(synced) => synced.forEach(addBatch)} />
+      <OfflineBanner />
       <View className="flex-row items-center rounded-2xl border px-4 mt-4 mb-4" style={{ backgroundColor: theme.colors.surface, borderColor: theme.colors.line }}>
         <Search size={18} color={theme.colors.secondary} />
         <TextInput value={q} onChangeText={setQ} placeholder={t("searchBatchId")} placeholderTextColor={theme.colors.muted} className="flex-1 py-3.5 px-3 text-sm" style={{ color: theme.colors.espresso }} />

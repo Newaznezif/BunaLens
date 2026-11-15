@@ -52,6 +52,8 @@ function validateAssessment(raw: unknown) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "Method not allowed." }, 405);
+  const contentLength = Number(req.headers.get("content-length") || 0);
+  if (contentLength > 15 * 1024 * 1024) return json({ error: "Request exceeds the 10 MB image upload limit." }, 413);
   const internalKey = Deno.env.get("BUNALENS_INTERNAL_FUNCTION_KEY");
   if (!internalKey || req.headers.get("x-bunalens-internal-key") !== internalKey) return json({ error: "This grading endpoint is internal to the sync service." }, 403);
   const authHeader = req.headers.get("Authorization") || "";
@@ -69,7 +71,10 @@ Deno.serve(async (req) => {
   try {
     const { data: userData, error: userError } = await userClient.auth.getUser(token);
     if (userError || !userData.user) return json({ error: "Session is invalid or expired." }, 401);
-    const body = await req.json();
+    let body: Record<string, unknown>;
+    try { body = await req.json(); }
+    catch { return json({ error: "Request body must be valid JSON." }, 400); }
+    if (!body || typeof body !== "object" || Array.isArray(body)) return json({ error: "Invalid request body." }, 400);
     const imageBase64 = typeof body.imageBase64 === "string" ? body.imageBase64.replace(/^data:image\/[a-z0-9.+-]+;base64,/i, "").replace(/\s/g, "") : "";
     const mimeType = body.mimeType, sampleType = body.sampleType, woreda = body.woreda;
     const stationId = body.stationId, idempotencyKey = body.idempotencyKey;

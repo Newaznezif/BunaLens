@@ -17,7 +17,7 @@ Deno.serve(async(req)=>{
   const weight=Number(body.lot_weight_kg),mime=body.image_mime_type;
   const base64=typeof body.image_base64==="string"?body.image_base64.replace(/\s/g,""):"";
   if(typeof stationId!=="string"||!/^([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i.test(stationId))return reply({error:"Invalid station"},400);
-  if(typeof idempotencyKey!=="string"||idempotencyKey.length<8||idempotencyKey.length>128)return reply({error:"Invalid idempotency key"},400);
+  if(typeof idempotencyKey!=="string"||!/^[a-zA-Z0-9_-]{8,128}$/.test(idempotencyKey))return reply({error:"Invalid idempotency key"},400);
   if(!["red_cherry","green_bean"].includes(sampleType))return reply({error:"Invalid sample type"},400);
   if(!["Gomma","Limmu Kossa","Mana","Seka Chekorsa","Gera","Kersa","Jimma Town"].includes(woreda))return reply({error:"Invalid woreda"},400);
   if(!Number.isFinite(weight)||weight<=0||weight>100000)return reply({error:"Invalid lot weight"},400);

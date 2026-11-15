@@ -65,7 +65,7 @@ export default function Detail() {
   const saveImage = async () => {
     try {
       if (!cert.current || !FileSystem.documentDirectory) throw new Error('App storage is unavailable.');
-      const uri = await captureRef(cert, { format: 'png', quality: 1, result: 'tmpfile' });
+      const uri = await captureRef(cert, { format: 'png', quality: 1, result: 'tmpfile', width: 960 });
       const directory = FileSystem.documentDirectory + 'bunalens-certificates/';
       await FileSystem.makeDirectoryAsync(directory, { intermediates: true });
       const destination = directory + (batch?.batch_code || 'certificate') + '.png';

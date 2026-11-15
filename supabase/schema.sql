@@ -129,6 +129,43 @@ create trigger station_credits_set_updated_at
 before update on public.station_credits
 for each row execute function public.set_updated_at();
 
+-- Keep the normalized credit snapshot synchronized with the legacy station
+-- entitlement fields used by the current mobile app and Chapa migrations.
+create or replace function public.sync_station_entitlements()
+returns trigger
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $
+begin
+  insert into public.station_credits(
+    station_id, available_credits, subscription_type, subscription_expires_at
+  )
+  values (
+    new.id,
+    new.credits,
+    case when new.pro_expires_at > now() then 'pro' else 'free' end,
+    new.pro_expires_at
+  )
+  on conflict (station_id) do update
+    set available_credits = excluded.available_credits,
+        subscription_type = case
+          when excluded.subscription_expires_at is not null then
+            case when excluded.subscription_expires_at > now() then 'pro' else 'free' end
+          else public.station_credits.subscription_type
+        end,
+        subscription_expires_at = excluded.subscription_expires_at,
+        updated_at = now();
+  return new;
+end;
+$;
+
+revoke all on function public.sync_station_entitlements() from public, anon, authenticated;
+drop trigger if exists stations_sync_entitlements on public.stations;
+create trigger stations_sync_entitlements
+after insert or update of credits, pro_expires_at on public.stations
+for each row execute function public.sync_station_entitlements();
+
 create or replace function public.initialize_station_credits()
 returns trigger
 language plpgsql
@@ -361,94 +398,10 @@ create index if not exists market_prices_effective_idx
   on public.market_prices(effective_date desc);
 
 -- ---------------------------------------------------------------------------
--- Idempotent scan-credit debit. The capture key prevents double charging.
--- ---------------------------------------------------------------------------
-create table if not exists public.scan_credit_events (
-  id uuid primary key default gen_random_uuid(),
-  station_id uuid not null references public.stations(id) on delete cascade,
-  idempotency_key text not null,
-  created_at timestamptz not null default now(),
-  unique (station_id, idempotency_key)
-);
-
-alter table public.scan_credit_events enable row level security;
-revoke all on public.scan_credit_events from anon, authenticated;
-
-create or replace function public.consume_station_scan_credit(
-  p_station_id uuid,
-  p_idempotency_key text
-)
-returns boolean
-language plpgsql
-security definer
-set search_path = pg_catalog, public, auth
-as $$
-declare
-  v_owner_id uuid;
-  v_pro_expires_at timestamptz;
-  v_inserted_id uuid;
-  v_credits integer;
-begin
-  if auth.uid() is null then
-    raise exception 'Authentication required' using errcode = '28000';
-  end if;
-  if p_idempotency_key is null or length(p_idempotency_key) < 8
-     or length(p_idempotency_key) > 128 then
-    raise exception 'Invalid idempotency key' using errcode = '22023';
-  end if;
-
-  select owner_id, pro_expires_at
-    into v_owner_id, v_pro_expires_at
-    from public.stations
-   where id = p_station_id
-   for update;
-
-  if not found or v_owner_id <> auth.uid() then
-    raise exception 'Station access denied' using errcode = '42501';
-  end if;
-
-  insert into public.scan_credit_events(station_id, idempotency_key)
-  values (p_station_id, p_idempotency_key)
-  on conflict (station_id, idempotency_key) do nothing
-  returning id into v_inserted_id;
-
-  -- A retry for an already debited capture is successful and never debits twice.
-  if v_inserted_id is null then
-    return true;
-  end if;
-
-  if v_pro_expires_at is not null and v_pro_expires_at > now() then
-    return true;
-  end if;
-
-  update public.station_credits
-     set available_credits = available_credits - 1,
-         updated_at = now()
-   where station_id = p_station_id
-     and available_credits > 0
-   returning available_credits into v_credits;
-
-  if not found then
-    delete from public.scan_credit_events
-     where station_id = p_station_id and idempotency_key = p_idempotency_key;
-    return false;
-  end if;
-
-  update public.stations
-     set credits = v_credits
-   where id = p_station_id;
-  return true;
-end;
-$$;
-
-revoke all on function public.consume_station_scan_credit(uuid, text) from public, anon;
-grant execute on function public.consume_station_scan_credit(uuid, text) to authenticated;
-
--- ---------------------------------------------------------------------------
 -- Atomic payment application. The Chapa Edge Function calls this only after
 -- independently verifying reference, amount, currency and success status.
 -- ---------------------------------------------------------------------------
-create or replace function public.apply_verified_chapa_payment(
+create or replace function public.apply_verified_payment_transaction(
   p_tx_ref text,
   p_provider_payload jsonb
 )
@@ -531,7 +484,7 @@ begin
 end;
 $$;
 
-revoke all on function public.apply_verified_chapa_payment(text, jsonb) from public, anon, authenticated;
+revoke all on function public.apply_verified_payment_transaction(text, jsonb) from public, anon, authenticated;
 grant execute on function public.apply_verified_chapa_payment(text, jsonb) to service_role;
 
 -- ---------------------------------------------------------------------------

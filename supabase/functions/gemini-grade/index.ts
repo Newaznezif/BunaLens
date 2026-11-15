@@ -36,6 +36,8 @@ function validateAssessment(raw: unknown) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "Method not allowed." }, 405);
+  const internalKey = Deno.env.get("BUNALENS_INTERNAL_FUNCTION_KEY");
+  if (!internalKey || req.headers.get("x-bunalens-internal-key") !== internalKey) return json({ error: "This grading endpoint is internal to the sync service." }, 403);
   const authHeader = req.headers.get("Authorization") || "";
   const token = authHeader.replace(/^Bearer\s+/i, "");
   if (!token || token === authHeader) return json({ error: "A signed-in user session is required." }, 401);

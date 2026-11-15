@@ -10,6 +10,8 @@ const imageSignatureMatches=(bytes:Uint8Array,mime:string)=>{
 Deno.serve(async(req)=>{
  if(req.method==="OPTIONS")return new Response("ok",{headers:cors});
  if(req.method!=="POST")return reply({error:"Method not allowed"},405);
+ const contentLength=Number(req.headers.get("content-length")||0);
+ if(contentLength>15*1024*1024)return reply({error:"Request exceeds the 10 MB image upload limit"},413);
  const token=(req.headers.get("Authorization")||"").replace(/^Bearer\s+/i,"");
  if(!token)return reply({error:"Sign in is required"},401);
  const url=Deno.env.get("SUPABASE_URL"),anon=Deno.env.get("SUPABASE_ANON_KEY")||Deno.env.get("SUPABASE_PUBLISHABLE_KEY"),service=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"),internalKey=Deno.env.get("BUNALENS_INTERNAL_FUNCTION_KEY");
@@ -18,7 +20,9 @@ Deno.serve(async(req)=>{
   const userClient=createClient(url,anon,{global:{headers:{Authorization:"Bearer "+token}},auth:{persistSession:false,autoRefreshToken:false}});
   const {data:userData,error:userError}=await userClient.auth.getUser(token);
   if(userError||!userData.user)return reply({error:"Session is invalid or expired"},401);
-  const body=await req.json();
+  let body:Record<string,any>;
+  try{body=await req.json()}catch{return reply({error:"Request body must be valid JSON"},400)}
+  if(!body||typeof body!=="object"||Array.isArray(body))return reply({error:"Invalid request body"},400);
   const stationId=body.station_id,idempotencyKey=body.idempotency_key,sampleType=body.sample_type,woreda=body.woreda;
   const weight=Number(body.lot_weight_kg),mime=body.image_mime_type,batchCode=body.batch_code;
   const base64=typeof body.image_base64==="string"?body.image_base64.replace(/\s/g,""):"";

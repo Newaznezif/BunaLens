@@ -25,7 +25,7 @@ BunaLens is a cross-platform Expo / React Native application for coffee washing 
 
 ## Technology baseline
 
-The repository currently targets **Expo SDK 54 / React Native 0.81 / React 19.1**. SDK 54 is intentionally retained as the Expo Go-compatible baseline for this project; moving to a newer SDK must be treated as a coordinated Expo, React Native and native-module upgrade. Expo Go itself only supports the SDK bundled in the installed Expo Go client.
+The repository currently targets **Expo SDK 54.0.38 / React Native 0.81.5 / React 19.1**. SDK 54 is intentionally retained as the Expo Go-compatible baseline for this project; moving to a newer SDK must be treated as a coordinated Expo, React Native and native-module upgrade. Expo Go itself only supports the SDK bundled in the installed Expo Go client.
 
 Core Expo modules (camera, image picker, location, haptics, file system, print and web browser) are selected for Expo Go compatibility where their SDK 54 versions are available. `react-native-view-shot` is a third-party native module and requires a custom development build for its certificate-image capture path. Use the EAS development profile for that feature.
 
@@ -86,7 +86,7 @@ The app stores local station and batch data when cloud credentials are absent. C
 
 | Function | Access | Purpose |
 |---|---|---|
-| `gemini-grade` | Authenticated JWT | Verify station ownership, call Gemini 2.5 Flash, validate output and atomically debit one scan credit |
+| `gemini-grade` | Internal only (user JWT + server-only shared key) | Verify station ownership, call Gemini 2.5 Flash, validate output and atomically debit one scan credit |
 | `coffee-sync` | Authenticated JWT | Idempotently grade queued images, upload to private Storage and persist canonical batch records |
 | `chapa-initialize` | Authenticated JWT | Create server-priced Chapa checkout and pending transaction |
 | `chapa-webhook` | Public provider callback | Independently verify transaction with Chapa before applying credits or Pro entitlement |

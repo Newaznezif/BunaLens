@@ -74,5 +74,5 @@ Deno.serve(async(req)=>{
    return reply({error:"Assessment completed but cloud record could not be saved. Retry using the same capture."},503);
   }
   return reply({batch:{id:created.id,batch_code:created.batch_code,sample_type:created.sample_type,woreda:created.woreda,created_at:created.created_at,result:created.grading_result,lot_weight_kg:Number(created.lot_weight_kg),status:"synced",station_id:created.station_id,verification_id:created.verification_id,pricing:created.pricing_result||undefined,origin_coordinates:hasGps?{latitude:lat,longitude:lng}:undefined}});
- }catch(error){console.error("coffee-sync failed",error);return reply({error:"Unable to synchronize this sample"},500)}
+ }catch(error){console.error("coffee-sync failed; request details omitted.");return reply({error:"Unable to synchronize this sample"},500)}
 });

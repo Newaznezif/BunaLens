@@ -30,7 +30,7 @@ export async function startChapaCheckout(packageId: ChapaPackage, stationId: str
   const endpoint = process.env.EXPO_PUBLIC_CHAPA_INITIALIZE_URL;
   const demoMode = process.env.EXPO_PUBLIC_CHAPA_DEMO_MODE === 'true' || !endpoint;
   if (demoMode) {
-    const transactionId = 'BNL-DEMO-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8).toUpperCase();
+    const transactionId = 'BNL-DEMO-' + stationId + '-' + packageId + '-' + Math.floor(Date.now() / 60_000);
     const history = await getDemoPaymentHistory();
     const alreadyGranted = history.some((item) => item.transactionId === transactionId);
     if (!alreadyGranted) {

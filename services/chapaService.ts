@@ -48,7 +48,9 @@ export async function startChapaCheckout(packageId: ChapaPackage, stationId: str
   const selected = CHAPA_PACKAGES[packageId];
   if (!selected || !stationId) throw new Error('Select a valid package and station.');
   const endpoint = process.env.EXPO_PUBLIC_CHAPA_INITIALIZE_URL;
-  const demoMode = process.env.EXPO_PUBLIC_CHAPA_DEMO_MODE === 'true' || !endpoint;
+  const demoMode = process.env.EXPO_PUBLIC_DEMO_MODE !== 'false' ||
+    process.env.EXPO_PUBLIC_CHAPA_DEMO_MODE === 'true' ||
+    process.env.EXPO_PUBLIC_ENABLE_REAL_PAYMENTS !== 'true' || !endpoint;
   if (demoMode) return runDemoTransaction(packageId, stationId);
 
   const token = await getSupabaseAccessToken();
@@ -60,11 +62,22 @@ export async function startChapaCheckout(packageId: ChapaPackage, stationId: str
   pendingKeys[packageId] = idempotencyKey;
   await AsyncStorage.setItem(PENDING_KEYS_KEY, JSON.stringify(pendingKeys));
 
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', apikey: anonKey, Authorization: 'Bearer ' + token },
-    body: JSON.stringify({ packageId, stationId, idempotencyKey }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20_000);
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: { 'Content-Type': 'application/json', apikey: anonKey, Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ packageId, stationId, idempotencyKey }),
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') throw new Error('Payment initialization timed out. No payment was confirmed; retry using the same checkout.');
+    throw new Error('Could not reach the payment service. No payment was confirmed.');
+  } finally {
+    clearTimeout(timeout);
+  }
   const data = await response.json().catch(() => ({})) as { checkout_url?: string; tx_ref?: string; error?: string };
   if (!response.ok) {
     if (response.status === 503 && (data.error || '').toLowerCase().includes('not configured')) {
@@ -73,7 +86,12 @@ export async function startChapaCheckout(packageId: ChapaPackage, stationId: str
     throw new Error(data.error || 'Checkout initialization failed. No credits were added.');
   }
   if (!data.checkout_url || !data.tx_ref) throw new Error('The payment service did not return a valid checkout reference.');
-  const browser = await WebBrowser.openBrowserAsync(data.checkout_url);
+  let checkout: URL;
+  try { checkout = new URL(data.checkout_url); } catch { throw new Error('The payment service returned an invalid checkout URL.'); }
+  if (checkout.protocol !== 'https:' || checkout.hostname !== 'checkout.chapa.co') {
+    throw new Error('The payment service returned an untrusted checkout destination.');
+  }
+  const browser = await WebBrowser.openBrowserAsync(checkout.toString());
   if (browser.type !== 'cancel') {
     delete pendingKeys[packageId];
     await AsyncStorage.setItem(PENDING_KEYS_KEY, JSON.stringify(pendingKeys));

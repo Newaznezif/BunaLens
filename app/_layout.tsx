@@ -16,6 +16,7 @@ export default function RootLayout() {
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="batch/[id]" />
             <Stack.Screen name="auth" />
+            <Stack.Screen name="settings" />
           </Stack>
         </OfflineQueueProvider>
       </StationProvider>

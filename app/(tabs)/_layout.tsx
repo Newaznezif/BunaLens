@@ -51,7 +51,7 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen name="index" options={{ tabBarAccessibilityLabel: 'Home', tabBarIcon: ({ focused }) => <TabItem icon={Home} label={t('home')} focused={focused} /> }} />
-      <Tabs.Screen name="scan" options={{ tabBarAccessibilityLabel: 'Scan Buna sample', tabBarIcon: () => <TabItem icon={ScanLine} label="Scan Buna" focused={true} accent /> }} />
+      <Tabs.Screen name="scan" options={{ tabBarAccessibilityLabel: t('scan'), tabBarIcon: () => <TabItem icon={ScanLine} label={t('scan')} focused={true} accent /> }} />
       <Tabs.Screen name="batches" options={{ tabBarAccessibilityLabel: 'Batch history', tabBarIcon: ({ focused }) => <TabItem icon={Layers3} label={t('batches')} focused={focused} /> }} />
       <Tabs.Screen name="station" options={{ tabBarAccessibilityLabel: 'Washing station', tabBarIcon: ({ focused }) => <TabItem icon={Warehouse} label={t('station')} focused={focused} /> }} />
     </Tabs>

@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
-import { ScrollView, View, Text, Pressable, ActivityIndicator, Alert, TextInput, Image } from 'react-native';
+import { ScrollView, View, Text, Pressable, ActivityIndicator, Alert, TextInput, Image, Modal } from 'react-native';
 import { router } from 'expo-router';
-import { Camera, ImagePlus, ScanLine, Coffee, MapPin, Scale, Info, ShieldCheck, Zap, RotateCcw } from 'lucide-react-native';
+import { Camera, ImagePlus, ScanLine, Coffee, MapPin, Scale, Info, ShieldCheck, Zap, RotateCcw, ChevronRight } from 'lucide-react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
@@ -32,6 +32,7 @@ export default function Scan() {
   const [cam, setCam] = useState<CameraView | null>(null);
   const [flash, setFlash] = useState(false);
   const [preview, setPreview] = useState<Preview | null>(null);
+  const [demoOpen, setDemoOpen] = useState(false);
 
   const weightInKg = Number(feresula) * KG_PER_FERESULA;
   const validWeight = Number.isFinite(Number(feresula)) && Number(feresula) > 0 && Number(feresula) <= 100000 / KG_PER_FERESULA;
@@ -138,6 +139,7 @@ export default function Scan() {
       pricing: priceAssessment(type, result.ecx_grade, weightInKg), verification_id: id,
     };
     addBatch(batch);
+    setDemoOpen(false);
     router.push('/batch/' + id);
   };
 
@@ -172,7 +174,7 @@ export default function Scan() {
       </ScrollView>
 
       <View className="mb-5">
-        <View className="flex-row items-center mb-2"><Scale size={14} color={theme.colors.secondary} /><Text className="text-sm font-extrabold text-espresso ml-1.5">{t('lotWeight')} (Feresula)</Text></View>
+        <View className="flex-row items-center mb-2"><Scale size={14} color={theme.colors.secondary} /><Text className="text-sm font-extrabold text-espresso ml-1.5">{t('lotSizeFeresula')}</Text></View>
         <TextInput keyboardType="decimal-pad" value={feresula} onChangeText={setFeresula} className="bg-white border border-line rounded-xl px-4 py-3.5 text-espresso font-bold" placeholder="10" placeholderTextColor={theme.colors.muted} />
         <Text className="text-[10px] text-secondary mt-1.5">{t('feresulaConversion')}: {validWeight ? weightInKg.toLocaleString() : '—'} kg · 1 Feresula = 17 kg</Text>
       </View>
@@ -203,9 +205,17 @@ export default function Scan() {
       )}
       {!preview ? <Pressable accessibilityRole="button" onPress={gallery} className="bg-white p-4 rounded-2xl mt-2 border border-line items-center flex-row justify-center"><ImagePlus color={theme.colors.espresso} size={18} /><Text className="text-espresso font-bold ml-2">{t('chooseGallery')}</Text></Pressable> : null}
 
-      <View className="flex-row items-center mt-7 mb-2"><Text className="text-sm font-extrabold text-espresso">{t('demoTitle')}</Text><View className="ml-2 px-2 py-1 rounded-full" style={{ backgroundColor: '#FEF3C7' }}><Text className="text-[9px] font-extrabold" style={{ color: '#92400E' }}>{t('demoOnly')}</Text></View></View>
-      <Text className="text-[11px] text-secondary mb-3">{t('demoHint')}</Text>
-      <View className="flex-row gap-2"><Pressable onPress={() => demo(false)} className="flex-1 bg-emerald p-4 rounded-xl"><Text className="text-white font-bold">{t('cleanDemo')}</Text></Pressable><Pressable onPress={() => demo(true)} className="flex-1 bg-harvest p-4 rounded-xl"><Text className="text-white font-bold">{t('defectDemo')}</Text></Pressable></View>
+      <Pressable onPress={() => setDemoOpen(true)} className="mt-7 rounded-2xl border p-4 flex-row items-center justify-between" style={{ backgroundColor: '#FFFBEB', borderColor: '#FDE68A' }}><View className="flex-1"><Text className="text-sm font-extrabold" style={{ color: '#92400E' }}>{t('demoTitle')} · {t('demoOnly')}</Text><Text className="text-[11px] mt-1" style={{ color: '#92400E' }}>{t('demoHint')}</Text></View><ChevronRight size={18} color="#92400E" /></Pressable>
+      {busy ? <View className="rounded-2xl p-4 mt-4 flex-row items-center" style={{ backgroundColor: theme.colors.espresso }}><ActivityIndicator color="#FFFFFF" /><View className="ml-3 flex-1"><Text className="text-white font-bold text-sm">{t('assessmentProgress')}</Text><Text className="text-[10px] text-stone-300 mt-1">{t('pleaseWait')}</Text></View></View> : null}
+      <Modal visible={demoOpen} transparent animationType="slide" onRequestClose={() => setDemoOpen(false)}>
+        <View className="flex-1 justify-end" style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}><View className="rounded-t-3xl p-5" style={{ backgroundColor: theme.colors.parchment }}>
+          <View className="flex-row items-center justify-between mb-2"><Text className="text-lg font-black text-espresso">{t('demoTitle')}</Text><Pressable onPress={() => setDemoOpen(false)}><Text className="text-sm font-bold text-cherry">{t('cancel')}</Text></Pressable></View>
+          <Text className="text-[11px] text-secondary mb-4">{t('demoHint')}</Text>
+          <Pressable onPress={() => demo(false)} className="bg-emerald p-4 rounded-xl mb-2"><Text className="text-white font-bold">{t('cleanDemo')}</Text></Pressable>
+          <Pressable onPress={() => demo(true)} className="bg-harvest p-4 rounded-xl"><Text className="text-white font-bold">{t('defectDemo')}</Text></Pressable>
+          <Text className="text-[9px] font-bold text-center mt-4" style={{ color: '#92400E' }}>{t('demoOnly')}</Text>
+        </View></View>
+      </Modal>
       <View className="flex-row items-start mt-5"><ShieldCheck size={13} color={theme.colors.secondary} /><Text className="text-[10px] text-secondary ml-2 flex-1 leading-4">{t('disclaimer')} AI-assisted visual assessment — not an official ECX laboratory certificate.</Text></View>
     </ScrollView>
   );

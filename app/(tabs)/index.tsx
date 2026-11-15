@@ -22,10 +22,11 @@ function MetricCard({ label, value, detail, icon: Icon, tint }: { label: string;
 export default function Home() {
   const { t } = useLanguage();
   const { station, batches } = useStation();
-  const actual = useMemo(() => batches.filter((b) => b.status === 'synced' && b.result && !b.pricing?.is_demo), [batches]);
+  const actual = useMemo(() => batches.filter((b) => b.status === 'synced' && b.result), [batches]);
   const demos = useMemo(() => batches.filter((b) => b.status === 'demo'), [batches]);
   const avg = actual.length ? Math.round(actual.reduce((sum, b) => sum + b.result.quality_score, 0) / actual.length) : null;
-  const actualValue = actual.reduce((sum, b) => sum + (b.pricing?.estimated_lot_value_etb ?? 0), 0);
+  const pricedActual = actual.filter((b) => b.pricing && !b.pricing.is_demo);
+  const actualValue = pricedActual.reduce((sum, b) => sum + (b.pricing?.estimated_lot_value_etb ?? 0), 0);
   const recent = batches.slice(0, 3);
   const currency = (value: number) => value.toLocaleString() + ' ETB';
 
@@ -65,7 +66,7 @@ export default function Home() {
       </View>
       <View className="rounded-2xl border p-4 mt-3 flex-row items-center" style={{ backgroundColor: theme.colors.surface, borderColor: theme.colors.line }}>
         <View className="h-10 w-10 rounded-xl items-center justify-center mr-3" style={{ backgroundColor: '#ECFDF5' }}><Wallet size={19} color={theme.colors.emerald} /></View>
-        <View className="flex-1"><Text className="text-xs font-semibold" style={{ color: theme.colors.secondary }}>{t('estimatedCoffeeValue')}</Text><Text className="text-xl font-black mt-1" style={{ color: theme.colors.espresso }}>{actual.length ? currency(actualValue) : '—'}</Text><Text className="text-[10px] mt-1" style={{ color: theme.colors.secondary }}>{t('actualValueOnly')}</Text></View>
+        <View className="flex-1"><Text className="text-xs font-semibold" style={{ color: theme.colors.secondary }}>{t('estimatedCoffeeValue')}</Text><Text className="text-xl font-black mt-1" style={{ color: theme.colors.espresso }}>{pricedActual.length ? currency(actualValue) : '—'}</Text><Text className="text-[10px] mt-1" style={{ color: theme.colors.secondary }}>{t('actualValueOnly')}</Text></View>
       </View>
       {demos.length > 0 ? <View className="rounded-xl px-3 py-2 mt-3 flex-row items-center" style={{ backgroundColor: '#FFFBEB', borderColor: '#FDE68A', borderWidth: 1 }}><FlaskConical size={14} color="#92400E" /><Text className="text-[10px] font-bold ml-2 flex-1" style={{ color: '#92400E' }}>{demos.length} {t('demoRecords')} · {t('demonstrationData')} · {currency(demos.reduce((sum, b) => sum + (b.pricing?.estimated_lot_value_etb ?? 0), 0))}</Text></View> : null}
       <View className="flex-row items-center justify-between mt-7 mb-3"><Text className="text-lg font-black" style={{ color: theme.colors.espresso }}>{t('recentActivity')}</Text><Pressable onPress={() => router.push('/(tabs)/batches')} className="flex-row items-center py-1"><Text className="text-xs font-bold mr-1" style={{ color: theme.colors.cherry }}>{t('viewAll')}</Text><ChevronRight size={15} color={theme.colors.cherry} /></Pressable></View>

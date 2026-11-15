@@ -67,4 +67,6 @@ export interface Station {
   credits: number;
   feresula_price_etb: number;
   pro_expires_at?: string;
+  contact_phone?: string;
+  contact_email?: string;
 }

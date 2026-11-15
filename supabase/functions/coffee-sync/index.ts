@@ -35,6 +35,8 @@ Deno.serve(async(req)=>{
   if(!gradeResponse.ok)return reply({error:gradePayload.error||"AI grading failed"},gradeResponse.status);
   const result=gradePayload.result;
   if(!result?.is_coffee_sample)return reply({error:result?.rejection_reason||"The image was not recognized as a coffee sample"},422);
+  const lat=Number(body.gps_latitude),lng=Number(body.gps_longitude);
+  const hasGps=Number.isFinite(lat)&&Number.isFinite(lng)&&lat>=-90&&lat<=90&&lng>=-180&&lng<=180;
   const bytes=Uint8Array.from(atob(base64),c=>c.charCodeAt(0));
   const ext=mime==="image/png"?"png":mime==="image/webp"?"webp":"jpg";
   const imagePath=stationId+"/"+idempotencyKey+"."+ext;
@@ -47,12 +49,12 @@ Deno.serve(async(req)=>{
   const {data:created,error:createError}=await db.from("coffee_batches").insert({
    id:idempotencyKey,station_id:stationId,batch_code:batchCode,sample_type:sampleType,woreda,
    lot_weight_kg:weight,image_path:imagePath,grading_result:result,idempotency_key:idempotencyKey,
-   pricing_result:pricing||null,created_at:body.captured_at||new Date().toISOString()
+   pricing_result:pricing||null,gps_latitude:hasGps?lat:null,gps_longitude:hasGps?lng:null,created_at:body.captured_at||new Date().toISOString()
   }).select("id,batch_code,sample_type,woreda,created_at,lot_weight_kg,station_id,verification_id,grading_result,pricing_result").single();
   if(createError){
    console.error("Batch persistence failed",createError);
    return reply({error:"Assessment completed but cloud record could not be saved. Retry using the same capture."},503);
   }
-  return reply({batch:{id:created.id,batch_code:created.batch_code,sample_type:created.sample_type,woreda:created.woreda,created_at:created.created_at,result:created.grading_result,lot_weight_kg:Number(created.lot_weight_kg),status:"synced",station_id:created.station_id,verification_id:created.verification_id,pricing:created.pricing_result||undefined}});
+  return reply({batch:{id:created.id,batch_code:created.batch_code,sample_type:created.sample_type,woreda:created.woreda,created_at:created.created_at,result:created.grading_result,lot_weight_kg:Number(created.lot_weight_kg),status:"synced",station_id:created.station_id,verification_id:created.verification_id,pricing:created.pricing_result||undefined,origin_coordinates:hasGps?{latitude:lat,longitude:lng}:undefined}});
  }catch(error){console.error("coffee-sync failed",error);return reply({error:"Unable to synchronize this sample"},500)}
 });

@@ -1,10 +1,595 @@
+-- BunaLens base database schema
+-- PostgreSQL 15+ / Supabase
+-- Apply this file once in Supabase SQL Editor, then apply the ordered files
+-- in supabase/migrations/ (which add app-specific payment, benchmark and RPC
+-- compatibility objects used by the current Edge Functions).
+--
+-- Security model:
+--   * stations.owner_id is the authenticated owner identity.
+--   * client reads are scoped through station ownership.
+--   * grading, pricing, credit and payment writes are server-owned.
+--   * service-role credentials must never be shipped in the mobile app.
+
+begin;
+
 create extension if not exists pgcrypto;
-create table if not exists public.stations(id uuid primary key default gen_random_uuid(),owner_id uuid not null references auth.users(id) on delete cascade,name text not null,manager text,woreda text not null check(woreda in('Gomma','Limmu Kossa','Mana','Seka Chekorsa','Gera','Kersa','Jimma Town')),credits integer not null default 10 check(credits>=0),created_at timestamptz not null default now());
-create table if not exists public.coffee_batches(id text primary key,station_id uuid not null references public.stations(id) on delete cascade,batch_code text not null unique,sample_type text not null check(sample_type in('red_cherry','green_bean')),woreda text not null,lot_weight_kg numeric(10,2) not null check(lot_weight_kg>0),image_path text,gps_latitude double precision,gps_longitude double precision,grading_result jsonb not null,created_at timestamptz not null default now());
-create index if not exists coffee_batches_station_created_idx on public.coffee_batches(station_id,created_at desc);
-alter table public.stations enable row level security;alter table public.coffee_batches enable row level security;
-create policy "station owners read" on public.stations for select to authenticated using(owner_id=(select auth.uid()));create policy "station owners insert" on public.stations for insert to authenticated with check(owner_id=(select auth.uid()));create policy "station owners update" on public.stations for update to authenticated using(owner_id=(select auth.uid())) with check(owner_id=(select auth.uid()));
-create policy "batch owners read" on public.coffee_batches for select to authenticated using(exists(select 1 from public.stations s where s.id=station_id and s.owner_id=(select auth.uid())));create policy "batch owners insert" on public.coffee_batches for insert to authenticated with check(exists(select 1 from public.stations s where s.id=station_id and s.owner_id=(select auth.uid())));
-insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types) values('coffee-samples','coffee-samples',false,10485760,array['image/jpeg','image/png','image/webp']) on conflict(id) do nothing;
-create policy "owner upload sample" on storage.objects for insert to authenticated with check(bucket_id='coffee-samples' and (storage.foldername(name))[1] in(select id::text from public.stations where owner_id=(select auth.uid())));
-create policy "owner read sample" on storage.objects for select to authenticated using(bucket_id='coffee-samples' and (storage.foldername(name))[1] in(select id::text from public.stations where owner_id=(select auth.uid())));
+
+create or replace function public.set_updated_at()
+returns trigger
+language plpgsql
+set search_path = pg_catalog
+as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- Stations
+-- ---------------------------------------------------------------------------
+create table if not exists public.stations (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  station_name text,
+  name text, -- legacy app/Edge Function alias; kept during client migration
+  owner_name text,
+  manager text, -- legacy app alias
+  email text,
+  phone text,
+  woreda text not null check (woreda in (
+    'Gomma', 'Limmu Kossa', 'Mana', 'Seka Chekorsa',
+    'Gera', 'Kersa', 'Jimma Town'
+  )),
+  zone text not null default 'Jimma',
+  credits integer not null default 10 check (credits >= 0),
+  pro_expires_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint stations_name_present check (
+    nullif(btrim(coalesce(station_name, name)), '') is not null
+  )
+);
+
+-- Keep the two station-name fields compatible with the currently deployed
+-- mobile/Edge Function contract while the app transitions to station_name.
+create or replace function public.sync_station_name_aliases()
+returns trigger
+language plpgsql
+set search_path = pg_catalog
+as $$
+begin
+  if new.station_name is null then new.station_name := new.name; end if;
+  if new.name is null then new.name := new.station_name; end if;
+  if new.owner_name is null then new.owner_name := new.manager; end if;
+  if new.manager is null then new.manager := new.owner_name; end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists stations_sync_name_aliases on public.stations;
+create trigger stations_sync_name_aliases
+before insert or update on public.stations
+for each row execute function public.sync_station_name_aliases();
+
+drop trigger if exists stations_set_updated_at on public.stations;
+create trigger stations_set_updated_at
+before update on public.stations
+for each row execute function public.set_updated_at();
+
+create index if not exists stations_owner_id_idx
+  on public.stations(owner_id);
+create index if not exists stations_woreda_idx
+  on public.stations(woreda);
+
+-- ---------------------------------------------------------------------------
+-- Station credits: authoritative entitlement ledger snapshot
+-- ---------------------------------------------------------------------------
+create table if not exists public.station_credits (
+  id uuid primary key default gen_random_uuid(),
+  station_id uuid not null unique references public.stations(id) on delete cascade,
+  available_credits integer not null default 10 check (available_credits >= 0),
+  subscription_type text not null default 'free'
+    check (subscription_type in ('free', 'starter', 'pro')),
+  subscription_expires_at timestamptz,
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists station_credits_set_updated_at on public.station_credits;
+create trigger station_credits_set_updated_at
+before update on public.station_credits
+for each row execute function public.set_updated_at();
+
+create or replace function public.initialize_station_credits()
+returns trigger
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $$
+begin
+  insert into public.station_credits(station_id, available_credits)
+  values (new.id, new.credits)
+  on conflict (station_id) do nothing;
+  return new;
+end;
+$$;
+
+revoke all on function public.initialize_station_credits() from public, anon, authenticated;
+drop trigger if exists stations_initialize_credits on public.stations;
+create trigger stations_initialize_credits
+after insert on public.stations
+for each row execute function public.initialize_station_credits();
+
+-- ---------------------------------------------------------------------------
+-- Coffee batches
+-- ---------------------------------------------------------------------------
+create table if not exists public.coffee_batches (
+  -- text ID is retained for compatibility with the app's stable capture key.
+  id text primary key,
+  batch_code text not null unique
+    check (batch_code ~ '^BNL-JMA-[A-Z0-9]{4}$'),
+  station_id uuid not null references public.stations(id) on delete cascade,
+  idempotency_key text not null,
+  sample_type text not null check (sample_type in ('red_cherry', 'green_bean')),
+  woreda text not null check (woreda in (
+    'Gomma', 'Limmu Kossa', 'Mana', 'Seka Chekorsa',
+    'Gera', 'Kersa', 'Jimma Town'
+  )),
+  latitude double precision check (latitude is null or latitude between -90 and 90),
+  longitude double precision check (longitude is null or longitude between -180 and 180),
+  -- The mobile contract sends kg. Feresula is stored as a generated conversion.
+  lot_weight_kg numeric(12,2) not null check (lot_weight_kg > 0),
+  lot_weight_feresula numeric(12,4)
+    generated always as (round(lot_weight_kg / 17.0, 4)) stored,
+  image_path text,
+  grading_status text not null default 'completed'
+    check (grading_status in ('queued', 'processing', 'completed', 'failed', 'demo')),
+  ecx_grade text not null default 'Unclassified'
+    check (ecx_grade in ('Unclassified', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7')),
+  quality_score numeric(5,2) check (quality_score is null or quality_score between 0 and 100),
+  confidence_score numeric(5,2) check (confidence_score is null or confidence_score between 0 and 100),
+  estimated_price_per_feresula_etb numeric(14,2)
+    check (estimated_price_per_feresula_etb is null or estimated_price_per_feresula_etb >= 0),
+  total_estimated_value_etb numeric(16,2)
+    check (total_estimated_value_etb is null or total_estimated_value_etb >= 0),
+  potential_gain_if_sorted_etb numeric(16,2)
+    check (potential_gain_if_sorted_etb is null or potential_gain_if_sorted_etb >= 0),
+  grading_result jsonb not null default '{}'::jsonb,
+  pricing_result jsonb,
+  verification_id uuid not null default gen_random_uuid() unique,
+  is_demo boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint coffee_batches_idempotency_unique unique (station_id, idempotency_key),
+  constraint coffee_batches_geo_pair check (
+    (latitude is null and longitude is null)
+    or (latitude is not null and longitude is not null)
+  )
+);
+
+create index if not exists coffee_batches_station_created_idx
+  on public.coffee_batches(station_id, created_at desc);
+create index if not exists coffee_batches_station_grade_idx
+  on public.coffee_batches(station_id, ecx_grade, created_at desc);
+create index if not exists coffee_batches_woreda_created_idx
+  on public.coffee_batches(woreda, created_at desc);
+create index if not exists coffee_batches_status_idx
+  on public.coffee_batches(grading_status);
+create index if not exists coffee_batches_grading_result_gin_idx
+  on public.coffee_batches using gin(grading_result);
+
+drop trigger if exists coffee_batches_set_updated_at on public.coffee_batches;
+create trigger coffee_batches_set_updated_at
+before update on public.coffee_batches
+for each row execute function public.set_updated_at();
+
+-- ---------------------------------------------------------------------------
+-- Normalized grading result (one result per batch)
+-- ---------------------------------------------------------------------------
+create table if not exists public.grading_results (
+  id uuid primary key default gen_random_uuid(),
+  batch_id text not null unique references public.coffee_batches(id) on delete cascade,
+  breakdown jsonb not null default '{}'::jsonb,
+  export_readiness text not null default 'Insufficient Evidence'
+    check (export_readiness in (
+      'Specialty Export', 'Commercial Export', 'Local Market Only',
+      'Reject / Re-sort', 'Insufficient Evidence'
+    )),
+  sorting_action_advice text not null default '',
+  assessment_limitations jsonb not null default '[]'::jsonb
+    check (jsonb_typeof(assessment_limitations) = 'array'),
+  assessment_method text not null default 'ai_visual_estimate'
+    check (assessment_method in ('ai_visual_estimate', 'human_assessment', 'imported')),
+  model_version text,
+  created_at timestamptz not null default now(),
+  constraint grading_results_breakdown_object check (jsonb_typeof(breakdown) = 'object')
+);
+
+create index if not exists grading_results_created_idx
+  on public.grading_results(created_at desc);
+
+-- ---------------------------------------------------------------------------
+-- Payment transactions. Only a trusted server may create or verify payments.
+-- ---------------------------------------------------------------------------
+create table if not exists public.payment_transactions (
+  id uuid primary key default gen_random_uuid(),
+  station_id uuid not null references public.stations(id) on delete cascade,
+  transaction_reference text not null unique,
+  idempotency_key text not null,
+  package_type text not null check (package_type in ('starter_50', 'station_pro_monthly')),
+  amount_etb numeric(12,2) not null check (amount_etb > 0),
+  currency text not null default 'ETB' check (currency = 'ETB'),
+  payment_status text not null default 'pending'
+    check (payment_status in ('pending', 'verified', 'failed', 'cancelled')),
+  credits_granted integer not null default 0 check (credits_granted >= 0),
+  checkout_url text,
+  provider_payload jsonb,
+  created_at timestamptz not null default now(),
+  verified_at timestamptz,
+  constraint payment_transactions_station_idempotency_unique
+    unique (station_id, idempotency_key),
+  constraint payment_transactions_verified_timestamp check (
+    (payment_status = 'verified' and verified_at is not null)
+    or payment_status <> 'verified'
+  )
+);
+
+create index if not exists payment_transactions_station_created_idx
+  on public.payment_transactions(station_id, created_at desc);
+create index if not exists payment_transactions_status_idx
+  on public.payment_transactions(payment_status, created_at desc);
+
+-- ---------------------------------------------------------------------------
+-- Market price reference data. Public to signed-in users, writes server-only.
+-- ---------------------------------------------------------------------------
+create table if not exists public.market_prices (
+  id uuid primary key default gen_random_uuid(),
+  woreda text not null check (woreda in (
+    'Gomma', 'Limmu Kossa', 'Mana', 'Seka Chekorsa',
+    'Gera', 'Kersa', 'Jimma Town', 'Jimma Zone'
+  )),
+  coffee_type text not null check (coffee_type in ('red_cherry', 'green_bean')),
+  sample_type text generated always as (coffee_type) stored,
+  grade text not null default 'Unclassified',
+  price_per_feresula_etb numeric(14,2) not null
+    check (price_per_feresula_etb >= 0),
+  min_etb_per_feresula numeric(14,2)
+    check (min_etb_per_feresula is null or min_etb_per_feresula >= 0),
+  max_etb_per_feresula numeric(14,2)
+    check (max_etb_per_feresula is null or max_etb_per_feresula >= 0),
+  source text not null,
+  source_label text,
+  effective_date date not null,
+  active boolean not null default true,
+  is_demo boolean not null default false,
+  created_at timestamptz not null default now(),
+  constraint market_prices_range_valid check (
+    min_etb_per_feresula is null or max_etb_per_feresula is null
+    or min_etb_per_feresula <= max_etb_per_feresula
+  )
+);
+
+create index if not exists market_prices_lookup_idx
+  on public.market_prices(coffee_type, grade, woreda, effective_date desc)
+  where active = true;
+create index if not exists market_prices_effective_idx
+  on public.market_prices(effective_date desc);
+
+-- ---------------------------------------------------------------------------
+-- Idempotent scan-credit debit. The capture key prevents double charging.
+-- ---------------------------------------------------------------------------
+create table if not exists public.scan_credit_events (
+  id uuid primary key default gen_random_uuid(),
+  station_id uuid not null references public.stations(id) on delete cascade,
+  idempotency_key text not null,
+  created_at timestamptz not null default now(),
+  unique (station_id, idempotency_key)
+);
+
+alter table public.scan_credit_events enable row level security;
+revoke all on public.scan_credit_events from anon, authenticated;
+
+create or replace function public.consume_station_scan_credit(
+  p_station_id uuid,
+  p_idempotency_key text
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = pg_catalog, public, auth
+as $$
+declare
+  v_owner_id uuid;
+  v_pro_expires_at timestamptz;
+  v_inserted_id uuid;
+  v_credits integer;
+begin
+  if auth.uid() is null then
+    raise exception 'Authentication required' using errcode = '28000';
+  end if;
+  if p_idempotency_key is null or length(p_idempotency_key) < 8
+     or length(p_idempotency_key) > 128 then
+    raise exception 'Invalid idempotency key' using errcode = '22023';
+  end if;
+
+  select owner_id, pro_expires_at
+    into v_owner_id, v_pro_expires_at
+    from public.stations
+   where id = p_station_id
+   for update;
+
+  if not found or v_owner_id <> auth.uid() then
+    raise exception 'Station access denied' using errcode = '42501';
+  end if;
+
+  insert into public.scan_credit_events(station_id, idempotency_key)
+  values (p_station_id, p_idempotency_key)
+  on conflict (station_id, idempotency_key) do nothing
+  returning id into v_inserted_id;
+
+  -- A retry for an already debited capture is successful and never debits twice.
+  if v_inserted_id is null then
+    return true;
+  end if;
+
+  if v_pro_expires_at is not null and v_pro_expires_at > now() then
+    return true;
+  end if;
+
+  update public.station_credits
+     set available_credits = available_credits - 1,
+         updated_at = now()
+   where station_id = p_station_id
+     and available_credits > 0
+   returning available_credits into v_credits;
+
+  if not found then
+    delete from public.scan_credit_events
+     where station_id = p_station_id and idempotency_key = p_idempotency_key;
+    return false;
+  end if;
+
+  update public.stations
+     set credits = v_credits
+   where id = p_station_id;
+  return true;
+end;
+$$;
+
+revoke all on function public.consume_station_scan_credit(uuid, text) from public, anon;
+grant execute on function public.consume_station_scan_credit(uuid, text) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Atomic payment application. The Chapa Edge Function calls this only after
+-- independently verifying reference, amount, currency and success status.
+-- ---------------------------------------------------------------------------
+create or replace function public.apply_verified_chapa_payment(
+  p_tx_ref text,
+  p_provider_payload jsonb
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $$
+declare
+  v_payment public.payment_transactions%rowtype;
+  v_new_credits integer;
+  v_new_expiry timestamptz;
+begin
+  if current_setting('request.jwt.claim.role', true) is distinct from 'service_role' then
+    raise exception 'Service role required' using errcode = '42501';
+  end if;
+
+  select * into v_payment
+    from public.payment_transactions
+   where transaction_reference = p_tx_ref
+   for update;
+
+  if not found then
+    raise exception 'Payment transaction not found' using errcode = 'P0002';
+  end if;
+
+  if v_payment.payment_status = 'verified' then
+    return jsonb_build_object(
+      'transaction_reference', v_payment.transaction_reference,
+      'status', 'verified',
+      'already_applied', true
+    );
+  end if;
+
+  if v_payment.payment_status <> 'pending' then
+    raise exception 'Payment is not pending' using errcode = '55000';
+  end if;
+
+  update public.payment_transactions
+     set payment_status = 'verified',
+         verified_at = now(),
+         provider_payload = coalesce(p_provider_payload, '{}'::jsonb),
+         credits_granted = case
+           when package_type = 'starter_50' then 50 else 0 end
+   where id = v_payment.id;
+
+  if v_payment.package_type = 'starter_50' then
+    insert into public.station_credits(station_id, available_credits, subscription_type)
+    values (v_payment.station_id, 50, 'starter')
+    on conflict (station_id) do update
+      set available_credits = public.station_credits.available_credits + 50,
+          updated_at = now();
+    select available_credits into v_new_credits
+      from public.station_credits where station_id = v_payment.station_id;
+    update public.stations set credits = v_new_credits
+      where id = v_payment.station_id;
+  elsif v_payment.package_type = 'station_pro_monthly' then
+    update public.station_credits
+       set subscription_type = 'pro',
+           subscription_expires_at = greatest(
+             coalesce(subscription_expires_at, now()), now()
+           ) + interval '30 days',
+           updated_at = now()
+     where station_id = v_payment.station_id
+     returning subscription_expires_at into v_new_expiry;
+    update public.stations set pro_expires_at = v_new_expiry
+      where id = v_payment.station_id;
+  end if;
+
+  return jsonb_build_object(
+    'transaction_reference', v_payment.transaction_reference,
+    'status', 'verified',
+    'credits_granted', case when v_payment.package_type = 'starter_50' then 50 else 0 end,
+    'subscription_expires_at', v_new_expiry,
+    'already_applied', false
+  );
+end;
+$$;
+
+revoke all on function public.apply_verified_chapa_payment(text, jsonb) from public, anon, authenticated;
+grant execute on function public.apply_verified_chapa_payment(text, jsonb) to service_role;
+
+-- ---------------------------------------------------------------------------
+-- Row Level Security
+-- ---------------------------------------------------------------------------
+alter table public.stations enable row level security;
+alter table public.station_credits enable row level security;
+alter table public.coffee_batches enable row level security;
+alter table public.grading_results enable row level security;
+alter table public.payment_transactions enable row level security;
+alter table public.market_prices enable row level security;
+
+drop policy if exists "station owners read" on public.stations;
+create policy "station owners read" on public.stations
+  for select to authenticated
+  using (owner_id = (select auth.uid()));
+
+drop policy if exists "station owners insert" on public.stations;
+create policy "station owners insert" on public.stations
+  for insert to authenticated
+  with check (owner_id = (select auth.uid()));
+
+drop policy if exists "station owners update" on public.stations;
+create policy "station owners update" on public.stations
+  for update to authenticated
+  using (owner_id = (select auth.uid()))
+  with check (owner_id = (select auth.uid()));
+
+drop policy if exists "station owners read credits" on public.station_credits;
+create policy "station owners read credits" on public.station_credits
+  for select to authenticated
+  using (exists (
+    select 1 from public.stations s
+     where s.id = station_id and s.owner_id = (select auth.uid())
+  ));
+
+drop policy if exists "station owners read batches" on public.coffee_batches;
+create policy "station owners read batches" on public.coffee_batches
+  for select to authenticated
+  using (exists (
+    select 1 from public.stations s
+     where s.id = station_id and s.owner_id = (select auth.uid())
+  ));
+
+drop policy if exists "station owners read grading results" on public.grading_results;
+create policy "station owners read grading results" on public.grading_results
+  for select to authenticated
+  using (exists (
+    select 1
+      from public.coffee_batches b
+      join public.stations s on s.id = b.station_id
+     where b.id = batch_id and s.owner_id = (select auth.uid())
+  ));
+
+drop policy if exists "station owners read payments" on public.payment_transactions;
+create policy "station owners read payments" on public.payment_transactions
+  for select to authenticated
+  using (exists (
+    select 1 from public.stations s
+     where s.id = station_id and s.owner_id = (select auth.uid())
+  ));
+
+drop policy if exists "authenticated read market prices" on public.market_prices;
+create policy "authenticated read market prices" on public.market_prices
+  for select to authenticated
+  using (active = true);
+
+-- Explicit grants: RLS still governs rows. No client-side entitlement,
+-- payment, batch, grading or market-price writes are granted.
+grant select, insert, update on public.stations to authenticated;
+grant select on public.station_credits to authenticated;
+grant select on public.coffee_batches to authenticated;
+grant select on public.grading_results to authenticated;
+grant select on public.payment_transactions to authenticated;
+grant select on public.market_prices to authenticated;
+
+revoke insert, update, delete on public.station_credits from anon, authenticated;
+revoke insert, update, delete on public.coffee_batches from anon, authenticated;
+revoke insert, update, delete on public.grading_results from anon, authenticated;
+revoke insert, update, delete on public.payment_transactions from anon, authenticated;
+revoke insert, update, delete on public.market_prices from anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Private sample-image bucket. Object path must start with station UUID.
+-- Storage upsert requires INSERT + SELECT + UPDATE policies.
+-- ---------------------------------------------------------------------------
+insert into storage.buckets(id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'coffee-samples',
+  'coffee-samples',
+  false,
+  10485760,
+  array['image/jpeg', 'image/png', 'image/webp']
+)
+on conflict (id) do update
+  set public = false,
+      file_size_limit = 10485760,
+      allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp'];
+
+drop policy if exists "owner upload sample" on storage.objects;
+create policy "owner upload sample" on storage.objects
+  for insert to authenticated
+  with check (
+    bucket_id = 'coffee-samples'
+    and (storage.foldername(name))[1] in (
+      select s.id::text from public.stations s
+       where s.owner_id = (select auth.uid())
+    )
+  );
+
+drop policy if exists "owner read sample" on storage.objects;
+create policy "owner read sample" on storage.objects
+  for select to authenticated
+  using (
+    bucket_id = 'coffee-samples'
+    and (storage.foldername(name))[1] in (
+      select s.id::text from public.stations s
+       where s.owner_id = (select auth.uid())
+    )
+  );
+
+drop policy if exists "owner update sample" on storage.objects;
+create policy "owner update sample" on storage.objects
+  for update to authenticated
+  using (
+    bucket_id = 'coffee-samples'
+    and (storage.foldername(name))[1] in (
+      select s.id::text from public.stations s
+       where s.owner_id = (select auth.uid())
+    )
+  )
+  with check (
+    bucket_id = 'coffee-samples'
+    and (storage.foldername(name))[1] in (
+      select s.id::text from public.stations s
+       where s.owner_id = (select auth.uid())
+    )
+  );
+
+commit;
+
+-- Setup notes:
+-- 1. Run this file in Supabase Dashboard -> SQL Editor using the project owner.
+-- 2. Then apply supabase/migrations/*.sql in filename order. Those migrations
+--    provide the current app's market_benchmarks / station_payments compatibility
+--    tables and any later production hardening.
+-- 3. Deploy Edge Functions and configure secrets server-side only.
+-- 4. Mobile app receives only SUPABASE_URL + anon/publishable key. Never expose
+--    SUPABASE_SERVICE_ROLE_KEY, GEMINI_API_KEY or CHAPA_SECRET_KEY.

@@ -72,5 +72,5 @@ Deno.serve(async(req)=>{
   }
   await serviceClient.from("station_payments").update({checkout_url:checkoutUrl,provider_payload:{initialize_status:result.status}}).eq("id",paymentId);
   return reply({checkout_url:checkoutUrl,tx_ref:txRef});
- }catch(error){console.error("chapa-initialize error",error);return reply({error:"Unable to initialize payment"},500)}
+ }catch(error){console.error("chapa-initialize failed; request details omitted.");return reply({error:"Unable to initialize payment"},500)}
 });

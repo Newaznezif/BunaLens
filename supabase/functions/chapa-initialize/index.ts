@@ -16,7 +16,7 @@ Deno.serve(async(req)=>{
   if(userError||!userData.user?.email)return reply({error:"A valid signed-in email account is required"},401);
   const body=await req.json();const stationId=body.stationId;const packageId=body.packageId;const idempotencyKey=body.idempotencyKey;
   if(typeof stationId!=="string"||!/^([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i.test(stationId))return reply({error:"Invalid station"},400);
-  if(!(packageId in packages))return reply({error:"Unsupported package"},400);
+  if(typeof packageId!=="string"||!Object.prototype.hasOwnProperty.call(packages,packageId))return reply({error:"Unsupported package"},400);
   if(typeof idempotencyKey!=="string"||idempotencyKey.length<8||idempotencyKey.length>128)return reply({error:"Invalid idempotency key"},400);
   const serviceClient=createClient(url,service,{auth:{persistSession:false,autoRefreshToken:false}});
   const {data:station,error:stationError}=await userClient.from("stations").select("id,name,manager").eq("id",stationId).eq("owner_id",userData.user.id).maybeSingle();

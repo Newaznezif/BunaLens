@@ -1,6 +1,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.1";
 const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, apikey, content-type","Access-Control-Allow-Methods":"POST, OPTIONS"};
 const reply=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{...cors,"Content-Type":"application/json"}});
+const imageSignatureMatches=(bytes:Uint8Array,mime:string)=>{
+ if(mime==="image/jpeg")return bytes.length>3&&bytes[0]===0xff&&bytes[1]===0xd8&&bytes[2]===0xff;
+ if(mime==="image/png")return bytes.length>8&&bytes[0]===0x89&&bytes[1]===0x50&&bytes[2]===0x4e&&bytes[3]===0x47&&bytes[4]===0x0d&&bytes[5]===0x0a&&bytes[6]===0x1a&&bytes[7]===0x0a;
+ if(mime==="image/webp")return bytes.length>12&&String.fromCharCode(...bytes.slice(0,4))==="RIFF"&&String.fromCharCode(...bytes.slice(8,12))==="WEBP";
+ return false;
+};
 Deno.serve(async(req)=>{
  if(req.method==="OPTIONS")return new Response("ok",{headers:cors});
  if(req.method!=="POST")return reply({error:"Method not allowed"},405);
@@ -22,23 +28,34 @@ Deno.serve(async(req)=>{
   if(!["red_cherry","green_bean"].includes(sampleType))return reply({error:"Invalid sample type"},400);
   if(!["Gomma","Limmu Kossa","Mana","Seka Chekorsa","Gera","Kersa","Jimma Town"].includes(woreda))return reply({error:"Invalid woreda"},400);
   if(!Number.isFinite(weight)||weight<=0||weight>100000)return reply({error:"Invalid lot weight"},400);
-  if(!["image/jpeg","image/png","image/webp"].includes(mime)||!base64||base64.length>14_000_000)return reply({error:"Invalid image or image exceeds 10 MB"},413);
+  if(!["image/jpeg","image/png","image/webp"].includes(mime)||!base64||base64.length>14_000_000||!/^[A-Za-z0-9+/]+={0,2}$/.test(base64))return reply({error:"Invalid image or image exceeds 10 MB"},413);
+  let bytes:Uint8Array;
+  try{bytes=Uint8Array.from(atob(base64),c=>c.charCodeAt(0));}catch{return reply({error:"Image encoding is invalid"},400)}
+  if(bytes.length===0||bytes.length>10*1024*1024||!imageSignatureMatches(bytes,mime))return reply({error:"Image content does not match its declared format or exceeds 10 MB"},415);
   const {data:station,error:stationError}=await userClient.from("stations").select("id").eq("id",stationId).eq("owner_id",userData.user.id).maybeSingle();
   if(stationError||!station)return reply({error:"Station access denied"},403);
   const db=createClient(url,service,{auth:{persistSession:false,autoRefreshToken:false}});
   const {data:existing}=await db.from("coffee_batches").select("*").eq("station_id",stationId).eq("idempotency_key",idempotencyKey).maybeSingle();
   if(existing)return reply({batch:{id:existing.id,batch_code:existing.batch_code,sample_type:existing.sample_type,woreda:existing.woreda,created_at:existing.created_at,result:existing.grading_result,lot_weight_kg:Number(existing.lot_weight_kg),status:"synced",station_id:existing.station_id,verification_id:existing.verification_id,pricing:existing.pricing_result||undefined}});
-  const gradeResponse=await fetch(url+"/functions/v1/gemini-grade",{
-   method:"POST",headers:{"Content-Type":"application/json",apikey:anon,Authorization:"Bearer "+token,"x-bunalens-internal-key":internalKey},
-   body:JSON.stringify({imageBase64:base64,mimeType:mime,sampleType,woreda,stationId,idempotencyKey})
-  });
+  const gradeController=new AbortController();
+  const gradeTimeout=setTimeout(()=>gradeController.abort(),40_000);
+  let gradeResponse:Response;
+  try{
+   gradeResponse=await fetch(url+"/functions/v1/gemini-grade",{
+    method:"POST",signal:gradeController.signal,
+    headers:{"Content-Type":"application/json",apikey:anon,Authorization:"Bearer "+token,"x-bunalens-internal-key":internalKey},
+    body:JSON.stringify({imageBase64:base64,mimeType:mime,sampleType,woreda,stationId,idempotencyKey})
+   });
+  }catch(error){
+   if(error instanceof Error&&error.name==="AbortError")return reply({error:"AI grading timed out. Retry synchronization using the same sample."},504);
+   return reply({error:"AI grading service is temporarily unreachable."},502);
+  }finally{clearTimeout(gradeTimeout)}
   const gradePayload=await gradeResponse.json().catch(()=>({}));
   if(!gradeResponse.ok)return reply({error:gradePayload.error||"AI grading failed"},gradeResponse.status);
   const result=gradePayload.result;
   if(!result?.is_coffee_sample)return reply({error:result?.rejection_reason||"The image was not recognized as a coffee sample"},422);
   const lat=Number(body.gps_latitude),lng=Number(body.gps_longitude);
   const hasGps=Number.isFinite(lat)&&Number.isFinite(lng)&&lat>=-90&&lat<=90&&lng>=-180&&lng<=180;
-  const bytes=Uint8Array.from(atob(base64),c=>c.charCodeAt(0));
   const ext=mime==="image/png"?"png":mime==="image/webp"?"webp":"jpg";
   const imagePath=stationId+"/"+idempotencyKey+"."+ext;
   const {error:uploadError}=await db.storage.from("coffee-samples").upload(imagePath,bytes,{contentType:mime,upsert:true});

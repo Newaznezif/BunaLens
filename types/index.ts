@@ -2,5 +2,5 @@ export type SampleType='red_cherry'|'green_bean';
 export type EcxGrade='Grade 1'|'Grade 2'|'Grade 3'|'Grade 4'|'Undergrade';
 export type ExportReadiness='Specialty Export'|'Commercial Export'|'Local Market Only'|'Reject / Re-sort';
 export interface GradingResult{is_coffee_sample:boolean;rejection_reason?:string;ecx_grade:EcxGrade;quality_score:number;breakdown:{sound_or_ripe_pct:number;unripe_green_pct:number;black_overfermented_pct:number;insect_broken_pct:number;foreign_matter_pct:number};estimated_price_per_feresula_etb:number;potential_gain_if_sorted_etb:number;export_readiness:ExportReadiness;confidence?:number;assessment_note?:string;}
-export interface CoffeeBatch{id:string;batch_code:string;sample_type:SampleType;woreda:string;created_at:string;image_uri?:string;result:GradingResult;lot_weight_kg:number;status:'synced'|'queued'|'demo';station_id:string;}
+export interface CoffeeBatch{id:string;batch_code:string;sample_type:SampleType;woreda:string;created_at:string;image_uri?:string;origin_coordinates?:{latitude:number;longitude:number};result:GradingResult;lot_weight_kg:number;status:'synced'|'queued'|'demo';station_id:string;}
 export interface Station{id:string;name:string;woreda:string;manager:string;credits:number;feresula_price_etb:number;}

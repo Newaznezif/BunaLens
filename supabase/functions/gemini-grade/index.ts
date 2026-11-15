@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
     if (!["red_cherry", "green_bean"].includes(sampleType)) return json({ error: "Invalid coffee sample type." }, 400);
     if (!["Gomma", "Limmu Kossa", "Mana", "Seka Chekorsa", "Gera", "Kersa", "Jimma Town"].includes(woreda)) return json({ error: "Invalid origin woreda." }, 400);
     if (typeof stationId !== "string" || !/^[0-9a-f-]{36}$/i.test(stationId)) return json({ error: "A registered washing station is required for cloud grading." }, 400);
-    if (typeof idempotencyKey !== "string" || idempotencyKey.length < 8 || idempotencyKey.length > 128) return json({ error: "A valid capture idempotency key is required." }, 400);
+    if (typeof idempotencyKey !== "string" || !/^[a-zA-Z0-9_-]{8,128}$/.test(idempotencyKey)) return json({ error: "A valid capture idempotency key is required." }, 400);
     if (!imageBase64 || imageBase64.length > 14_000_000) return json({ error: "Image is missing or exceeds the 10 MB limit." }, 413);
     const { data: station, error: stationError } = await userClient.from("stations")
       .select("id,owner_id,credits,pro_expires_at").eq("id", stationId).eq("owner_id", userData.user.id).maybeSingle();

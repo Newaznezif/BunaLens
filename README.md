@@ -73,6 +73,7 @@ Never put `GEMINI_API_KEY`, `CHAPA_SECRET_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, or 
 5. Add the project URL and public anon / publishable key to the mobile `.env`.
 6. Set Edge Function secrets:
    - `GEMINI_API_KEY`
+   - `BUNALENS_INTERNAL_FUNCTION_KEY` (random server-only shared secret used only by `coffee-sync` and `gemini-grade`)
    - `CHAPA_SECRET_KEY`
    - `SUPABASE_SERVICE_ROLE_KEY`
    - Optional `CHAPA_CALLBACK_URL` and `CHAPA_RETURN_URL`

@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
   try {
     const { data: userData, error: userError } = await userClient.auth.getUser(token);
     if (userError || !userData.user) return json({ error: "Session is invalid or expired." }, 401);
-    let body: Record<string, unknown>;
+    let body: Record<string, any>;
     try { body = await req.json(); }
     catch { return json({ error: "Request body must be valid JSON." }, 400); }
     if (!body || typeof body !== "object" || Array.isArray(body)) return json({ error: "Invalid request body." }, 400);

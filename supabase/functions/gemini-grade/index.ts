@@ -38,7 +38,7 @@ function validateAssessment(raw: unknown) {
     potential_gain_if_sorted_etb: 0,
     export_readiness: v.export_readiness,
     sorting_action_advice: v.sorting_action_advice.slice(0, 1000),
-    assessment_limitations: (v.assessment_limitations as string[]).slice(0, 12).map((s) => s.slice(0, 300)),
+    assessment_limitations: [...(v.assessment_limitations as string[]).slice(0, 11).map((s) => s.slice(0, 300)), "No validated ECX-style grade mapping is configured; the visual result is therefore Unclassified."],
     assessment_method: "ai_visual_estimate" as const,
   };
 }

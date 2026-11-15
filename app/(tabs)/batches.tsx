@@ -9,7 +9,7 @@ import { BunaLensTheme as theme } from '@/constants/theme';
 import LanguageToggle from '@/components/LanguageToggle';
 
 export default function Batches() {
-  const { batches, addBatch } = useStation();
+  const { batches } = useStation();
   const { t } = useLanguage();
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<'all' | 'ai' | 'demo'>('all');

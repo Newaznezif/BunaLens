@@ -144,7 +144,7 @@ export default function Detail() {
       <View className="bg-white border border-line p-4 rounded-xl mt-3">
         <Text className="text-espresso font-black">{t('visualDefects')}</Text>
         <Text className="text-[10px] text-stone-500 mt-1">{cherry ? t('cherryBreakdownNote') : t('beanBreakdownNote')}</Text>
-        {DEFECTS.map((defect, index) => <DefectBar key={defect.key} label={t(defect.key as never) || defect.label} value={result.breakdown[defect.key]} color={defect.color} description={explanations[index]} />)}
+        {DEFECTS.map((defect, index) => <DefectBar key={defect.key} label={t(defect.key as never) || defect.label} value={result.breakdown[defect.key]} color={defect.color} description={explanations[index] ?? defect.label} />)}
       </View>
 
       <View className="bg-white border border-line p-4 rounded-xl mt-3">

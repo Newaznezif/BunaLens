@@ -108,7 +108,18 @@ export async function syncQueuedCaptures(): Promise<{ synced: CoffeeBatch[]; rem
         const result = validateGradingResult(batch.result);
         if (!result.is_coffee_sample) break;
         const permanentImage = await persistLocalImage(item.image_uri, item.id, item.mime_type || 'image/jpeg').catch(() => null);
-        synced.push({ ...batch, result, image_uri: permanentImage || item.image_uri, status: 'synced' });
+        const completedBatch: CoffeeBatch = { ...batch, result, image_uri: permanentImage || item.image_uri, status: 'synced' };
+        // Persist the completed record before acknowledging/removing the queue item.
+        // If the app is terminated between server response and context update, the
+        // station provider can still recover this batch after the next launch.
+        try {
+          const stored = JSON.parse((await AsyncStorage.getItem('bunalens.batches')) || '[]') as CoffeeBatch[];
+          const merged = [completedBatch, ...stored.filter((saved) => saved.id !== completedBatch.id)];
+          await AsyncStorage.setItem('bunalens.batches', JSON.stringify(merged));
+        } catch {
+          break;
+        }
+        synced.push(completedBatch);
         const latest = await getQueue();
         await saveQueue(latest.filter((queued) => queued.id !== item.id));
         if (permanentImage && permanentImage !== item.image_uri) await FileSystem.deleteAsync(item.image_uri, { idempotent: true }).catch(() => undefined);

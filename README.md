@@ -1,77 +1,162 @@
 # BunaLens
 
-**Instant Coffee Quality Vision for Jimma & Beyond**
+**AI-assisted visual coffee quality screening for Jimma, Ethiopia.**
 
-BunaLens is an Expo / React Native mobile application for AI-assisted visual screening of Arabica coffee cherries and export-ready green beans at washing stations and cooperative intake points in Jimma Zone, Ethiopia.
+BunaLens is a cross-platform Expo / React Native application for coffee washing stations, cooperative intake teams and coffee producers. It supports red coffee cherries (Buna Diimaa) and green coffee beans (Buna Qullaa), with Jimma Zone as the initial operating geography.
 
-> **Grading and pricing disclaimer:** Camera-based results are preliminary visual estimates. They are not official Ethiopian Commodity Exchange (ECX) grades, laboratory results, export approvals or certified Q-Grader assessments. ETB prices are illustrative benchmarks, not live market quotations. Validate thresholds and price assumptions with qualified local graders and current market data before commercial use.
+> **Assessment disclaimer:** Camera-based assessments are preliminary visual screening, not official ECX grades, laboratory results, export approvals or Q-Grader certificates. Market values are indicative estimates based on dated benchmark records. They are not confirmed buyer offers.
 
-## Features
+## Implemented product capabilities
 
-- Expo Router navigation: Home, Scan Buna, Batches and Station.
-- TypeScript strict mode and NativeWind styling with a Jimma coffee palette.
-- English / Afaan Oromo labels with persistent language selection.
-- Camera capture and gallery selection for red cherry and green bean samples.
-- Gemini 2.5 Flash JSON grading adapter with response validation; deterministic demo fixtures without a key.
-- Jimma woreda tagging and optional GPS origin capture.
-- Defect composition and benchmark-derived indicative ETB values per 17 kg Feresula, per kg and per entered lot weight.
-- Local station and batch persistence plus copied image files, durable offline queue and a retry-safe sync client.
-- QR-enabled batch certificate component and shareable batch summary.
-- Supabase client and owner-scoped PostgreSQL / private Storage schema.
-- Chapa checkout through a trusted server endpoint, with a local sandbox fallback.
+- Expo Router navigation, TypeScript strict mode, NativeWind and reusable React Native components.
+- English / Afaan Oromo labels.
+- Camera and gallery capture, contextual camera permission and optional GPS tagging.
+- Jimma woreda selection and user-entered lot weight.
+- Authenticated Gemini 2.5 Flash Edge Function with structured JSON output validation; the Gemini key stays server-side.
+- Local demo presets that are clearly labelled and never presented as actual image inference.
+- Indicative ETB pricing from configurable benchmark data, using 1 Feresula = 17 kg.
+- AsyncStorage persistence for station and batch metadata.
+- Persistent image-file queue, connectivity detection, manual and reconnect-triggered sync.
+- Supabase email/password sign-in, station registration, private sample-image storage and batch persistence.
+- QR certificate identifiers and a public-safe verification Edge Function.
+- PNG sharing and PDF certificate export.
+- Chapa hosted checkout initialization and server-side transaction verification contract.
+- Local payment sandbox that does not charge money.
+
+## Technology baseline
+
+The repository currently targets **Expo SDK 54 / React Native 0.81 / React 19.1**. SDK 54 is intentionally retained as the Expo Go-compatible baseline for this project; moving to a newer SDK must be treated as a coordinated Expo, React Native and native-module upgrade. Expo Go itself only supports the SDK bundled in the installed Expo Go client.
+
+Core Expo modules (camera, image picker, location, haptics, file system, print and web browser) are selected for Expo Go compatibility where their SDK 54 versions are available. `react-native-view-shot` is a third-party native module and requires a custom development build for its certificate-image capture path. Use the EAS development profile for that feature.
 
 ## Requirements
 
 - Node.js 20.19+ (Node 22 LTS recommended)
 - npm 10+
-- Expo Go compatible with Expo SDK 54 on Android or iOS
-- Optional Gemini API key, Supabase project and Chapa backend endpoint
+- Expo Go compatible with SDK 54 for the Expo Go demonstration path
+- EAS CLI for Android APK/AAB and iOS IPA builds
+- Supabase project for authentication, cloud persistence, Edge Functions and Storage
+- Gemini API key stored only as a Supabase Edge Function secret
+- Chapa merchant secret stored only as a Supabase Edge Function secret
 
 ## Run locally
 
 ```bash
-git clone https://github.com/Newaznezif/BunaLens.git
+git clone https://github.com/NewazNezif/BunaLens.git
 cd BunaLens
 npm install
 cp .env.example .env
 npx expo start
 ```
 
-Scan the Expo Go QR code with the Expo Go app. Press `a` for a configured Android emulator or `i` on macOS with an iOS simulator.
+Scan the QR code with an SDK 54-compatible Expo Go client. Camera capture, gallery selection and local demonstration flows are intended to work without Supabase credentials. Real-image AI grading and cloud services require a signed-in account and configured backend.
 
 ## Environment variables
 
 | Variable | Purpose |
 |---|---|
-| `EXPO_PUBLIC_GEMINI_PROXY_URL` | HTTPS server endpoint that securely calls Gemini and returns a validated grading JSON object. |
 | `EXPO_PUBLIC_SUPABASE_URL` | Supabase project URL |
-| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Supabase publishable / anon key. Never use service-role here. |
-| `EXPO_PUBLIC_CHAPA_INITIALIZE_URL` | Trusted backend endpoint that initializes Chapa checkout and returns `checkout_url`. |\n| `EXPO_PUBLIC_BUNALENS_SYNC_URL` | Authenticated idempotent endpoint for queued offline captures. |\n| `EXPO_PUBLIC_CERTIFICATE_VERIFY_BASE_URL` | Public-safe HTTPS certificate verification URL base. |
-| `EXPO_PUBLIC_APP_ENV` | `demo` by default |
+| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Public anon / publishable key only |
+| `EXPO_PUBLIC_GEMINI_PROXY_URL` | `https://<project>.supabase.co/functions/v1/gemini-grade` |
+| `EXPO_PUBLIC_BUNALENS_SYNC_URL` | `https://<project>.supabase.co/functions/v1/coffee-sync` |
+| `EXPO_PUBLIC_CHAPA_INITIALIZE_URL` | `https://<project>.supabase.co/functions/v1/chapa-initialize` |
+| `EXPO_PUBLIC_CERTIFICATE_VERIFY_BASE_URL` | `https://<project>.supabase.co/functions/v1/certificate-verify` |
+| `EXPO_PUBLIC_APP_ENV` | `demo` or `production` |
 
-Never put a Gemini API key, Chapa secret key or Supabase service-role key in an Expo public environment variable. Chapa initialization and payment verification must happen server-side.
+Never put `GEMINI_API_KEY`, `CHAPA_SECRET_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, or any private credential in an `EXPO_PUBLIC_*` variable.
 
 ## Supabase setup
 
-1. Create a Supabase project.
-2. Run `supabase/schema.sql` in the Supabase SQL Editor.
-3. Configure Supabase Auth and create a station row owned by the signed-in user.
-4. Add the project URL and publishable/anon key to `.env`.
-5. Keep RLS enabled and test policies with a non-owner account.
+1. Create a Supabase project and configure email/password Auth.
+2. Run `supabase/schema.sql` in the SQL Editor.
+3. Apply all files in `supabase/migrations/` in chronological order. These add payment records, benchmark data, certificate identifiers, Pro expiry, idempotency and transactional credit functions.
+4. Configure the private `coffee-samples` Storage bucket. The base schema creates it with a 10 MB file limit.
+5. Add the project URL and public anon / publishable key to the mobile `.env`.
+6. Set Edge Function secrets:
+   - `GEMINI_API_KEY`
+   - `CHAPA_SECRET_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - Optional `CHAPA_CALLBACK_URL` and `CHAPA_RETURN_URL`
+7. Deploy the Edge Functions listed below.
+8. Register a station from the app's Station tab → Sign in / Register station.
 
-The `coffee-samples` Storage bucket is private. Store objects under the station UUID folder, e.g. `<station-uuid>/<batch-id>.jpg`. The bundled seeded station is demo-only; production cloud writes must use a real authenticated station UUID. Supabase persistence is not yet wired into the mobile batch workflow.
+The app stores local station and batch data when cloud credentials are absent. Cloud operations require a signed-in user and an owned station UUID. RLS policies scope station and batch access to the authenticated owner.
 
-## AI grading and demo mode
+### Edge Functions
 
-Without a Gemini key, deterministic local fixtures keep the pitch demo usable. With a configured proxy, `services/geminiVision.ts` sends the sample, MIME type, sample category and woreda to your server; the server calls `gemini-2.5-flash` and returns a validated JSON result. Without the proxy, real-photo grading fails explicitly rather than silently returning a fabricated demo grade. Use the built-in demo presets only when presenting sample results. The schema is an application screening contract, not an official ECX standard. A production rollout requires a secured inference proxy, curated Jimma training/evaluation images, confidence calibration, human review and audit logs.
+| Function | Access | Purpose |
+|---|---|---|
+| `gemini-grade` | Authenticated JWT | Verify station ownership, call Gemini 2.5 Flash, validate output and atomically debit one scan credit |
+| `coffee-sync` | Authenticated JWT | Idempotently grade queued images, upload to private Storage and persist canonical batch records |
+| `chapa-initialize` | Authenticated JWT | Create server-priced Chapa checkout and pending transaction |
+| `chapa-webhook` | Public provider callback | Independently verify transaction with Chapa before applying credits or Pro entitlement |
+| `certificate-verify` | Public read-only | Return minimal certificate verification details by QR identifier |
+
+Deploy with the Supabase CLI after linking the project:
+
+```bash
+supabase link --project-ref YOUR_PROJECT_REF
+supabase functions deploy gemini-grade
+supabase functions deploy coffee-sync
+supabase functions deploy chapa-initialize
+supabase functions deploy chapa-webhook
+supabase functions deploy certificate-verify
+```
+
+Set secrets with the Supabase CLI or Dashboard. Do not commit a local `.env` containing secrets.
+
+## AI vision and quality controls
+
+The mobile app sends the image, MIME type, sample category, woreda, station ID and stable capture idempotency key to the authenticated `gemini-grade` Edge Function. The function verifies the user and station, invokes `gemini-2.5-flash`, validates the structured result and returns only visual assessment fields. Prices are never requested from Gemini.
+
+A valid coffee assessment consumes one scan credit through an idempotent database function. A retry with the same capture key does not debit a second credit. Non-coffee images do not consume a credit. The local credit count is a UI cache; the database is authoritative.
+
+The visual grade labels are application screening estimates, not an official ECX grading standard. Production use requires representative Jimma images, evaluation by qualified local graders, calibration, confidence thresholds, human review and auditability.
+
+## Pricing and financial estimates
+
+The app uses configurable dated benchmark records. One Feresula equals 17 kg. The initial values in `constants/marketBenchmarks.ts` and the matching database seed are demonstration values only. Replace them with documented local buyer quotations or an approved market-data feed before making commercial decisions.
+
+Displayed values are estimates, not official quotations or guaranteed sale proceeds. A sorting scenario is an indicative calculation, not a promise of realized income.
 
 ## Offline behavior
 
-Station profile and batch history persist in AsyncStorage. When the device is offline, selected sample images are added to a local queue and are not presented as graded batches. Automatic queue processing, server upload, retry/backoff and reconciliation are not yet implemented. A locally queued record is not a cloud-verified certificate.
+- Batch metadata and station profile are stored in AsyncStorage.
+- Captured images are copied to the app's document directory with expo-file-system; large image bytes are not stored in AsyncStorage.
+- Pending captures retain a stable idempotency key.
+- On reconnection, the app attempts sync automatically and also exposes a manual sync action.
+- The authenticated `coffee-sync` function stores images in private Supabase Storage and returns a canonical batch.
+- Local images are removed from the queue only after the server returns a valid saved batch.
+
+Offline captures made before station registration are reassigned to the newly connected station during onboarding. Until a station is registered and signed in, queued captures remain local.
 
 ## Payments
 
-`services/chapaService.ts` expects a trusted backend endpoint. The backend must create a unique transaction reference, verify Chapa callbacks/webhooks server-side and only then credit the station. The local sandbox adds demo credits only; it never charges a payment method.
+The packages are fixed on the server:
+- Starter Pack: 50 scans for 500 ETB.
+- Washing Station Unlimited: 30 days for 2,500 ETB.
+- New stations: 10 initial scans.
+
+The mobile app never supplies an authoritative price. The backend verifies station ownership, initializes Chapa using its private key, and stores a pending payment. The callback function independently calls Chapa's transaction verification endpoint and checks transaction reference, amount and currency. Only then does an atomic database function grant credits or extend Pro access. A browser redirect alone never grants an entitlement.
+
+If no Chapa initialization endpoint is configured, the app offers an explicitly labelled local demonstration sandbox. No money is collected in sandbox mode.
+
+## EAS builds
+
+The repository includes `eas.json` profiles for development, preview and production.
+
+```bash
+npm install
+npx eas-cli login
+npx eas-cli build --profile development --platform android
+npx eas-cli build --profile preview --platform android
+npx eas-cli build --profile production --platform android
+npx eas-cli build --profile production --platform ios
+```
+
+The preview Android profile produces an installable APK; production Android produces an AAB. iOS production requires an Apple Developer account and signing credentials. Run `eas init` once to attach the repository to an EAS project.
+
+Use the development profile for `react-native-view-shot` and other native modules not included in Expo Go. Native module additions require a new development build.
 
 ## Quality checks
 
@@ -81,26 +166,28 @@ npx expo-doctor
 npx expo start --clear
 ```
 
+CI runs TypeScript validation and Expo Doctor on pushes and pull requests to `main`.
+
 ## Repository layout
 
 ```text
-app/                 Expo Router screens and layouts
-components/          Camera, logo, scorecard and certificate UI
-constants/           Jimma woreda data, labels and demo fixtures
-contexts/            Language and station providers
-services/            Gemini, Supabase, Chapa and offline queue adapters
-supabase/schema.sql  Database and Storage policies
-types/               Strict domain interfaces
+app/                    Expo Router screens and layouts
+components/             Reusable UI and certificate components
+constants/              Jimma woreda data, demo fixtures and benchmarks
+contexts/               Language and station state
+services/               AI, Supabase, persistence, payments and offline queue
+supabase/functions/     Authenticated Edge Functions and public verification
+supabase/migrations/    Database security and business-rule migrations
+supabase/schema.sql     Base PostgreSQL schema and Storage policies
+types/                  Domain interfaces
 ```
 
-## Production roadmap
+## Current limitations
 
-- Deploy and monitor the secured Gemini inference API configured by `EXPO_PUBLIC_GEMINI_PROXY_URL`.
-- Complete authenticated station onboarding and ownership-safe cloud persistence.
-- Deploy the authenticated sync API described in `supabase/functions/coffee-sync/README.md` and add bounded retry/backoff.
-- Deploy Chapa checkout initialization and webhook verification; apply verified payments to the idempotent credit ledger.
-- Replace demo market benchmark ranges with documented live/local data and validate grading thresholds and defect taxonomy with ECX / local Q-graders.
-- Add real-device tests, model evaluation, accessibility checks, privacy disclosures and a public certificate verification endpoint.
+- The repository contains the mobile client, SQL migrations and Edge Function source; they still need to be deployed and configured in the user's Supabase project.
+- Live market benchmark data has not been connected. Seeded prices are labelled demonstration data.
+- Physical-device camera, offline restart/recovery, real Chapa test transactions, and Android/iOS EAS builds must be exercised before production release.
+- A visual model cannot certify coffee quality; qualified grading and lab workflows remain necessary.
 
 ## License
 

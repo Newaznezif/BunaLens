@@ -7,7 +7,7 @@ const PERCENT_KEYS: (keyof GradingBreakdown)[] = [
   'sound_or_ripe_pct', 'unripe_green_pct', 'black_overfermented_pct',
   'insect_broken_pct', 'foreign_matter_pct',
 ];
-const GRADES = ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Undergrade', 'Unclassified'] as const;
+const GRADES = ['Unclassified'] as const;
 const READINESS = ['Specialty Export', 'Commercial Export', 'Local Market Only', 'Reject / Re-sort', 'Insufficient Evidence'] as const;
 
 export class GradingServiceError extends Error {

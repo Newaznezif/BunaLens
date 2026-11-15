@@ -26,6 +26,8 @@ export default function Station() {
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [paymentBusy, setPaymentBusy] = useState(false);
 
+  useEffect(() => { setName(station.name); setManager(station.manager); setWoreda(station.woreda); setPhone(station.contact_phone || ''); setEmail(station.contact_email || ''); }, [station.name, station.manager, station.woreda, station.contact_phone, station.contact_email]);
+
   useEffect(() => {
     let active = true;
     void (async () => {
@@ -65,6 +67,7 @@ export default function Station() {
           if (result.credits > 0) addCredits(result.credits);
           if (result.proDays > 0) setStation({ ...station, pro_expires_at: new Date(Date.now() + result.proDays * 24 * 60 * 60 * 1000).toISOString() });
         }
+        void getDemoPaymentHistory().then(setPaymentHistory);
         Alert.alert(t('paymentDemo'), result.alreadyGranted ? t('demoPaymentAlreadyApplied') : packageId === 'starter_50' ? t('demoCreditsAdded') : t('demoProActivated'));
       } else {
         await refreshBalance();

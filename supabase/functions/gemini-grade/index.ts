@@ -149,7 +149,7 @@ Return only JSON. Include specific, actionable sorting_action_advice and an asse
     }
     return json({ result: assessment, model: "gemini-2.5-flash", assessed_at: new Date().toISOString() });
   } catch (error) {
-    console.error("gemini-grade failed", error);
+    console.error("gemini-grade failed; request details omitted.");
     return json({ error: "Unable to complete the grading request." }, 500);
   }
 });

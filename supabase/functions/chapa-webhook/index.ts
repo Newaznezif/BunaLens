@@ -33,5 +33,5 @@ Deno.serve(async(req)=>{
   const {data:applied,error:applyError}=await db.rpc("apply_verified_chapa_payment",{p_tx_ref:txRef,p_provider_payload:verify});
   if(applyError){console.error("Could not apply verified payment",applyError);return reply({error:"Payment verified but entitlement update needs retry"},503)}
   return reply({ok:true,status:"verified",payment:applied});
- }catch(error){console.error("chapa-webhook error",error);return reply({error:"Unable to verify payment"},500)}
+ }catch(error){console.error("chapa-webhook failed; request details omitted.");return reply({error:"Unable to verify payment"},500)}
 });

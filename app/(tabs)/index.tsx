@@ -6,6 +6,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useStation } from '@/contexts/StationContext';
 import { BunaLensTheme as theme } from '@/constants/theme';
 import LanguageToggle from '@/components/LanguageToggle';
+import OfflineBanner from '@/components/OfflineBanner';
 
 function MetricCard({ label, value, detail, icon: Icon, tint }: { label: string; value: string; detail: string; icon: React.ComponentType<any>; tint: string }) {
   return (
@@ -41,6 +42,8 @@ export default function Home() {
         </View>
         <LanguageToggle />
       </View>
+
+      <OfflineBanner />
 
       <View className="rounded-[26px] p-5 overflow-hidden" style={{ backgroundColor: theme.colors.espresso }}>
         <View className="flex-row items-center justify-between">

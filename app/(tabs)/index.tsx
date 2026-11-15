@@ -22,7 +22,7 @@ function MetricCard({ label, value, detail, icon: Icon, tint }: { label: string;
 export default function Home() {
   const { t } = useLanguage();
   const { station, batches } = useStation();
-  const actual = useMemo(() => batches.filter((b) => b.status === 'synced' && b.result && b.status !== 'demo'), [batches]);
+  const actual = useMemo(() => batches.filter((b) => b.status === 'synced' && b.result), [batches]);
   const demos = useMemo(() => batches.filter((b) => b.status === 'demo'), [batches]);
   const avg = actual.length ? Math.round(actual.reduce((sum, b) => sum + b.result.quality_score, 0) / actual.length) : null;
   const pricedActual = actual.filter((b) => b.pricing && !b.pricing.is_demo);

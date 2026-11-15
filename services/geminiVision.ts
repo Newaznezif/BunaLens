@@ -43,7 +43,7 @@ export function validateGradingResult(value: unknown): GradingResult {
   const total = (percentages as number[]).reduce((sum, n) => sum + n, 0);
   if (Math.abs(total - 100) > 2) throw new GradingServiceError('The defect percentages do not total approximately 100%. The assessment was rejected.', 'invalid_response');
   const normalized = percentages as number[];
-  const breakdown = Object.fromEntries(PERCENT_KEYS.map((key, index) => [key, Number((normalized[index] * 100 / total).toFixed(1))])) as unknown as GradingBreakdown;
+  const breakdown = Object.fromEntries(PERCENT_KEYS.map((key, index) => [key, Number(((normalized[index] ?? 0) * 100 / total).toFixed(1))])) as unknown as GradingBreakdown;
   const price = v.estimated_price_per_feresula_etb;
   const gain = v.potential_gain_if_sorted_etb;
   if (typeof price !== 'number' || !Number.isFinite(price) || price < 0 ||

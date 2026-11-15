@@ -66,10 +66,9 @@ export default function Scan() {
     const batchCode = 'BNL-JMA-' + Math.random().toString(36).slice(2, 6).toUpperCase();
     setBusy(true);
     try {
-      const queuedImage = await persistLocalImage(preview.uri, captureId, preview.mimeType).catch(() => preview.uri);
       if (!(await isOnline())) {
         await enqueueCapture({
-          id: captureId, batch_code: batchCode, image_uri: queuedImage, sample_type: type, woreda,
+          id: captureId, batch_code: batchCode, image_uri: preview.uri, sample_type: type, woreda,
           lot_weight_kg: weightInKg, created_at: new Date().toISOString(),
           station_id: station.id, mime_type: preview.mimeType,
         });

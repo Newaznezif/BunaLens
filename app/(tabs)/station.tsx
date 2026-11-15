@@ -8,6 +8,7 @@ import { JIMMA_WOREDAS } from '@/constants/jimmaData';
 import { startChapaCheckout } from '@/services/chapaService';
 import { supabase } from '@/services/supabaseClient';
 import { BunaLensTheme as theme } from '@/constants/theme';
+import LanguageToggle from '@/components/LanguageToggle';
 
 export default function Station() {
   const { station, setStation, addCredits } = useStation();
@@ -19,16 +20,16 @@ export default function Station() {
 
   const refreshBalance = async () => {
     if (!supabase || station.id === 'station-demo') {
-      Alert.alert('Local demo mode', 'No cloud station balance is connected.');
+      Alert.alert(t('accountDemo'), t('noCloudBalance'));
       return;
     }
     try {
       const { data, error } = await supabase.from('stations').select('credits,pro_expires_at').eq('id', station.id).single();
       if (error) throw error;
       setStation({ ...station, credits: data.credits, pro_expires_at: data.pro_expires_at || undefined });
-      Alert.alert('Station balance updated', 'The latest server-side credit and Pro entitlement status has been loaded.');
+      Alert.alert(t('balanceUpdated'), t('balanceLoaded'));
     } catch (error) {
-      Alert.alert('Refresh failed', error instanceof Error ? error.message : 'Unable to refresh station balance');
+      Alert.alert(t('refreshFailed'), error instanceof Error ? error.message : t('refreshFailed'));
     }
   };
 
@@ -38,13 +39,13 @@ export default function Station() {
       if (mode === 'sandbox') {
         if (packageId === 'starter_50') addCredits(50);
         else setStation({ ...station, pro_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() });
-        Alert.alert('Demo sandbox only', packageId === 'starter_50' ? '50 demonstration scan credits added. No payment was charged.' : 'Monthly Pro demonstration activated locally. No payment was charged.');
+        Alert.alert(t('paymentDemo'), packageId === 'starter_50' ? t('demoCreditsAdded') : t('demoProActivated'));
       } else {
         await refreshBalance();
-        Alert.alert('Payment pending verification', 'Checkout returned. Credits or Pro access are granted only after the server verifies the Chapa transaction. Use Refresh balance if verification is still processing.');
+        Alert.alert(t('paymentPending'), t('paymentPendingHint'));
       }
     } catch (error) {
-      Alert.alert('Checkout error', error instanceof Error ? error.message : 'Unable to initialize checkout');
+      Alert.alert(t('checkoutError'), error instanceof Error ? error.message : t('unableCheckout'));
     }
   };
 
@@ -53,11 +54,9 @@ export default function Station() {
       <View className="flex-row items-center justify-between mb-5">
         <View>
           <Text className="text-2xl font-black" style={{ color: theme.colors.espresso }}>{t('station')}</Text>
-          <Text className="text-xs mt-1" style={{ color: theme.colors.secondary }}>Manage your washing station</Text>
+          <Text className="text-xs mt-1" style={{ color: theme.colors.secondary }}>{t('manageStation')}</Text>
         </View>
-        <View className="h-11 w-11 rounded-2xl items-center justify-center" style={{ backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.line }}>
-          <Warehouse size={21} color={theme.colors.espresso} />
-        </View>
+        <LanguageToggle />
       </View>
 
       <Pressable onPress={() => router.push('/auth')} className="rounded-2xl border p-4 flex-row items-center" style={{ backgroundColor: theme.colors.surface, borderColor: theme.colors.line }}>
@@ -75,24 +74,24 @@ export default function Station() {
         <View className="flex-row items-center justify-between">
           <View className="flex-row items-center">
             <CreditCard size={16} color="#F5E9DF" />
-            <Text className="text-xs font-bold ml-2" style={{ color: '#F5E9DF' }}>SCAN CREDITS</Text>
+            <Text className="text-xs font-bold ml-2" style={{ color: '#F5E9DF' }}>{t('scanCredits')}</Text>
           </View>
           <View className="rounded-full px-2.5 py-1" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}>
             <Text className="text-[9px] font-extrabold" style={{ color: '#F5E9DF' }}>{station.pro_expires_at && new Date(station.pro_expires_at).getTime() > Date.now() ? 'PRO ACTIVE' : 'PAY AS YOU GO'}</Text>
           </View>
         </View>
         <Text className="text-4xl font-black text-white mt-3">{station.credits}</Text>
-        <Text className="text-xs mt-1" style={{ color: '#C7B6AC' }}>Available scan credits</Text>
+        <Text className="text-xs mt-1" style={{ color: '#C7B6AC' }}>{t('availableCredits')}</Text>
         {station.pro_expires_at ? <Text className="text-[10px] mt-2" style={{ color: '#C7B6AC' }}>Pro expiry: {new Date(station.pro_expires_at).toLocaleDateString()}</Text> : null}
         <Pressable onPress={() => checkout('starter_50')} className="rounded-xl p-3.5 mt-5 items-center" style={{ backgroundColor: theme.colors.cherry }}>
-          <Text className="text-white text-sm font-extrabold">Starter Pack · 50 scans · 500 ETB</Text>
+          <Text className="text-white text-sm font-extrabold">{t('starterPack')}</Text>
         </Pressable>
         <Pressable onPress={() => checkout('station_pro_monthly')} className="rounded-xl p-3.5 mt-2 items-center" style={{ backgroundColor: '#FFFFFF' }}>
-          <Text className="text-sm font-extrabold" style={{ color: theme.colors.espresso }}>Washing Station Unlimited · 2,500 ETB / month</Text>
+          <Text className="text-sm font-extrabold" style={{ color: theme.colors.espresso }}>{t('proPlan')}</Text>
         </Pressable>
         <Pressable onPress={refreshBalance} className="rounded-xl p-3 mt-2 flex-row items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.10)' }}>
           <RefreshCw size={13} color="#FFFFFF" />
-          <Text className="text-white text-xs font-bold ml-2">Refresh server balance</Text>
+          <Text className="text-white text-xs font-bold ml-2">{t('refreshBalance')}</Text>
         </Pressable>
       </View>
 
@@ -103,8 +102,8 @@ export default function Station() {
               <Warehouse size={18} color={theme.colors.espresso} />
             </View>
             <View>
-              <Text className="text-sm font-extrabold" style={{ color: theme.colors.espresso }}>Station profile</Text>
-              <Text className="text-[10px]" style={{ color: theme.colors.secondary }}>Origin and contact details</Text>
+              <Text className="text-sm font-extrabold" style={{ color: theme.colors.espresso }}>{t('stationProfile')}</Text>
+              <Text className="text-[10px]" style={{ color: theme.colors.secondary }}>{t('originContact')}</Text>
             </View>
           </View>
           <Pressable accessibilityRole="button" onPress={() => { if (edit) setStation({ ...station, name, manager, woreda }); setEdit(!edit); }} className="rounded-xl px-3 py-2 flex-row items-center" style={{ backgroundColor: edit ? theme.colors.emeraldSoft : theme.colors.parchment }}>
@@ -114,11 +113,11 @@ export default function Station() {
         </View>
         {edit ? (
           <>
-            <Text className="text-[11px] font-bold mb-1" style={{ color: theme.colors.secondary }}>Station name</Text>
+            <Text className="text-[11px] font-bold mb-1" style={{ color: theme.colors.secondary }}>{t('stationName')}</Text>
             <TextInput value={name} onChangeText={setName} placeholder="Station name" placeholderTextColor={theme.colors.muted} className="rounded-xl border p-3 mb-3 text-sm" style={{ borderColor: theme.colors.line, color: theme.colors.espresso }} />
-            <Text className="text-[11px] font-bold mb-1" style={{ color: theme.colors.secondary }}>Manager</Text>
+            <Text className="text-[11px] font-bold mb-1" style={{ color: theme.colors.secondary }}>{t('manager')}</Text>
             <TextInput value={manager} onChangeText={setManager} placeholder="Manager" placeholderTextColor={theme.colors.muted} className="rounded-xl border p-3 mb-3 text-sm" style={{ borderColor: theme.colors.line, color: theme.colors.espresso }} />
-            <Text className="text-[11px] font-bold mb-2" style={{ color: theme.colors.secondary }}>Woreda</Text>
+            <Text className="text-[11px] font-bold mb-2" style={{ color: theme.colors.secondary }}>{t('stationWoreda')}</Text>
             <View className="flex-row flex-wrap">
               {JIMMA_WOREDAS.map((item) => <Pressable key={item} onPress={() => setWoreda(item)} className="p-2.5 m-1 rounded-full" style={{ backgroundColor: item === woreda ? theme.colors.espresso : theme.colors.parchment }}><Text className="text-[11px] font-bold" style={{ color: item === woreda ? '#FFFFFF' : theme.colors.espresso }}>{item}</Text></Pressable>)}
             </View>
@@ -134,11 +133,11 @@ export default function Station() {
 
       <View className="flex-row items-start mt-5 px-1">
         <ShieldCheck size={14} color={theme.colors.secondary} />
-        <Text className="text-[10px] leading-4 ml-2 flex-1" style={{ color: theme.colors.secondary }}>Chapa secret keys remain on a trusted backend. Demo sandbox entitlements are local demonstrations and do not represent a real payment or subscription.</Text>
+        <Text className="text-[10px] leading-4 ml-2 flex-1" style={{ color: theme.colors.secondary }}>{t('chapaDisclaimer')}</Text>
       </View>
       <View className="flex-row items-center justify-center mt-4">
         <Sparkles size={12} color={theme.colors.harvest} />
-        <Text className="text-[10px] font-semibold ml-1.5" style={{ color: theme.colors.secondary }}>Built for Ethiopia's coffee value chain</Text>
+        <Text className="text-[10px] font-semibold ml-1.5" style={{ color: theme.colors.secondary }}>{t('madeForCoffee')}</Text>
       </View>
     </ScrollView>
   );

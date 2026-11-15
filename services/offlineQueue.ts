@@ -12,6 +12,7 @@ let syncInProgress = false;
 
 export interface QueuedCapture {
   id: string;
+  batch_code?: string;
   image_uri: string;
   sample_type: SampleType;
   woreda: string;
@@ -93,7 +94,7 @@ export async function syncQueuedCaptures(): Promise<{ synced: CoffeeBatch[]; rem
             signal: controller.signal,
             headers: { 'Content-Type': 'application/json', apikey: anonKey, Authorization: 'Bearer ' + token },
             body: JSON.stringify({
-              idempotency_key: item.id, station_id: item.station_id, sample_type: item.sample_type,
+              idempotency_key: item.id, batch_code: item.batch_code, station_id: item.station_id, sample_type: item.sample_type,
               woreda: item.woreda, lot_weight_kg: item.lot_weight_kg, captured_at: item.created_at,
               image_mime_type: item.mime_type || 'image/jpeg', image_base64: imageBase64,
             }),

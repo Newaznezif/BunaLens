@@ -63,12 +63,13 @@ export default function Scan() {
       return;
     }
     const captureId = 'bunalens-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    const batchCode = 'BNL-JMA-' + Math.random().toString(36).slice(2, 6).toUpperCase();
     setBusy(true);
     try {
       const queuedImage = await persistLocalImage(preview.uri, captureId, preview.mimeType).catch(() => preview.uri);
       if (!(await isOnline())) {
         await enqueueCapture({
-          id: captureId, image_uri: queuedImage, sample_type: type, woreda,
+          id: captureId, batch_code: batchCode, image_uri: queuedImage, sample_type: type, woreda,
           lot_weight_kg: weightInKg, created_at: new Date().toISOString(),
           station_id: station.id, mime_type: preview.mimeType,
         });
@@ -93,7 +94,7 @@ export default function Scan() {
           coordinates = { latitude: position.coords.latitude, longitude: position.coords.longitude };
         }
       } catch { /* GPS is optional; the operator can still assess the sample. */ }
-      const batch = await submitCoffeeSample(preview.base64, type, woreda, station.id, captureId, weightInKg, preview.mimeType, coordinates);
+      const batch = await submitCoffeeSample(preview.base64, type, woreda, station.id, captureId, weightInKg, preview.mimeType, coordinates, batchCode);
       if (!hasPro) consumeCredit();
       const savedImage = await persistLocalImage(preview.uri, captureId, preview.mimeType).catch(() => preview.uri);
       const finalBatch: CoffeeBatch = { ...batch, image_uri: savedImage, origin_coordinates: coordinates, status: 'synced' };
@@ -107,7 +108,7 @@ export default function Scan() {
       if (retryable) {
         try {
           await enqueueCapture({
-            id: captureId, image_uri: preview.uri, sample_type: type, woreda,
+            id: captureId, batch_code: batchCode, image_uri: preview.uri, sample_type: type, woreda,
             lot_weight_kg: weightInKg, created_at: new Date().toISOString(),
             station_id: station.id, mime_type: preview.mimeType,
           });

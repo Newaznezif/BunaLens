@@ -105,6 +105,7 @@ export default function Detail() {
           <View className="flex-1">
             <Text className="text-stone-500 text-xs">{t('quality')} · {cherry ? t('red') : t('green')}</Text>
             <Text className="text-3xl font-black mt-1" style={{ color: gradeColor }}>{result.ecx_grade}</Text>
+            {result.ecx_grade === 'Unclassified' ? <Text className="text-[10px] text-stone-500 mt-1">{t('unclassifiedReason')}</Text> : null}
             <Text className="text-espresso text-4xl font-black mt-2">{result.quality_score}<Text className="text-base text-stone-500">/100</Text></Text>
           </View>
           <View className="rounded-xl px-3 py-2" style={{ backgroundColor: '#F5F5F4' }}>

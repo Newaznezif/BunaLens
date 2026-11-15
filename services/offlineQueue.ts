@@ -23,6 +23,7 @@ export async function enqueueCapture(item:QueuedCapture){
   await FileSystem.copyAsync({from:item.image_uri,to:destination});
   await saveQueue([{...item,image_uri:destination},...current]);
 }
+export async function assignQueuedStation(stationId:string){const queue=await getQueue();await saveQueue(queue.map(item=>!item.station_id||item.station_id==='station-demo'?{...item,station_id:stationId}:item));}
 export async function isOnline(){const s=await NetInfo.fetch();return Boolean(s.isConnected&&s.isInternetReachable!==false)}
 export async function syncQueuedCaptures():Promise<{synced:CoffeeBatch[];remaining:number}>{
   if(!endpoint)throw new Error('Offline sync is not configured. Set EXPO_PUBLIC_BUNALENS_SYNC_URL to the coffee-sync Edge Function URL.');

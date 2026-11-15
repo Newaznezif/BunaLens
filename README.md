@@ -46,7 +46,7 @@ git clone https://github.com/NewazNezif/BunaLens.git
 cd BunaLens
 npm install
 cp .env.example .env
-npx expo start
+npx expo start --go
 ```
 
 Scan the QR code with an SDK 54-compatible Expo Go client. Camera capture, gallery selection and local demonstration flows are intended to work without Supabase credentials. Real-image AI grading and cloud services require a signed-in account and configured backend.
@@ -156,7 +156,7 @@ npx eas-cli build --profile production --platform ios
 
 The preview Android profile produces an installable APK; production Android produces an AAB. iOS production requires an Apple Developer account and signing credentials. Run `eas init` once to attach the repository to an EAS project.
 
-Use the development profile for `react-native-view-shot` and other native modules not included in Expo Go. Native module additions require a new development build.
+Use the development profile for `react-native-view-shot` and other native modules not included in Expo Go, then start Metro with `npx expo start --dev-client`. For the Expo Go path, use `npx expo start --go`. Native module additions require a new development build.
 
 ## Quality checks
 

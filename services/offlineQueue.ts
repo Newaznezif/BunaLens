@@ -13,6 +13,7 @@ export async function getQueue():Promise<QueuedCapture[]>{
   try{return JSON.parse((await AsyncStorage.getItem(KEY))||'[]') as QueuedCapture[]}catch{return[]}
 }
 async function saveQueue(items:QueuedCapture[]){await AsyncStorage.setItem(KEY,JSON.stringify(items))}
+export async function persistLocalImage(uri:string,id:string,mimeType='image/jpeg'):Promise<string>{if(!FileSystem.documentDirectory)throw new Error('Local document storage is unavailable.');const dir=FileSystem.documentDirectory+'bunalens-batches/';await FileSystem.makeDirectoryAsync(dir,{intermediates:true});const ext=mimeType==='image/png'?'png':mimeType==='image/webp'?'webp':'jpg';const target=dir+id+'.'+ext;await FileSystem.copyAsync({from:uri,to:target});return target;}
 export async function enqueueCapture(item:QueuedCapture){
   const current=await getQueue();
   if(current.some(x=>x.id===item.id))return;
@@ -39,7 +40,7 @@ export async function syncQueuedCaptures():Promise<{synced:CoffeeBatch[];remaini
       if(!response.ok)break;
       const payload=await response.json() as {batch?:CoffeeBatch};
       if(!payload.batch?.id||!payload.batch.batch_code||!payload.batch.result)break;
-      synced.push({...payload.batch,image_uri:item.image_uri});
+      const permanentImage=await persistLocalImage(item.image_uri,item.id,item.mime_type||'image/jpeg').catch(()=>item.image_uri);synced.push({...payload.batch,image_uri:permanentImage});
       const latest=await getQueue();
       await saveQueue(latest.filter(x=>x.id!==item.id));
       await FileSystem.deleteAsync(item.image_uri,{idempotent:true}).catch(()=>undefined);

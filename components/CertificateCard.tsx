@@ -15,7 +15,7 @@ export default function CertificateCard({batch}:{batch:CoffeeBatch}){
   {batch.image_uri?<Image source={{uri:batch.image_uri}} resizeMode="cover" style={{width:230,height:112,borderRadius:10,marginTop:14}}/>:null}
   <Text className="text-espresso font-black text-lg mt-4">{batch.batch_code}</Text>
   <Text className="text-stone-500 text-center">{batch.sample_type==='red_cherry'?'Red Coffee Cherry · Buna Diimaa':'Green Coffee Bean · Buna Qullaa'}</Text>
-  <Text className="text-stone-500">{batch.woreda} · {new Date(batch.created_at).toLocaleString()}</Text>
+  <Text className="text-stone-500">{batch.woreda} · {new Date(batch.created_at).toLocaleString()}</Text>{batch.origin_coordinates?<Text className="text-stone-400 text-[9px] mt-1">GPS: {batch.origin_coordinates.latitude.toFixed(5)}, {batch.origin_coordinates.longitude.toFixed(5)}</Text>:null}
   <Text className="text-emerald text-2xl font-black mt-3">{batch.result.ecx_grade} · {batch.result.quality_score}/100</Text>
   <Text className="text-stone-500 text-xs mt-1">Lot: {batch.lot_weight_kg} kg</Text>
   {price?<Text className="text-espresso font-bold text-xs text-center mt-2">Indicative value: {price.estimated_lot_value_etb.toLocaleString()} ETB · {price.source_label}</Text>:null}

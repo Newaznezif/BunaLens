@@ -5,6 +5,7 @@ import { ScanLine, TrendingUp, MapPin, ChevronRight, Coffee, ShieldCheck, Clock3
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useStation } from '@/contexts/StationContext';
 import { BunaLensTheme as theme } from '@/constants/theme';
+import LanguageToggle from '@/components/LanguageToggle';
 
 function MetricCard({ label, value, detail, icon: Icon, tint }: { label: string; value: string; detail: string; icon: React.ComponentType<any>; tint: string }) {
   return (
@@ -35,12 +36,10 @@ export default function Home() {
           </View>
           <View>
             <Text className="text-xl font-black tracking-tight" style={{ color: theme.colors.espresso }}>BunaLens</Text>
-            <Text className="text-[11px] font-medium" style={{ color: theme.colors.secondary }}>Coffee quality intelligence</Text>
+            <Text className="text-[11px] font-medium" style={{ color: theme.colors.secondary }}>{t('coffeeIntelligence')}</Text>
           </View>
         </View>
-        <Pressable accessibilityRole="button" accessibilityLabel="Change language" onPress={() => setLanguage(language === 'en' ? 'om' : 'en')} className="rounded-full border px-4 py-2" style={{ backgroundColor: theme.colors.surface, borderColor: theme.colors.line }}>
-          <Text className="text-xs font-extrabold" style={{ color: theme.colors.espresso }}>{language.toUpperCase()}</Text>
-        </Pressable>
+        <LanguageToggle />
       </View>
 
       <View className="rounded-[26px] p-5 overflow-hidden" style={{ backgroundColor: theme.colors.espresso }}>
@@ -53,17 +52,17 @@ export default function Home() {
             <ShieldCheck size={18} color="#F5E9DF" />
           </View>
         </View>
-        <Text className="text-[11px] font-semibold mt-5" style={{ color: '#C7B6AC' }}>YOUR WASHING STATION</Text>
+        <Text className="text-[11px] font-semibold mt-5" style={{ color: '#C7B6AC' }}>{t('yourStation')}</Text>
         <Text className="text-2xl font-black mt-1" style={{ color: '#FFFFFF' }}>{station.name}</Text>
         <View className="flex-row mt-5 pt-4" style={{ borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.16)' }}>
           <View className="flex-1">
             <Text className="text-[11px] font-semibold" style={{ color: '#C7B6AC' }}>{t('credits')}</Text>
             <Text className="text-3xl font-black mt-1" style={{ color: '#FFFFFF' }}>{station.credits}</Text>
-            <Text className="text-[10px] mt-0.5" style={{ color: '#C7B6AC' }}>Available scans</Text>
+            <Text className="text-[10px] mt-0.5" style={{ color: '#C7B6AC' }}>{t('availableScans')}</Text>
           </View>
           <View className="w-px mx-4" style={{ backgroundColor: 'rgba(255,255,255,0.18)' }} />
           <View className="flex-1">
-            <Text className="text-[11px] font-semibold" style={{ color: '#C7B6AC' }}>AVERAGE QUALITY</Text>
+            <Text className="text-[11px] font-semibold" style={{ color: '#C7B6AC' }}>{t('averageQuality')}</Text>
             <Text className="text-3xl font-black mt-1" style={{ color: '#FFFFFF' }}>{completed.length ? avg : '—'}<Text className="text-base" style={{ color: '#C7B6AC' }}>{completed.length ? '/100' : ''}</Text></Text>
             <Text className="text-[10px] mt-0.5" style={{ color: '#C7B6AC' }}>{completed.length ? 'From completed AI scans' : 'No AI scans yet'}</Text>
           </View>
@@ -74,10 +73,10 @@ export default function Home() {
         <View className="flex-1 pr-3">
           <View className="flex-row items-center mb-2">
             <Sparkles size={14} color="#FEE2E2" />
-            <Text className="text-[11px] font-bold ml-1.5" style={{ color: '#FEE2E2' }}>AI-ASSISTED QUALITY CHECK</Text>
+            <Text className="text-[11px] font-bold ml-1.5" style={{ color: '#FEE2E2' }}>{t('aiQualityCheck')}</Text>
           </View>
-          <Text className="text-xl font-black" style={{ color: '#FFFFFF' }}>Scan your coffee</Text>
-          <Text className="text-xs mt-1" style={{ color: '#FEE2E2' }}>Capture cherries or green beans to assess quality.</Text>
+          <Text className="text-xl font-black" style={{ color: '#FFFFFF' }}>{t('scanYourCoffee')}</Text>
+          <Text className="text-xs mt-1" style={{ color: '#FEE2E2' }}>{t('captureAssess')}</Text>
         </View>
         <View className="h-12 w-12 rounded-2xl items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.18)' }}>
           <ScanLine size={25} color="#FFFFFF" />
@@ -85,8 +84,8 @@ export default function Home() {
       </Pressable>
 
       <View className="flex-row items-center justify-between mt-7 mb-3">
-        <Text className="text-lg font-black" style={{ color: theme.colors.espresso }}>Station overview</Text>
-        <Text className="text-[11px] font-semibold" style={{ color: theme.colors.secondary }}>YOUR ACTIVITY</Text>
+        <Text className="text-lg font-black" style={{ color: theme.colors.espresso }}>{t('stationOverview')}</Text>
+        <Text className="text-[11px] font-semibold" style={{ color: theme.colors.secondary }}>{t('yourActivity')}</Text>
       </View>
       <View className="flex-row gap-3">
         <MetricCard label="Total batches" value={String(batches.length)} detail="Saved in this device" icon={Layers3} tint="#F5E9DF" />
@@ -94,9 +93,9 @@ export default function Home() {
       </View>
 
       <View className="flex-row items-center justify-between mt-7 mb-3">
-        <Text className="text-lg font-black" style={{ color: theme.colors.espresso }}>Recent batches</Text>
+        <Text className="text-lg font-black" style={{ color: theme.colors.espresso }}>{t('recentBatches')}</Text>
         <Pressable onPress={() => router.push('/(tabs)/batches')} className="flex-row items-center py-1">
-          <Text className="text-xs font-bold mr-1" style={{ color: theme.colors.cherry }}>View all</Text>
+          <Text className="text-xs font-bold mr-1" style={{ color: theme.colors.cherry }}>{t('viewAll')}</Text>
           <ChevronRight size={15} color={theme.colors.cherry} />
         </Pressable>
       </View>
@@ -105,10 +104,10 @@ export default function Home() {
           <View className="h-12 w-12 rounded-2xl items-center justify-center" style={{ backgroundColor: theme.colors.cherrySoft }}>
             <Coffee size={23} color={theme.colors.cherry} />
           </View>
-          <Text className="text-sm font-extrabold mt-3" style={{ color: theme.colors.espresso }}>Your batch history starts here</Text>
-          <Text className="text-xs text-center mt-1 leading-5" style={{ color: theme.colors.secondary }}>Capture a coffee sample to create your first quality record.</Text>
+          <Text className="text-sm font-extrabold mt-3" style={{ color: theme.colors.espresso }}>{t('batchHistoryStarts')}</Text>
+          <Text className="text-xs text-center mt-1 leading-5" style={{ color: theme.colors.secondary }}>{t('firstBatchHint')}</Text>
           <Pressable onPress={() => router.push('/(tabs)/scan')} className="rounded-xl px-5 py-3 mt-4" style={{ backgroundColor: theme.colors.espresso }}>
-            <Text className="text-xs font-bold" style={{ color: '#FFFFFF' }}>Start first scan</Text>
+            <Text className="text-xs font-bold" style={{ color: '#FFFFFF' }}>{t('startFirstScan')}</Text>
           </Pressable>
         </View>
       ) : recent.map((batch: any) => (
@@ -129,7 +128,7 @@ export default function Home() {
           <ChevronRight size={16} color={theme.colors.muted} />
         </Pressable>
       ))}
-      <Text className="text-[10px] text-center mt-5 leading-4" style={{ color: theme.colors.secondary }}>AI-assisted visual assessment · Not an official ECX laboratory certificate</Text>
+      <Text className="text-[10px] text-center mt-5 leading-4" style={{ color: theme.colors.secondary }}>{t('coffeeValueDisclaimer')}</Text>
     </ScrollView>
   );
 }

@@ -57,7 +57,6 @@ Scan the QR code with an SDK 54-compatible Expo Go client. Camera capture, galle
 |---|---|
 | `EXPO_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Public anon / publishable key only |
-| `EXPO_PUBLIC_GEMINI_PROXY_URL` | `https://<project>.supabase.co/functions/v1/gemini-grade` |
 | `EXPO_PUBLIC_BUNALENS_SYNC_URL` | `https://<project>.supabase.co/functions/v1/coffee-sync` |
 | `EXPO_PUBLIC_CHAPA_INITIALIZE_URL` | `https://<project>.supabase.co/functions/v1/chapa-initialize` |
 | `EXPO_PUBLIC_CERTIFICATE_VERIFY_BASE_URL` | `https://<project>.supabase.co/functions/v1/certificate-verify` |

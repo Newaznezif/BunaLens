@@ -76,7 +76,7 @@ export function validateGradingResult(value: unknown): GradingResult {
 export async function submitCoffeeSample(
   base64: string, sampleType: SampleType, woreda: string, stationId: string,
   idempotencyKey: string, lotWeightKg: number, mimeType = 'image/jpeg',
-  coordinates?: { latitude: number; longitude: number },
+  coordinates?: { latitude: number; longitude: number }, batchCode?: string,
 ): Promise<CoffeeBatch> {
   if (!SYNC_URL) throw new GradingServiceError('Cloud grading is not configured. Use a clearly labelled offline demonstration or configure the secure sync service.', 'configuration');
   if (!SUPABASE_ANON_KEY) throw new GradingServiceError('Supabase public credentials are missing.', 'configuration');
@@ -96,7 +96,7 @@ export async function submitCoffeeSample(
         woreda, lot_weight_kg: lotWeightKg, captured_at: new Date().toISOString(),
         image_mime_type: mimeType,
         image_base64: base64.replace(/^data:image\/[a-z0-9.+-]+;base64,/i, '').replace(/\s/g, ''),
-        gps_latitude: coordinates?.latitude, gps_longitude: coordinates?.longitude,
+        gps_latitude: coordinates?.latitude, gps_longitude: coordinates?.longitude, batch_code: batchCode,
       }),
     });
   } catch (error) {

@@ -46,15 +46,24 @@ Deno.serve(async(req)=>{
   const fullName=String(userData.user.user_metadata?.full_name||station.manager||"BunaLens Customer").trim().split(/\s+/);
   const callbackUrl=Deno.env.get("CHAPA_CALLBACK_URL")||url+"/functions/v1/chapa-webhook";
   const returnUrl=Deno.env.get("CHAPA_RETURN_URL");
-  const chapaResponse=await fetch("https://api.chapa.co/v1/transaction/initialize",{
-   method:"POST",headers:{"Authorization":"Bearer "+chapa,"Content-Type":"application/json"},
+  const chapaController=new AbortController();
+  const chapaTimeout=setTimeout(()=>chapaController.abort(),20_000);
+  let chapaResponse:Response;
+  try{
+   chapaResponse=await fetch("https://api.chapa.co/v1/transaction/initialize",{
+   method:"POST",signal:chapaController.signal,
+   headers:{"Authorization":"Bearer "+chapa,"Content-Type":"application/json"},
    body:JSON.stringify({
     amount:String(amount),currency:"ETB",email:userData.user.email,
     first_name:fullName[0]||"BunaLens",last_name:fullName.slice(1).join(" ")||"Station",
     tx_ref:txRef,callback_url:callbackUrl,...(returnUrl?{return_url:returnUrl}:{}),
     customization:{title:"BunaLens Station",description:packageId==="starter_50"?"50 coffee batch scans":"30-day washing station Pro pass"}
    })
-  });
+   });
+  }catch(error){
+   if(error instanceof Error&&error.name==="AbortError")return reply({error:"Chapa initialization timed out. Retry with the same payment reference."},504);
+   return reply({error:"Chapa is temporarily unreachable."},502);
+  }finally{clearTimeout(chapaTimeout)}
   const result=await chapaResponse.json().catch(()=>({}));
   const checkoutUrl=result?.data?.checkout_url;
   if(!chapaResponse.ok||result?.status!=="success"||typeof checkoutUrl!=="string"){

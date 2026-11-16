@@ -46,7 +46,8 @@ export default function VerifyCertificate() {
         return;
       }
       try {
-        const response = await fetch(VERIFY_BASE.replace(/\\/$/, '') + '/' + encodeURIComponent(id || ''));
+        const verifyUrl = VERIFY_BASE.endsWith('/') ? VERIFY_BASE.slice(0, -1) : VERIFY_BASE;
+        const response = await fetch(verifyUrl + '/' + encodeURIComponent(id || ''));
         const payload = await response.json() as { valid?: boolean; certificate?: RemoteCertificate };
         if (!response.ok || !payload.valid || !payload.certificate) {
           if (active) setStatus('invalid');

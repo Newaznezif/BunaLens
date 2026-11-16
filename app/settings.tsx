@@ -49,7 +49,7 @@ export default function Settings() {
       <View className="flex-row items-center justify-between mb-5"><Pressable onPress={() => router.back()} className="flex-row items-center py-2"><ArrowLeft size={18} color={theme.colors.espresso} /><Text className="text-sm font-bold ml-2" style={{ color: theme.colors.espresso }}>{t('back')}</Text></Pressable><LanguageToggle /></View>
       <Text className="text-2xl font-black" style={{ color: theme.colors.espresso }}>{t('settings')}</Text><Text className="text-xs mt-1 mb-5" style={{ color: theme.colors.secondary }}>{t('stationSettings')}</Text>
 
-      <View className="rounded-2xl border p-4 mb-4" style={{ backgroundColor: theme.colors.surface, borderColor: theme.colors.line }}>
+      <View className="rounded-3xl border p-4 mb-4" style={{ backgroundColor: theme.colors.surface, borderColor: theme.colors.line }}>
         <View className="flex-row items-center mb-2"><Globe2 size={17} color={theme.colors.cherry} /><Text className="text-sm font-extrabold ml-2" style={{ color: theme.colors.espresso }}>{t('language')}</Text></View>
         <Text className="text-[11px] mb-3" style={{ color: theme.colors.secondary }}>{t('changeLanguage')}</Text>
         <View className="flex-row gap-2">
@@ -58,7 +58,7 @@ export default function Settings() {
         </View>
       </View>
 
-      <View className="rounded-2xl border px-4 mb-4" style={{ backgroundColor: theme.colors.surface, borderColor: theme.colors.line }}>
+      <View className="rounded-3xl border px-4 mb-4" style={{ backgroundColor: theme.colors.surface, borderColor: theme.colors.line }}>
         <Text className="text-sm font-black pt-4" style={{ color: theme.colors.espresso }}>{t('locationPermission')}</Text><Text className="text-[11px] mt-1 leading-4" style={{ color: theme.colors.secondary }}>{t('locationPermissionHint')}</Text>
         <SettingRow icon={MapPin} title={permission === 'granted' ? t('locationGranted') : t('locationDenied')} detail={permission === 'granted' ? t('locationGranted') : t('locationDenied')} action={permission === 'granted' || permissionBusy ? undefined : requestLocation} trailing={permission === 'granted' ? <ShieldCheck size={17} color={theme.colors.emerald} /> : <Text className="text-xs font-bold" style={{ color: theme.colors.cherry }}>{t('allowLocation')}</Text>} />
       </View>

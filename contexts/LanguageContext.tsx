@@ -112,7 +112,7 @@ const translations = {
     assessmentSteps: 'MADAALLII SAAMUDAA', stepSampleDetails: 'Odeeffannoo saamudaa', stepPhotoAssessment: 'Suuraa fi madaallii',
     scanIntroTitle: 'Maal madaaluu barbaaddu?', scanIntroHint: 'Gosa saamudaa filadhaa; itti aansuudhaan madda fi ulfaatina baachii galchaa.',
     continueToPhoto: 'Gara suuraatti ce’aa', sampleSummary: 'CUUNFAA SAAMUDAA', editDetails: 'Sirreessaa',
-    captureIntroTitle: 'Saamuda keessan suuraa ka’aa', captureIntroHint: 'Suuraa ifa gaarii qabu ka’aa. Buna sana bifa suuraa keessatti kaa’aatii gaaddisa irraa fagaadhaa.'
+    captureIntroTitle: 'Saamuda keessan suuraa ka’aa', captureIntroHint: 'Suuraa ifa gaarii qabu ka’aa. Buna sana bifa suuraa keessatti kaa’aatii gaaddisa irraa fagaadhaa.',
     fieldLighting: 'Ifa gaarii fi walqixa ta’e fayyadamaa. Saamuda bunaa bakka suuraa guututti kaa’aa; gaaddisa irraa fagaadhaa.',
     selectSampleType: '1. Gosa saamudaa filadhaa', redCherries: 'Ija bunaa diimaa',
     greenBeans: 'Buna qullaa', coffeeOrigin: '2. Madda bunaa', woreda: 'Aanaa',

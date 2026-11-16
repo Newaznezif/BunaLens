@@ -21,7 +21,7 @@ import LanguageToggle from '@/components/LanguageToggle';
 type Preview = { base64: string; uri: string; mimeType: string };
 
 export default function Scan() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { station, addBatch, consumeCredit } = useStation();
   const { refresh: refreshQueue } = useOfflineQueue();
   const [perm, ask] = useCameraPermissions();
@@ -138,22 +138,34 @@ export default function Scan() {
     }
   };
 
-  const demo = (defective: boolean) => {
+  const demo = async (defective: boolean) => {
     if (!validWeight) {
       Alert.alert(t('invalidWeight'), t('invalidWeightHint'));
       return;
     }
     const id = 'demo-' + Date.now();
-    const result = getDemoAssessment(defective, type);
-    const batch: CoffeeBatch = {
-      id, batch_code: 'BNL-JMA-' + String(Date.now()).slice(-4),
-      sample_type: type, woreda, created_at: new Date().toISOString(),
-      result, lot_weight_kg: weightInKg, status: 'demo', station_id: station.id,
-      pricing: priceAssessment(type, result.ecx_grade, weightInKg), verification_id: id,
-    };
-    addBatch(batch);
-    setDemoOpen(false);
-    router.push('/batch/' + id);
+    try {
+      // A captured photograph may be retained with the local demo record for
+      // traceability. The preset assessment remains simulated and never claims
+      // to have analysed the photograph.
+      const savedImage = preview
+        ? await persistLocalImage(preview.uri, id, preview.mimeType)
+        : undefined;
+      const result = getDemoAssessment(defective, type);
+      const batch: CoffeeBatch = {
+        id, batch_code: 'BNL-JMA-' + String(Date.now()).slice(-4),
+        sample_type: type, woreda, created_at: new Date().toISOString(),
+        ...(savedImage ? { image_uri: savedImage } : {}),
+        result, lot_weight_kg: weightInKg, status: 'demo', station_id: station.id,
+        pricing: priceAssessment(type, result.ecx_grade, weightInKg), verification_id: id,
+      };
+      addBatch(batch);
+      setPreview(null);
+      setDemoOpen(false);
+      router.push('/batch/' + id);
+    } catch (error) {
+      Alert.alert(t('gradingFailed'), error instanceof Error ? error.message : t('gradingFailed'));
+    }
   };
 
   return (
@@ -223,7 +235,11 @@ export default function Scan() {
       <Modal visible={demoOpen} transparent animationType="slide" onRequestClose={() => setDemoOpen(false)}>
         <View className="flex-1 justify-end" style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}><View className="rounded-t-3xl p-5" style={{ backgroundColor: theme.colors.parchment }}>
           <View className="flex-row items-center justify-between mb-2"><Text className="text-lg font-black text-espresso">{t('demoTitle')}</Text><Pressable onPress={() => setDemoOpen(false)}><Text className="text-sm font-bold text-cherry">{t('cancel')}</Text></Pressable></View>
-          <Text className="text-[11px] text-secondary mb-4">{t('demoHint')}</Text>
+          <Text className="text-[11px] text-secondary mb-4">{preview
+            ? (language === 'om'
+              ? 'Suuraan kaaftan galmee kana waliin kuufama; garuu qabxiin fi qoodinsi mudaa fakkeenya qophaa’e dha. Suuraan AI’n hin xiinxalamu.'
+              : 'Your captured photo will be saved with this record for reference. The score and defect breakdown are preset demonstration data; the photo is not analysed.')
+            : t('demoHint')}</Text>
           <Pressable onPress={() => demo(false)} className="bg-emerald p-4 rounded-xl mb-2"><Text className="text-white font-bold">{t('cleanDemo')}</Text></Pressable>
           <Pressable onPress={() => demo(true)} className="bg-harvest p-4 rounded-xl"><Text className="text-white font-bold">{t('defectDemo')}</Text></Pressable>
           <Text className="text-[9px] font-bold text-center mt-4" style={{ color: '#92400E' }}>{t('demoOnly')}</Text>

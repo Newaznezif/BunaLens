@@ -180,7 +180,7 @@ export default function Scan() {
         <LanguageToggle />
       </View>
 
-      <View className="flex-row items-start rounded-xl p-3 mb-4" style={{ backgroundColor: '#FFF7ED', borderWidth: 1, borderColor: '#FED7AA' }}>
+      <View className="flex-row items-start rounded-2xl p-4 mb-4" style={{ backgroundColor: '#FFF7ED', borderWidth: 1, borderColor: '#FED7AA' }}>
         <Info size={16} color={theme.colors.harvest} />
         <Text className="text-xs ml-2 flex-1 leading-5" style={{ color: '#7C2D12' }}>{t('fieldLighting')}</Text>
       </View>
@@ -189,7 +189,7 @@ export default function Scan() {
       <View className="flex-row gap-3 mb-5">
         {(['red_cherry', 'green_bean'] as const).map((sample) => (
           <Pressable key={sample} accessibilityRole="button" accessibilityState={{ selected: type === sample }} onPress={() => setType(sample)}
-            className={`flex-1 p-4 rounded-2xl border-2 ${type === sample ? 'bg-cherry-soft border-cherry' : 'bg-white border-line'}`}>
+            className={`flex-1 p-4 rounded-3xl border-2 ${type === sample ? 'bg-cherry-soft border-cherry' : 'bg-white border-line'}`}>
             <View className="flex-row items-center justify-between"><Coffee color={type === sample ? theme.colors.cherry : theme.colors.secondary} size={21} />{type === sample ? <ShieldCheck color={theme.colors.cherry} size={17} /> : null}</View>
             <Text className="text-sm text-espresso font-extrabold mt-3">{sample === 'red_cherry' ? t('redCherries') : t('greenBeans')}</Text>
             <Text className="text-[10px] text-secondary mt-1">{sample === 'red_cherry' ? t('red') : t('green')}</Text>
@@ -238,7 +238,7 @@ export default function Scan() {
       <Pressable onPress={() => setDemoOpen(true)} className="mt-7 rounded-2xl border p-4 flex-row items-center justify-between" style={{ backgroundColor: '#FFFBEB', borderColor: '#FDE68A' }}><View className="flex-1"><Text className="text-sm font-extrabold" style={{ color: '#92400E' }}>{t('demoTitle')} · {t('demoOnly')}</Text><Text className="text-[11px] mt-1" style={{ color: '#92400E' }}>{t('demoHint')}</Text></View><ChevronRight size={18} color="#92400E" /></Pressable>
       {busy ? <View className="rounded-2xl p-4 mt-4 flex-row items-center" style={{ backgroundColor: theme.colors.espresso }}><ActivityIndicator color="#FFFFFF" /><View className="ml-3 flex-1"><Text className="text-white font-bold text-sm">{t('assessmentProgress')}</Text><Text className="text-[10px] text-stone-300 mt-1">{t('pleaseWait')}</Text></View></View> : null}
       <Modal visible={demoOpen} transparent animationType="slide" onRequestClose={() => setDemoOpen(false)}>
-        <View className="flex-1 justify-end" style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}><View className="rounded-t-3xl p-5" style={{ backgroundColor: theme.colors.parchment }}>
+        <View className="flex-1 justify-end" style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}><View className="rounded-t-3xl p-6" style={{ backgroundColor: theme.colors.parchment }}>
           <View className="flex-row items-center justify-between mb-2"><Text className="text-lg font-black text-espresso">{t('demoTitle')}</Text><Pressable onPress={() => setDemoOpen(false)}><Text className="text-sm font-bold text-cherry">{t('cancel')}</Text></Pressable></View>
           <Text className="text-[11px] text-secondary mb-4">{preview
             ? (language === 'om'

@@ -8,19 +8,19 @@ import { BunaLensTheme as theme } from '@/constants/theme';
 function TabItem({ icon: Icon, label, focused, accent = false }: { icon: React.ComponentType<any>; label: string; focused: boolean; accent?: boolean }) {
   if (accent) {
     return (
-      <View className="items-center justify-center" style={{ width: 72, marginTop: -18 }}>
-        <View className="items-center justify-center" style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: theme.colors.cherry, borderWidth: 4, borderColor: theme.colors.parchment, shadowColor: theme.colors.espresso, shadowOpacity: 0.16, shadowRadius: 9, shadowOffset: { width: 0, height: 3 }, elevation: 7 }}>
+      <View className="items-center justify-center" style={{ width: 68, marginTop: -12 }}>
+        <View className="items-center justify-center" style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: theme.colors.emerald, borderWidth: 4, borderColor: theme.colors.parchment, shadowColor: theme.colors.espresso, shadowOpacity: 0.12, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 5 }}>
           <ScanLine color="#FFFFFF" size={22} strokeWidth={1.9} />
         </View>
-        <Text style={{ color: theme.colors.espresso, fontSize: 9, fontWeight: '800', marginTop: 1 }}>{label}</Text>
+        <Text style={{ color: theme.colors.emerald, fontSize: 9, fontWeight: '800', marginTop: 2 }}>{label}</Text>
       </View>
     );
   }
   return (
     <View className="items-center justify-center" style={{ minWidth: 56, paddingTop: 7 }}>
-      <Icon color={focused ? theme.colors.cherry : theme.colors.secondary} size={19} strokeWidth={focused ? 2.3 : 1.8} />
-      <Text numberOfLines={1} style={{ color: focused ? theme.colors.cherry : theme.colors.secondary, fontSize: 9, fontWeight: focused ? '800' : '600', marginTop: 5 }}>{label}</Text>
-      <View style={{ width: focused ? 14 : 4, height: 2, borderRadius: 2, backgroundColor: focused ? theme.colors.cherry : 'transparent', marginTop: 4 }} />
+      <Icon color={focused ? theme.colors.emerald : theme.colors.secondary} size={19} strokeWidth={focused ? 2.2 : 1.8} />
+      <Text numberOfLines={1} style={{ color: focused ? theme.colors.emerald : theme.colors.secondary, fontSize: 10, fontWeight: focused ? '800' : '600', marginTop: 5 }}>{label}</Text>
+      <View style={{ width: focused ? 15 : 4, height: 2, borderRadius: 2, backgroundColor: focused ? theme.colors.emerald : 'transparent', marginTop: 4 }} />
     </View>
   );
 }
@@ -32,18 +32,18 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
-        tabBarActiveTintColor: theme.colors.cherry,
+        tabBarActiveTintColor: theme.colors.emerald,
         tabBarInactiveTintColor: theme.colors.secondary,
         tabBarStyle: {
-          height: 76,
-          paddingTop: 7,
-          paddingBottom: 8,
+          height: 78,
+          paddingTop: 8,
+          paddingBottom: 10,
           backgroundColor: theme.colors.surface,
           borderTopColor: theme.colors.line,
           borderTopWidth: 1,
-          elevation: 8,
+          elevation: 6,
           shadowColor: theme.colors.espresso,
-          shadowOpacity: 0.045,
+          shadowOpacity: 0.04,
           shadowRadius: 10,
           shadowOffset: { width: 0, height: -3 },
         },

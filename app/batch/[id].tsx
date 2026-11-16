@@ -150,7 +150,7 @@ export default function Detail() {
       <Text className="text-stone-500 text-xs mt-1">Jimma Zone, Oromia · {batch.woreda} · {new Date(batch.created_at).toLocaleString()}</Text>
       {batch.image_uri ? <Image source={{ uri: batch.image_uri }} resizeMode="cover" style={{ width: '100%', height: 180, borderRadius: 18, marginTop: 16 }} /> : null}
 
-      <View className="bg-white border border-line p-5 rounded-2xl mt-4">
+      <View className="bg-white border border-line p-5 rounded-3xl mt-4">
         <View className="flex-row justify-between items-start">
           <View className="flex-1">
             <Text className="text-stone-500 text-xs">{t('quality')} · {cherry ? t('red') : t('green')}</Text>
@@ -158,7 +158,7 @@ export default function Detail() {
             {result.ecx_grade === 'Unclassified' ? <Text className="text-[10px] text-stone-500 mt-1">{t('unclassifiedReason')}</Text> : null}
             <Text className="text-espresso text-4xl font-black mt-2">{result.quality_score}<Text className="text-base text-stone-500">/100</Text></Text>
           </View>
-          <View className="rounded-xl px-3 py-2" style={{ backgroundColor: '#F5F5F4' }}>
+          <View className="rounded-2xl px-3 py-2" style={{ backgroundColor: '#F5F5F4' }}>
             <Text className="text-[9px] font-bold text-stone-500">{t('confidence')}</Text>
             <Text className="text-xl font-black text-espresso">{confidence}%</Text>
           </View>

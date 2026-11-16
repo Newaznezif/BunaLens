@@ -89,7 +89,7 @@ export default function Station() {
         <View className="flex-row items-center gap-2"><Pressable onPress={() => router.push('/settings')} className="h-10 w-10 rounded-xl items-center justify-center" style={{ backgroundColor: theme.colors.surface }}><SettingsIcon size={18} color={theme.colors.espresso} /></Pressable><LanguageToggle /></View>
       </View>
 
-      <Pressable onPress={() => router.push('/auth')} className="rounded-2xl border p-4 flex-row items-center" style={{ backgroundColor: theme.colors.surface, borderColor: theme.colors.line }}>
+      <Pressable onPress={() => router.push('/auth')} className="rounded-3xl border p-4 flex-row items-center" style={{ backgroundColor: theme.colors.surface, borderColor: theme.colors.line }}>
         <View className="h-10 w-10 rounded-xl items-center justify-center mr-3" style={{ backgroundColor: theme.colors.cherrySoft }}>
           <UserRound size={19} color={theme.colors.cherry} />
         </View>

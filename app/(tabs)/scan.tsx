@@ -318,7 +318,7 @@ export default function Scan() {
                 <View pointerEvents="none" className="absolute inset-5 border-2 border-white/70 rounded-2xl" />
                 <View pointerEvents="none" className="absolute left-1/2 top-5 bottom-5" style={{ width: 1, backgroundColor: 'rgba(255,255,255,0.35)' }} />
                 <View className="absolute top-3 right-3">
-                  <Pressable accessibilityRole="button" accessibilityLabel={t('flash')} onPress={() => setFlash((v) => !v)} className="rounded-full p-3" style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}>
+                  <Pressable accessibilityRole="button" onPress={() => setFlash((v) => !v)} className="rounded-full p-3" style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}>
                     <Zap size={18} color={flash ? '#FBBF24' : 'white'} />
                   </Pressable>
                 </View>

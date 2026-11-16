@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { ScrollView, View, Text, Pressable, ActivityIndicator, Alert, TextInput, Image, Modal } from 'react-native';
+import { ScrollView, View, Text, Pressable, ActivityIndicator, Alert, TextInput, Image, Modal, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { Camera, ImagePlus, ScanLine, Coffee, MapPin, Scale, Info, ShieldCheck, Zap, RotateCcw, ChevronRight } from 'lucide-react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -16,6 +16,7 @@ import { submitCoffeeSample } from '@/services/geminiVision';
 import { enqueueCapture, isOnline, persistLocalImage } from '@/services/offlineQueue';
 import { priceAssessment, KG_PER_FERESULA } from '@/services/pricing';
 import { BunaLensTheme as theme } from '@/constants/theme';
+import { showAlert } from '@/services/platformAlert';
 import LanguageToggle from '@/components/LanguageToggle';
 
 type Preview = { base64: string; uri: string; mimeType: string };
@@ -40,15 +41,15 @@ export default function Scan() {
   const capture = async () => {
     if (!perm?.granted) {
       const permission = await ask();
-      if (!permission.granted) Alert.alert(t('enableCamera'), t('cameraPermission'));
+      if (!permission.granted) showAlert(t('enableCamera'), t('cameraPermission'));
       return;
     }
     try {
       const photo = await cam?.takePictureAsync({ base64: true, quality: 0.72, skipProcessing: false });
       if (photo?.base64 && photo.uri) setPreview({ base64: photo.base64, uri: photo.uri, mimeType: 'image/jpeg' });
-      else Alert.alert(t('gradingFailed'), t('cameraHint'));
+      else showAlert(t('gradingFailed'), t('cameraHint'));
     } catch (error) {
-      Alert.alert(t('gradingFailed'), error instanceof Error ? error.message : t('gradingFailed'));
+      showAlert(t('gradingFailed'), error instanceof Error ? error.message : t('gradingFailed'));
     }
   };
 
@@ -62,7 +63,7 @@ export default function Scan() {
   const submitPreview = async () => {
     if (!preview) return;
     if (!validWeight) {
-      Alert.alert(t('invalidWeight'), t('invalidWeightHint'));
+      showAlert(t('invalidWeight'), t('invalidWeightHint'));
       return;
     }
     const captureId = 'bunalens-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
@@ -77,30 +78,34 @@ export default function Scan() {
         });
         await refreshQueue();
         setPreview(null);
-        Alert.alert(t('savedForLater'), t('offlineQueue'));
+        showAlert(t('savedForLater'), t('offlineQueue'));
         return;
       }
       if (station.id === 'station-demo') {
-        Alert.alert(t('registerStation'), t('registerStationHint'));
+        showAlert(t('registerStation'), t('registerStationHint'));
         return;
       }
       const hasPro = Boolean(station.pro_expires_at && new Date(station.pro_expires_at).getTime() > Date.now());
       if (!hasPro && station.credits < 1) {
-        Alert.alert(t('credits'), t('noCreditsHint'));
+        showAlert(t('credits'), t('noCreditsHint'));
         return;
       }
       let coordinates: { latitude: number; longitude: number } | undefined;
-      const wantsLocation = await new Promise<boolean>((resolve) => {
-        Alert.alert(
-          t('locationConsentTitle'),
-          t('locationConsentBody'),
-          [
-            { text: t('notNow'), style: 'cancel', onPress: () => resolve(false) },
-            { text: t('allowLocation'), onPress: () => resolve(true) },
-          ],
-          { cancelable: true, onDismiss: () => resolve(false) },
-        );
-      });
+      // Alert callbacks never fire on React Native Web, which would leave this
+      // promise pending and block submission, so browsers use a native confirm.
+      const wantsLocation = Platform.OS === 'web'
+        ? typeof window !== 'undefined' && window.confirm(t('locationConsentTitle') + '\n\n' + t('locationConsentBody'))
+        : await new Promise<boolean>((resolve) => {
+            Alert.alert(
+              t('locationConsentTitle'),
+              t('locationConsentBody'),
+              [
+                { text: t('notNow'), style: 'cancel', onPress: () => resolve(false) },
+                { text: t('allowLocation'), onPress: () => resolve(true) },
+              ],
+              { cancelable: true, onDismiss: () => resolve(false) },
+            );
+          });
       if (wantsLocation) {
         try {
           const permission = await Location.requestForegroundPermissionsAsync();
@@ -130,9 +135,9 @@ export default function Scan() {
           });
           await refreshQueue();
           setPreview(null);
-          Alert.alert(t('savedForRetry'), t('retryHint'));
-        } catch { Alert.alert(t('gradingFailed'), message); }
-      } else Alert.alert(t('gradingFailed'), message);
+          showAlert(t('savedForRetry'), t('retryHint'));
+        } catch { showAlert(t('gradingFailed'), message); }
+      } else showAlert(t('gradingFailed'), message);
     } finally {
       setBusy(false);
     }
@@ -140,7 +145,7 @@ export default function Scan() {
 
   const demo = async (defective: boolean) => {
     if (!validWeight) {
-      Alert.alert(t('invalidWeight'), t('invalidWeightHint'));
+      showAlert(t('invalidWeight'), t('invalidWeightHint'));
       return;
     }
     const id = 'demo-' + Date.now();
@@ -164,7 +169,7 @@ export default function Scan() {
       setDemoOpen(false);
       router.push({ pathname: '/batch/[id]', params: { id } });
     } catch (error) {
-      Alert.alert(t('gradingFailed'), error instanceof Error ? error.message : t('gradingFailed'));
+      showAlert(t('gradingFailed'), error instanceof Error ? error.message : t('gradingFailed'));
     }
   };
 

@@ -1,9 +1,9 @@
 import React,{useState}from'react';
-import{ActivityIndicator,Alert,Pressable,ScrollView,Text,TextInput,View}from'react-native';
+import{ActivityIndicator,Pressable,ScrollView,Text,TextInput,View}from'react-native';
 import{router}from'expo-router';
 import{JIMMA_WOREDAS}from'@/constants/jimmaData';import{useLanguage}from'@/contexts/LanguageContext';import LanguageToggle from'@/components/LanguageToggle';
 import{useStation}from'@/contexts/StationContext';import{useOfflineQueue}from'@/contexts/OfflineQueueContext';
-import{isSupabaseConfigured,supabase}from'@/services/supabaseClient';import{assignQueuedStation}from'@/services/offlineQueue';
+import{isSupabaseConfigured,supabase}from'@/services/supabaseClient';import{assignQueuedStation}from'@/services/offlineQueue';import{showAlert}from'@/services/platformAlert';
 
 export default function AuthScreen(){
  const{station,setStation}=useStation();const{refresh:refreshQueue}=useOfflineQueue();const{t}=useLanguage();
@@ -11,14 +11,14 @@ export default function AuthScreen(){
  const[name,setName]=useState(station.name);const[manager,setManager]=useState(station.manager);
  const[woreda,setWoreda]=useState(station.woreda);const[mode,setMode]=useState<'signin'|'signup'>('signin');const[busy,setBusy]=useState(false);
  const connect=async()=>{
-  if(!supabase){Alert.alert(t('cloudUnavailable'),t('cloudUnavailableHint'));return}
-  if(!email.trim()||password.length<8){Alert.alert(t('checkCredentials'),t('checkCredentials'));return}
+  if(!supabase){showAlert(t('cloudUnavailable'),t('cloudUnavailableHint'));return}
+  if(!email.trim()||password.length<8){showAlert(t('checkCredentials'),t('checkCredentials'));return}
   setBusy(true);
   try{
    const result=mode==='signin'?await supabase.auth.signInWithPassword({email:email.trim(),password}):await supabase.auth.signUp({email:email.trim(),password,options:{data:{full_name:manager}}});
    if(result.error)throw result.error;
    const user=result.data.user;const session=result.data.session;
-   if(!user||!session){Alert.alert(t('confirmEmail'),t('accountCreated'));return}
+   if(!user||!session){showAlert(t('confirmEmail'),t('accountCreated'));return}
    const{data:existing,error:lookupError}=await supabase.from('stations').select('id,name,manager,woreda,credits,pro_expires_at').eq('owner_id',user.id).limit(1).maybeSingle();
    if(lookupError)throw lookupError;
    let record=existing;
@@ -27,11 +27,11 @@ export default function AuthScreen(){
     if(createError)throw createError;record=created;
    }
    setStation({id:record.id,name:record.name,manager:record.manager||'Station Manager',woreda:record.woreda,credits:record.credits,feresula_price_etb:station.feresula_price_etb,pro_expires_at:record.pro_expires_at||undefined});await assignQueuedStation(record.id);await refreshQueue();
-   Alert.alert(t('stationConnected'),t('stationReady'));
+   showAlert(t('stationConnected'),t('stationReady'));
    router.replace('/(tabs)/station');
-  }catch(e){Alert.alert(t('accountError'),e instanceof Error?e.message:t('accountError'))}finally{setBusy(false)}
+  }catch(e){showAlert(t('accountError'),e instanceof Error?e.message:t('accountError'))}finally{setBusy(false)}
  };
- const signOut=async()=>{if(!supabase)return;const{error}=await supabase.auth.signOut();if(error)Alert.alert('Sign out failed',error.message);else{setStation({...station,id:'station-demo',credits:10,pro_expires_at:undefined});Alert.alert('Signed out','The app has returned to local demonstration mode.');}};
+ const signOut=async()=>{if(!supabase)return;const{error}=await supabase.auth.signOut();if(error)showAlert('Sign out failed',error.message);else{setStation({...station,id:'station-demo',credits:10,pro_expires_at:undefined});showAlert('Signed out','The app has returned to local demonstration mode.');}};
  return <ScrollView className="flex-1 bg-parchment p-6"><View className="flex-row justify-end mt-8"><LanguageToggle /></View><Text className="text-espresso text-3xl font-black mt-5">{t('accountTitle')}</Text><Text className="text-stone-500 mt-2">{t('accountHint')}</Text>
   {!isSupabaseConfigured?<View className="bg-amber-50 border border-amber-200 rounded-xl p-3 mt-5"><Text className="text-amber-900 text-sm">{t('cloudUnavailableHint')}</Text></View>:null}
   <View className="bg-white rounded-2xl p-4 mt-6 border border-line">

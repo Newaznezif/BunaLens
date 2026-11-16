@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { router } from 'expo-router';
-import { ScrollView, Text, View, Pressable, TextInput, Alert } from 'react-native';
+import { ScrollView, Text, View, Pressable, TextInput } from 'react-native';
 import { Warehouse, UserRound, MapPin, Pencil, Check, CreditCard, RefreshCw, ShieldCheck, ChevronRight, Sparkles, Settings as SettingsIcon, Receipt } from 'lucide-react-native';
 import { useStation } from '@/contexts/StationContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -8,6 +8,7 @@ import { JIMMA_WOREDAS } from '@/constants/jimmaData';
 import { startChapaCheckout } from '@/services/chapaService';
 import { supabase } from '@/services/supabaseClient';
 import { BunaLensTheme as theme } from '@/constants/theme';
+import { showAlert } from '@/services/platformAlert';
 import LanguageToggle from '@/components/LanguageToggle';
 import ChapaTopUpModal from '@/components/ChapaTopUpModal';
 import type { ChapaPackage } from '@/services/chapaService';
@@ -44,16 +45,16 @@ export default function Station() {
 
   const refreshBalance = async () => {
     if (!supabase || station.id === 'station-demo') {
-      Alert.alert(t('accountDemo'), t('noCloudBalance'));
+      showAlert(t('accountDemo'), t('noCloudBalance'));
       return;
     }
     try {
       const { data, error } = await supabase.from('stations').select('credits,pro_expires_at').eq('id', station.id).single();
       if (error) throw error;
       setStation({ ...station, credits: data.credits, pro_expires_at: data.pro_expires_at || undefined });
-      Alert.alert(t('balanceUpdated'), t('balanceLoaded'));
+      showAlert(t('balanceUpdated'), t('balanceLoaded'));
     } catch (error) {
-      Alert.alert(t('refreshFailed'), error instanceof Error ? error.message : t('refreshFailed'));
+      showAlert(t('refreshFailed'), error instanceof Error ? error.message : t('refreshFailed'));
     }
   };
 
@@ -68,13 +69,13 @@ export default function Station() {
           if (result.proDays > 0) setStation({ ...station, pro_expires_at: new Date(Date.now() + result.proDays * 24 * 60 * 60 * 1000).toISOString() });
         }
         void getDemoPaymentHistory().then(setPaymentHistory);
-        Alert.alert(t('paymentDemo'), result.alreadyGranted ? t('demoPaymentAlreadyApplied') : packageId === 'starter_50' ? t('demoCreditsAdded') : t('demoProActivated'));
+        showAlert(t('paymentDemo'), result.alreadyGranted ? t('demoPaymentAlreadyApplied') : packageId === 'starter_50' ? t('demoCreditsAdded') : t('demoProActivated'));
       } else {
         await refreshBalance();
-        Alert.alert(t('paymentPending'), t('paymentPendingHint'));
+        showAlert(t('paymentPending'), t('paymentPendingHint'));
       }
     } catch (error) {
-      Alert.alert(t('checkoutError'), error instanceof Error ? error.message : t('unableCheckout'));
+      showAlert(t('checkoutError'), error instanceof Error ? error.message : t('unableCheckout'));
     } finally { setPaymentBusy(false); }
   };
 

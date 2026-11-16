@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
+import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import type { CoffeeBatch, SampleType } from '@/types';
 import { getSupabaseAccessToken } from '@/services/supabaseClient';
@@ -34,7 +35,12 @@ async function saveQueue(items: QueuedCapture[]) {
 }
 
 export async function persistLocalImage(uri: string, id: string, mimeType = 'image/jpeg'): Promise<string> {
-  if (!FileSystem.documentDirectory) throw new Error('Local document storage is unavailable.');
+  // Browsers expose no document directory; the picked/captured URI is already
+  // displayable, so keep it instead of failing the capture.
+  if (!FileSystem.documentDirectory) {
+    if (Platform.OS === 'web') return uri;
+    throw new Error('Local document storage is unavailable.');
+  }
   const dir = FileSystem.documentDirectory + 'bunalens-batches/';
   await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
   const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg';

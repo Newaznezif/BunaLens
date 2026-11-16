@@ -1,8 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import type { CoffeeBatch } from '@/types';
 import { getQueue, isOnline, syncQueuedCaptures } from '@/services/offlineQueue';
+import { showAlert } from '@/services/platformAlert';
 import { useStation } from '@/contexts/StationContext';
 
 interface OfflineQueueValue {
@@ -44,9 +44,9 @@ export function OfflineQueueProvider({ children }: { children: React.ReactNode }
         if (!(station.pro_expires_at && new Date(station.pro_expires_at).getTime() > Date.now())) consumeCredit();
       });
       if (mounted.current) setPendingCount(result.remaining);
-      if (result.synced.length > 0) Alert.alert('Sync complete', result.synced.length + ' queued sample(s) synchronized.');
+      if (result.synced.length > 0) showAlert('Sync complete', result.synced.length + ' queued sample(s) synchronized.');
     } catch (error) {
-      Alert.alert('Sync unavailable', error instanceof Error ? error.message : 'Could not synchronize queued samples. Your local copies remain saved.');
+      showAlert('Sync unavailable', error instanceof Error ? error.message : 'Could not synchronize queued samples. Your local copies remain saved.');
     } finally {
       lock.current = false;
       if (mounted.current) setSyncing(false);

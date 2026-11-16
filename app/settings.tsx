@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import Constants from 'expo-constants';
 import * as Location from 'expo-location';
@@ -10,6 +10,7 @@ import { useStation } from '@/contexts/StationContext';
 import { supabase } from '@/services/supabaseClient';
 import LanguageToggle from '@/components/LanguageToggle';
 import { BunaLensTheme as theme } from '@/constants/theme';
+import { showAlert } from '@/services/platformAlert';
 
 function SettingRow({ icon: Icon, title, detail, action, trailing }: { icon: React.ComponentType<any>; title: string; detail: string; action?: () => void; trailing?: React.ReactNode }) {
   return <Pressable disabled={!action} onPress={action} className="flex-row items-center py-4 border-b border-stone-100"><View className="w-10 h-10 rounded-xl items-center justify-center mr-3" style={{ backgroundColor: theme.colors.parchment }}><Icon size={18} color={theme.colors.espresso} /></View><View className="flex-1"><Text className="text-sm font-extrabold" style={{ color: theme.colors.espresso }}>{title}</Text><Text className="text-[11px] mt-1 leading-4" style={{ color: theme.colors.secondary }}>{detail}</Text></View>{trailing ?? (action ? <ChevronRight size={16} color={theme.colors.secondary} /> : null)}</Pressable>;
@@ -30,17 +31,17 @@ export default function Settings() {
   const requestLocation = async () => {
     setPermissionBusy(true);
     try { const result = await Location.requestForegroundPermissionsAsync(); setPermission(result.status); }
-    catch { Alert.alert(t('permissionError')); }
+    catch { showAlert(t('permissionError')); }
     finally { setPermissionBusy(false); }
   };
   const logout = async () => {
-    if (!supabase || station.id === 'station-demo') { Alert.alert(t('demoAccount')); return; }
+    if (!supabase || station.id === 'station-demo') { showAlert(t('demoAccount')); return; }
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       setStation({ id: 'station-demo', name: 'Gomma Coffee Washing Station', woreda: 'Gomma', manager: 'Station Manager', credits: 10, feresula_price_etb: 6200 });
       router.replace('/auth');
-    } catch (error) { Alert.alert(t('accountError'), error instanceof Error ? error.message : t('accountError')); }
+    } catch (error) { showAlert(t('accountError'), error instanceof Error ? error.message : t('accountError')); }
   };
 
   return (

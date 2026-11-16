@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { ScrollView, Text, View, Pressable, Alert, Image, Animated, Easing } from 'react-native';
+import { ScrollView, Text, View, Pressable, Image, Animated, Easing, Platform } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useStation } from '@/contexts/StationContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -9,6 +9,7 @@ import * as Print from 'expo-print';
 import * as FileSystem from 'expo-file-system/legacy';
 import CertificateCard from '@/components/CertificateCard';
 import LanguageToggle from '@/components/LanguageToggle';
+import { showAlert } from '@/services/platformAlert';
 import type { CoffeeBatch } from '@/types';
 
 const DEFECTS = [
@@ -18,6 +19,15 @@ const DEFECTS = [
   { key: 'insect_broken_pct', label: 'Insect-damaged / broken', color: '#B91C1C' },
   { key: 'foreign_matter_pct', label: 'Foreign matter', color: '#78716C' },
 ] as const;
+
+const escapeHtml = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] ?? char));
+
+const downloadDataUrl = (uri: string, fileName: string) => {
+  const link = document.createElement('a');
+  link.href = uri;
+  link.download = fileName;
+  link.click();
+};
 
 function DefectBar({ label, value, color, description }: { label: string; value: number; color: string; description: string }) {
   const progress = useRef(new Animated.Value(0)).current;
@@ -44,34 +54,74 @@ export default function Detail() {
   const { t } = useLanguage();
   const cert = useRef<View>(null);
   const batch = batches.find((item) => item.id === id);
+  const captureCertificatePng = async (): Promise<string> => {
+    if (!cert.current) throw new Error('The certificate is not ready.');
+    if (Platform.OS === 'web') {
+      // react-native-view-shot delegates to findNodeHandle, which React Native
+      // Web does not implement, so capture the DOM node directly.
+      const { default: html2canvas } = await import('html2canvas');
+      const canvas = await html2canvas(cert.current as unknown as HTMLElement);
+      return canvas.toDataURL('image/png');
+    }
+    return captureRef(cert, { format: 'png', quality: 1, result: 'tmpfile', width: 960 });
+  };
   const sharePdf = async () => {
     try {
       if (!batch) return;
       const pricing = batch.pricing;
-      const html = `<html><body style="font-family:Arial;padding:32px;color:#2C1810"><h1>BUNALENS DIGITAL COFFEE QUALITY CERTIFICATE</h1><h2>${batch.batch_code}</h2><p>Jimma Zone, Oromia · ${batch.woreda} · ${batch.sample_type === 'red_cherry' ? 'Red Cherry' : 'Green Bean'} · ${new Date(batch.created_at).toLocaleString()}</p><h2>${batch.result.ecx_grade} · ${batch.result.quality_score}/100</h2><p>Confidence: ${batch.result.confidence_score ?? Math.round((batch.result.confidence ?? 0) * 100)}%</p><p>Lot: ${batch.lot_weight_kg} kg (${(batch.lot_weight_kg / 17).toFixed(2)} Feresula)</p><p>Estimated price: ${pricing?.estimated_price_per_feresula_etb?.toLocaleString() ?? 'Not available'} ETB / Feresula</p><p>Estimated lot value: ${pricing?.estimated_lot_value_etb?.toLocaleString() ?? 'Not available'} ETB</p><p>Verification ID: ${batch.verification_id || batch.id}</p><hr/><p>${batch.result.sorting_action_advice || batch.result.assessment_note || ''}</p><p>Limitations: ${(batch.result.assessment_limitations || []).join('; ')}</p><hr/><p>This certificate represents an AI-assisted visual assessment and is not an official Ethiopian Commodity Exchange certificate or laboratory quality report.</p></body></html>`;
+      const html = `<html><body style="font-family:Arial;padding:32px;color:#2C1810"><h1>BUNALENS DIGITAL COFFEE QUALITY CERTIFICATE</h1><h2>${escapeHtml(batch.batch_code)}</h2><p>Jimma Zone, Oromia · ${escapeHtml(batch.woreda)} · ${batch.sample_type === 'red_cherry' ? 'Red Cherry' : 'Green Bean'} · ${escapeHtml(new Date(batch.created_at).toLocaleString())}</p><h2>${escapeHtml(batch.result.ecx_grade)} · ${batch.result.quality_score}/100</h2><p>Confidence: ${batch.result.confidence_score ?? Math.round((batch.result.confidence ?? 0) * 100)}%</p><p>Lot: ${batch.lot_weight_kg} kg (${(batch.lot_weight_kg / 17).toFixed(2)} Feresula)</p><p>Estimated price: ${pricing?.estimated_price_per_feresula_etb?.toLocaleString() ?? 'Not available'} ETB / Feresula</p><p>Estimated lot value: ${pricing?.estimated_lot_value_etb?.toLocaleString() ?? 'Not available'} ETB</p><p>Verification ID: ${escapeHtml(batch.verification_id || batch.id)}</p><hr/><p>${escapeHtml(batch.result.sorting_action_advice || batch.result.assessment_note || '')}</p><p>Limitations: ${(batch.result.assessment_limitations || []).map(escapeHtml).join('; ')}</p><hr/><p>This certificate represents an AI-assisted visual assessment and is not an official Ethiopian Commodity Exchange certificate or laboratory quality report.</p></body></html>`;
+      if (Platform.OS === 'web') {
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) throw new Error('Allow pop-ups to print or save the certificate.');
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
+        return;
+      }
       const file = await Print.printToFileAsync({ html });
       if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(file.uri, { mimeType: 'application/pdf', dialogTitle: t('shareCertificate') });
-      else Alert.alert(t('pdfCreated'), file.uri);
-    } catch (error) { Alert.alert(t('pdfExportFailed'), error instanceof Error ? error.message : t('pdfExportFailed')); }
+      else showAlert(t('pdfCreated'), file.uri);
+    } catch (error) { showAlert(t('pdfExportFailed'), error instanceof Error ? error.message : t('pdfExportFailed')); }
   };
   const shareImage = async () => {
     try {
       if (!cert.current) return;
-      const uri = await captureRef(cert, { format: 'png', quality: 1, result: 'tmpfile', width: 960 });
+      const uri = await captureCertificatePng();
+      const fileName = (batch?.batch_code || 'certificate') + '.png';
+      if (Platform.OS === 'web') {
+        const blob = await (await fetch(uri)).blob();
+        const file = new File([blob], fileName, { type: 'image/png' });
+        if (navigator.canShare?.({ files: [file] })) {
+          await navigator.share({ files: [file], title: t('shareCertificate') });
+          return;
+        }
+        downloadDataUrl(uri, fileName);
+        return;
+      }
       if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: t('shareCertificate') });
-      else Alert.alert(t('exportFailed'), t('sharingUnavailable'));
-    } catch (error) { Alert.alert(t('exportFailed'), error instanceof Error ? error.message : t('exportFailed')); }
+      else showAlert(t('exportFailed'), t('sharingUnavailable'));
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') return;
+      showAlert(t('exportFailed'), error instanceof Error ? error.message : t('exportFailed'));
+    }
   };
   const saveImage = async () => {
     try {
-      if (!cert.current || !FileSystem.documentDirectory) throw new Error('App storage is unavailable.');
-      const uri = await captureRef(cert, { format: 'png', quality: 1, result: 'tmpfile', width: 960 });
+      if (!cert.current) throw new Error('App storage is unavailable.');
+      const fileName = (batch?.batch_code || 'certificate') + '.png';
+      if (Platform.OS === 'web') {
+        downloadDataUrl(await captureCertificatePng(), fileName);
+        showAlert(t('certificateSaved'), t('certificateSavedHint'));
+        return;
+      }
+      if (!FileSystem.documentDirectory) throw new Error('App storage is unavailable.');
+      const uri = await captureCertificatePng();
       const directory = FileSystem.documentDirectory + 'bunalens-certificates/';
       await FileSystem.makeDirectoryAsync(directory, { intermediates: true });
-      const destination = directory + (batch?.batch_code || 'certificate') + '.png';
-      await FileSystem.copyAsync({ from: uri, to: destination });
-      Alert.alert(t('certificateSaved'), t('certificateSavedHint'));
-    } catch (error) { Alert.alert(t('exportFailed'), error instanceof Error ? error.message : t('exportFailed')); }
+      await FileSystem.copyAsync({ from: uri, to: directory + fileName });
+      showAlert(t('certificateSaved'), t('certificateSavedHint'));
+    } catch (error) { showAlert(t('exportFailed'), error instanceof Error ? error.message : t('exportFailed')); }
   };
 
   if (!batch) return <View className="flex-1 bg-parchment p-5"><Text onPress={() => router.back()}>{t('back')}</Text><Text>{t('batchNotFound')}</Text></View>;

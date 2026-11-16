@@ -186,17 +186,17 @@ export default function Scan() {
 
       <View className="bg-white border border-line rounded-3xl p-4 mb-5">
         <View className="flex-row items-center justify-between mb-3">
-          <Text className="text-[10px] font-extrabold tracking-widest text-secondary">SAMPLE ASSESSMENT</Text>
+          <Text className="text-[10px] font-extrabold tracking-widest text-secondary">{t('assessmentSteps')}</Text>
           <Text className="text-xs font-extrabold text-espresso">{step === 1 ? '1 / 2' : '2 / 2'}</Text>
         </View>
         <View className="flex-row gap-2">
           <View className="flex-1">
             <View className="h-1.5 rounded-full" style={{ backgroundColor: theme.colors.emerald }} />
-            <Text className="text-[10px] font-bold text-espresso mt-2">Sample details</Text>
+            <Text className="text-[10px] font-bold text-espresso mt-2">{t('stepSampleDetails')}</Text>
           </View>
           <View className="flex-1">
             <View className="h-1.5 rounded-full" style={{ backgroundColor: step === 2 ? theme.colors.emerald : theme.colors.line }} />
-            <Text className="text-[10px] font-bold text-secondary mt-2">Photo & assessment</Text>
+            <Text className="text-[10px] font-bold text-secondary mt-2">{t('stepPhotoAssessment')}</Text>
           </View>
         </View>
       </View>
@@ -204,8 +204,8 @@ export default function Scan() {
       {step === 1 ? (
         <>
           <View className="mb-5">
-            <Text className="text-xl font-black text-espresso">What are you assessing?</Text>
-            <Text className="text-xs text-secondary leading-5 mt-1">Choose the coffee sample type, then add where it came from and the lot size.</Text>
+            <Text className="text-xl font-black text-espresso">{t('scanIntroTitle')}</Text>
+            <Text className="text-xs text-secondary leading-5 mt-1">{t('scanIntroHint')}</Text>
           </View>
 
           <Text className="text-sm font-extrabold text-espresso mb-2">{t('selectSampleType')}</Text>
@@ -264,26 +264,26 @@ export default function Scan() {
             className="rounded-2xl p-4 flex-row items-center justify-center"
             style={{ backgroundColor: theme.colors.cherry, opacity: validWeight ? 1 : 0.45 }}
           >
-            <Text className="text-white font-extrabold mr-2">Continue to photo</Text>
+            <Text className="text-white font-extrabold mr-2">{t('continueToPhoto')}</Text>
             <ChevronRight size={18} color="#FFFFFF" />
           </Pressable>
         </>
       ) : (
         <>
           <View className="mb-4">
-            <Text className="text-xl font-black text-espresso">Capture your sample</Text>
-            <Text className="text-xs text-secondary leading-5 mt-1">Use a clear, well-lit photo. Keep the coffee inside the frame and avoid shadows.</Text>
+            <Text className="text-xl font-black text-espresso">{t('captureIntroTitle')}</Text>
+            <Text className="text-xs text-secondary leading-5 mt-1">{t('captureIntroHint')}</Text>
           </View>
 
           <View className="bg-emerald-soft border border-line rounded-2xl p-3 mb-4">
             <View className="flex-row items-center justify-between">
               <View className="flex-1">
-                <Text className="text-[10px] font-bold text-secondary">SAMPLE SUMMARY</Text>
+                <Text className="text-[10px] font-bold text-secondary">{t('sampleSummary')}</Text>
                 <Text className="text-sm font-extrabold text-espresso mt-1">{type === 'red_cherry' ? t('redCherries') : t('greenBeans')} · {woreda}</Text>
                 <Text className="text-[11px] text-secondary mt-1">{feresula} Feresula · {validWeight ? weightInKg.toLocaleString() : '—'} kg</Text>
               </View>
               <Pressable accessibilityRole="button" onPress={() => setStep(1)} className="px-3 py-2 rounded-full bg-white">
-                <Text className="text-xs font-bold text-emerald">Edit</Text>
+                <Text className="text-xs font-bold text-emerald">{t('editDetails')}</Text>
               </Pressable>
             </View>
           </View>
@@ -318,7 +318,7 @@ export default function Scan() {
                 <View pointerEvents="none" className="absolute inset-5 border-2 border-white/70 rounded-2xl" />
                 <View pointerEvents="none" className="absolute left-1/2 top-5 bottom-5" style={{ width: 1, backgroundColor: 'rgba(255,255,255,0.35)' }} />
                 <View className="absolute top-3 right-3">
-                  <Pressable accessibilityRole="button" accessibilityLabel="Toggle flash" onPress={() => setFlash((v) => !v)} className="rounded-full p-3" style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}>
+                  <Pressable accessibilityRole="button" accessibilityLabel={t('flash')} onPress={() => setFlash((v) => !v)} className="rounded-full p-3" style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}>
                     <Zap size={18} color={flash ? '#FBBF24' : 'white'} />
                   </Pressable>
                 </View>

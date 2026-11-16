@@ -22,6 +22,8 @@ jobs:
         run: npm run typecheck
       - name: Expo project diagnostics
         run: npx expo-doctor
+      - name: Export Android JavaScript bundle
+        run: npx expo export --platform android
 
   validate-edge-functions:
     runs-on: ubuntu-latest

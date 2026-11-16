@@ -117,7 +117,7 @@ export default function Scan() {
       addBatch(finalBatch);
       setPreview(null);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.push('/batch/' + finalBatch.id);
+      router.push({ pathname: '/batch/[id]', params: { id: finalBatch.id } });
     } catch (error) {
       const message = error instanceof Error ? error.message : t('gradingFailed');
       const retryable = error instanceof TypeError || message.toLowerCase().includes('temporarily') || message.toLowerCase().includes('timed out') || message.toLowerCase().includes('could not reach');
@@ -162,7 +162,7 @@ export default function Scan() {
       addBatch(batch);
       setPreview(null);
       setDemoOpen(false);
-      router.push('/batch/' + id);
+      router.push({ pathname: '/batch/[id]', params: { id } });
     } catch (error) {
       Alert.alert(t('gradingFailed'), error instanceof Error ? error.message : t('gradingFailed'));
     }

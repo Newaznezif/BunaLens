@@ -369,11 +369,12 @@ BunaLens can be explored without Supabase, Gemini or Chapa credentials.
 Demo mode behavior:
 
 - Seeded records are marked as demo and excluded from real AI assessment metrics.
-- Demonstration assessments are fixed examples; the selected photograph is **not** analyzed by Gemini.
+- Demonstration assessments are fixed examples; the selected photograph is **not** analyzed by Gemini. If a photo is captured first, the app retains that image with the local demo record for visual reference only.
 - Demonstration benchmark prices are illustrative and must not be treated as live market prices.
 - Local payment demonstrations do not contact Chapa and do not charge money.
 - Demo credits and entitlements are local UI state, not real server-side balances.
-- A demo record is not a verified cloud certificate.
+- A demo record is not a verified cloud certificate. Its QR code opens the in-app verification screen and is explicitly marked as demonstration-only.
+- Real certificates can be checked through the public `certificate-verify` Edge Function when `EXPO_PUBLIC_CERTIFICATE_VERIFY_BASE_URL` is configured. The in-app screen also distinguishes a local-only record from a server-verified certificate.
 
 ## 14. Offline functionality
 
@@ -442,7 +443,7 @@ Start the application for a manual development smoke test:
 npx expo start --clear
 ```
 
-The GitHub Actions workflow at `.github/workflows/ci.yml` runs mobile TypeScript validation and Expo Doctor, and separately type-checks the Supabase Edge Functions with Deno. Check the **Actions** tab for the latest result; a commit or a green Edge Function job alone does not establish that every mobile feature or native build has passed.
+The GitHub Actions workflow at `.github/workflows/ci.yml` runs mobile TypeScript validation, Expo Doctor and an Android JavaScript bundle export, and separately type-checks the Supabase Edge Functions with Deno. Check the **Actions** tab for the latest result; a commit or a green Edge Function job alone does not establish that every mobile feature or native build has passed.
 
 Before a release, also test camera permissions, gallery selection, local persistence after restart, offline queue recovery, account ownership/RLS, real Edge Function requests, payment verification in a test environment, QR verification and EAS builds on the target platforms.
 

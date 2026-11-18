@@ -134,10 +134,10 @@ export default function ResetPasswordScreen() {
   }
 
   return (
-    <View className="flex-1 bg-parchment px-6 justify-center">
-      <Text className="text-espresso text-3xl font-black">Create a new password</Text>
+    <View className="flex-1 px-6 justify-center" style={{ backgroundColor: theme.colors.parchment }}>
+      <Text className="text-3xl font-black" style={{ color: theme.colors.espresso }}>Create a new password</Text>
       {updated ? (
-        <View className="bg-white rounded-2xl border border-line p-5 mt-7">
+        <View className="rounded-2xl border p-5 mt-7" style={{ backgroundColor: theme.colors.surface, borderColor: theme.colors.line }}>
           <Text className="text-espresso text-lg font-bold">Password updated</Text>
           <Text className="text-stone-600 mt-2 leading-6">Your BunaLens password has been changed. You can now continue to your account.</Text>
           <Pressable onPress={() => router.replace('/(tabs)')} className="bg-cherry p-4 rounded-xl mt-5">

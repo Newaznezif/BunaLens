@@ -76,6 +76,13 @@ export default function AuthScreen() {
         return;
       }
 
+      // Admin accounts are provisioned through Supabase Auth app_metadata. They
+      // do not create a washing-station profile in the operator sign-in flow.
+      if (user.app_metadata?.role === 'admin') {
+        router.replace('/admin');
+        return;
+      }
+
       const { data: existing, error: lookupError } = await supabase
         .from('stations')
         .select('id,name,manager,woreda,credits,pro_expires_at')
@@ -207,6 +214,9 @@ export default function AuthScreen() {
           <Text className="text-stone-500 text-center">{t('signOut')}</Text>
         </Pressable>
       </View>
+      <Pressable accessibilityRole="link" onPress={() => router.push('/admin-login')} className="self-center py-4 px-3">
+        <Text style={{ color: theme.colors.emerald, fontSize: 12, fontWeight: '800' }}>BunaLens administrator? Open admin sign in</Text>
+      </Pressable>
     </ScrollView>
   );
 }

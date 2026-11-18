@@ -290,6 +290,19 @@ If applying SQL manually, use the order above and check the SQL Editor for error
 
 The schema uses Row Level Security (RLS) to scope station data to its owner. The `coffee-samples` Storage bucket is private; do not make it public. Do not grant mobile clients direct permission to mint credits, write grading results or verify payments.
 
+### BunaLens administrator console
+
+The admin console is available at `/admin-login` (also linked from the account sign-in screen). It uses the existing Supabase email/password account system and loads live station, batch and Chapa payment records. Admin access is read-only in the client.
+
+To enable it in a Supabase project:
+
+1. Apply the database setup and existing migrations above, then apply `supabase/migrations/20261119120000_admin_dashboard_access.sql` last.
+2. Provision the administrator as a normal Supabase Auth user. Have a project owner or trusted server set `app_metadata.role` to `admin` for that user through Supabase Auth Admin. Do not set a role in `user_metadata`; users can edit their own user metadata.
+3. Sign in at `/admin-login`. The client routes the account to the operator app unless the signed-in JWT carries the trusted `app_metadata.role = admin` claim.
+4. After changing a role, have the user sign out and back in (or refresh their session) so the JWT includes the latest claim.
+
+The admin migration adds SELECT-only RLS access for the trusted admin claim on operational tables. It does not add client writes or expose service-role credentials. The console currently provides an overview, station search and payment review; sensitive payment verification and entitlement changes remain on the server.
+
 ## 11. Gemini backend configuration
 
 Gemini is called from the Supabase Edge Function, not directly from the mobile app.

@@ -9,7 +9,12 @@ import { StationProvider } from '@/contexts/StationContext';
 import { OfflineQueueProvider } from '@/contexts/OfflineQueueContext';
 import { isSupabaseConfigured, supabase } from '@/services/supabaseClient';
 
-type AuthStatus = 'checking' | 'authenticated' | 'unauthenticated';
+type AuthStatus = 'checking' | 'admin' | 'authenticated' | 'unauthenticated';
+
+function getAuthStatus(session: { user: { app_metadata?: Record<string, unknown> } } | null): AuthStatus {
+  if (!session) return 'unauthenticated';
+  return session.user.app_metadata?.role === 'admin' ? 'admin' : 'authenticated';
+}
 
 function AppShell() {
   const { theme, isDark } = useTheme();
@@ -26,12 +31,12 @@ function AppShell() {
 
     let active = true;
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (active) setAuthStatus(session ? 'authenticated' : 'unauthenticated');
+      if (active) setAuthStatus(getAuthStatus(session));
     });
 
     void supabase.auth.getSession()
       .then(({ data, error }) => {
-        if (active) setAuthStatus(!error && data.session ? 'authenticated' : 'unauthenticated');
+        if (active) setAuthStatus(!error ? getAuthStatus(data.session) : 'unauthenticated');
       })
       .catch(() => {
         if (active) setAuthStatus('unauthenticated');
@@ -47,19 +52,28 @@ function AppShell() {
   useEffect(() => {
     if (authStatus === 'checking') return;
 
-    const onPublicAuthRoute = ['auth', 'forgot-password', 'reset-password'].includes(String(segments[0] ?? ''));
+    const segment = String(segments[0] ?? '');
+    const onPublicAuthRoute = ['auth', 'admin-login', 'forgot-password', 'reset-password'].includes(segment);
     if (authStatus === 'unauthenticated' && !onPublicAuthRoute) {
       router.replace('/auth');
-    } else if (authStatus === 'authenticated' && segments[0] === 'auth') {
+    } else if (authStatus === 'authenticated' && segment === 'admin') {
       router.replace('/(tabs)');
+    } else if (authStatus === 'admin' && ['auth', 'admin-login'].includes(segment)) {
+      router.replace('/admin');
+    } else if (authStatus === 'authenticated' && segment === 'auth') {
+      router.replace('/(tabs)');
+    } else if (authStatus === 'admin' && segment === '(tabs)') {
+      router.replace('/admin');
     }
   }, [authStatus, segments, router]);
 
-  const onPublicAuthRoute = ['auth', 'forgot-password', 'reset-password'].includes(String(segments[0] ?? ''));
+  const segment = String(segments[0] ?? '');
+  const onPublicAuthRoute = ['auth', 'admin-login', 'forgot-password', 'reset-password'].includes(segment);
   const redirecting =
     authStatus === 'checking' ||
     (authStatus === 'unauthenticated' && !onPublicAuthRoute) ||
-    (authStatus === 'authenticated' && segments[0] === 'auth');
+    (authStatus === 'authenticated' && (segment === 'auth' || segment === 'admin')) ||
+    (authStatus === 'admin' && ['auth', 'admin-login', '(tabs)'].includes(segment));
 
   return (
     <LanguageProvider>
@@ -75,6 +89,8 @@ function AppShell() {
               }}
             >
               <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="admin/index" />
+              <Stack.Screen name="admin-login" />
               <Stack.Screen name="batch/[id]" />
               <Stack.Screen name="auth" />
               <Stack.Screen name="forgot-password" />

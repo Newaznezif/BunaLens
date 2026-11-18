@@ -4,11 +4,13 @@ import QRCode from 'react-native-qrcode-svg';
 import type { CoffeeBatch } from '@/types';
 import BunaLogo from './BunaLogo';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useTheme } from '@/contexts/ThemeContext';
 
 const VERIFY_BASE = process.env.EXPO_PUBLIC_CERTIFICATE_VERIFY_BASE_URL;
 
 export default function CertificateCard({ batch }: { batch: CoffeeBatch }) {
   const { t } = useLanguage();
+  const { theme } = useTheme();
   const verificationId = batch.verification_id || batch.id;
   const qrValue = VERIFY_BASE
     ? VERIFY_BASE.replace(/\/$/, '') + '/' + encodeURIComponent(verificationId)
@@ -17,7 +19,7 @@ export default function CertificateCard({ batch }: { batch: CoffeeBatch }) {
   const confidence = batch.result.confidence_score ?? Math.round((batch.result.confidence ?? 0) * 100);
 
   return (
-    <View className="bg-white border-2 border-espresso rounded-2xl p-5 w-80 items-center">
+    <View className="rounded-2xl p-5 w-80 items-center" style={{ backgroundColor: theme.colors.surface, borderWidth: 2, borderColor: theme.colors.espresso }}>
       <BunaLogo size={52} />
       <Text className="text-espresso text-xl font-black mt-2">BunaLens</Text>
       <Text className="text-cherry text-[10px] font-black text-center mt-1">BUNALENS DIGITAL COFFEE QUALITY CERTIFICATE</Text>

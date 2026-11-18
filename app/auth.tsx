@@ -165,6 +165,17 @@ export default function AuthScreen() {
         <TextInput value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} autoComplete="email" placeholder="you@example.com" className="border border-line rounded-xl p-3 mt-2 text-espresso" />
         <Text className="text-espresso font-bold mt-4">{t('password')}</Text>
         <TextInput value={password} onChangeText={setPassword} secureTextEntry autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} placeholder="At least 8 characters" className="border border-line rounded-xl p-3 mt-2 text-espresso" />
+        {mode === 'signin' ? (
+          <View className="items-end mt-2">
+            <Text
+              accessibilityRole="link"
+              onPress={() => router.push('/forgot-password')}
+              className="text-cherry underline font-semibold py-1"
+            >
+              Forgot password?
+            </Text>
+          </View>
+        ) : null}
 
         {mode === 'signup' ? (
           <>

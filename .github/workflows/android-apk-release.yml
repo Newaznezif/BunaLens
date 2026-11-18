@@ -41,15 +41,24 @@ jobs:
             echo "::error::Missing EXPO_TOKEN repository secret. Add an Expo access token in GitHub Actions secrets."
             exit 1
           fi
-          eas build --platform android --profile preview --non-interactive --wait
+          eas build --platform android --profile preview --non-interactive --wait --json > build-result.json
+          BUILD_ID=$(node -e "const d=JSON.parse(require('fs').readFileSync('build-result.json','utf8')); const b=Array.isArray(d)?d[0]:d; if(!b.id) process.exit(2); process.stdout.write(b.id)")
+          echo "BUILD_ID=$BUILD_ID" >> "$GITHUB_ENV"
 
       - name: Download completed APK
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           mkdir -p dist
-          eas build:download --platform android --latest --output ./dist/BunaLens-latest.apk
-          test -s ./dist/BunaLens-latest.apk
+          cd dist
+          eas build:download --build-id "$BUILD_ID" --non-interactive
+          APK=$(find . -maxdepth 1 -type f -name '*.apk' -print -quit)
+          if [ -z "$APK" ]; then
+            echo "::error::EAS completed but no APK file was downloaded."
+            exit 1
+          fi
+          mv "$APK" BunaLens-latest.apk
+          test -s BunaLens-latest.apk
 
       - name: Publish or update rolling Android release
         uses: softprops/action-gh-release@v2

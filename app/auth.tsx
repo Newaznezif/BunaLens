@@ -42,7 +42,7 @@ export default function AuthScreen() {
         : await supabase.auth.signUp({
             email: normalizedEmail,
             password,
-            options: { data: { full_name: manager.trim() } },
+            options: { data: { full_name: manager.trim(), manager: manager.trim(), station_name: name.trim(), woreda } },
           });
 
       if (result.error) {
@@ -81,15 +81,24 @@ export default function AuthScreen() {
         .maybeSingle();
       if (lookupError) throw lookupError;
 
+      const metadata = user.user_metadata ?? {};
+      const metadataStationName = typeof metadata.station_name === 'string' ? metadata.station_name : '';
+      const metadataManager = typeof metadata.manager === 'string'
+        ? metadata.manager
+        : typeof metadata.full_name === 'string' ? metadata.full_name : '';
+      const metadataWoreda = typeof metadata.woreda === 'string' && JIMMA_WOREDAS.includes(metadata.woreda)
+        ? metadata.woreda
+        : woreda;
+
       let record = existing;
       if (!record) {
         const { data: created, error: createError } = await supabase
           .from('stations')
           .insert({
             owner_id: user.id,
-            name: name.trim() || 'My Coffee Station',
-            manager: manager.trim() || user.email || 'Station Manager',
-            woreda,
+            name: metadataStationName.trim() || name.trim() || 'My Coffee Station',
+            manager: metadataManager.trim() || manager.trim() || user.email || 'Station Manager',
+            woreda: metadataWoreda,
           })
           .select('id,name,manager,woreda,credits,pro_expires_at')
           .single();

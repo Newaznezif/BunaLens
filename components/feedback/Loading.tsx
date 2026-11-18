@@ -6,7 +6,6 @@ import {
   StyleSheet,
   Text,
   View,
-  type DimensionValue,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -28,6 +27,8 @@ export function Spinner({ size = 'small', color = theme.colors.emerald, label, s
     </View>
   );
 }
+
+type DimensionValue = ViewStyle['width'];
 
 type SkeletonBlockProps = {
   width?: DimensionValue;

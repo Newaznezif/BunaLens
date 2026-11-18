@@ -5,6 +5,7 @@ import { JIMMA_WOREDAS } from '@/constants/jimmaData';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import LanguageToggle from '@/components/LanguageToggle';
+import BunaLogo from '@/components/BunaLogo';
 import { useStation } from '@/contexts/StationContext';
 import { useOfflineQueue } from '@/contexts/OfflineQueueContext';
 import { isSupabaseConfigured, supabase } from '@/services/supabaseClient';
@@ -145,8 +146,11 @@ export default function AuthScreen() {
 
   return (
     <ScrollView className="flex-1 p-6" style={{ backgroundColor: theme.colors.parchment }}>
-      <View className="flex-row justify-end mt-8"><LanguageToggle /></View>
-      <Text className="text-3xl font-black mt-5" style={{ color: theme.colors.espresso }}>{t('accountTitle')}</Text>
+      <View className="flex-row justify-between items-center mt-8">
+        <View className="flex-row items-center"><BunaLogo size={54} /><View className="ml-3"><Text className="text-xl font-black" style={{ color: theme.colors.espresso }}>BunaLens</Text><Text className="text-xs" style={{ color: theme.colors.secondary }}>{t('coffeeIntelligence')}</Text></View></View>
+        <LanguageToggle />
+      </View>
+      <Text className="text-3xl font-black mt-6" style={{ color: theme.colors.espresso }}>{t('accountTitle')}</Text>
       <Text className="mt-2" style={{ color: theme.colors.secondary }}>{t('accountHint')}</Text>
       {!isSupabaseConfigured ? (
         <View className="bg-amber-50 border border-amber-200 rounded-xl p-3 mt-5">

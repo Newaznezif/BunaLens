@@ -3,6 +3,7 @@ import { ScrollView, Text, View, Pressable, Image, Animated, Easing, Platform } 
 import { useLocalSearchParams, router } from 'expo-router';
 import { useStation } from '@/contexts/StationContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import * as Print from 'expo-print';
@@ -52,6 +53,7 @@ export default function Detail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { batches } = useStation();
   const { t } = useLanguage();
+  const { theme } = useTheme();
   const cert = useRef<View>(null);
   const batch = batches.find((item) => item.id === id);
   const captureCertificatePng = async (): Promise<string> => {
@@ -124,7 +126,7 @@ export default function Detail() {
     } catch (error) { showAlert(t('exportFailed'), error instanceof Error ? error.message : t('exportFailed')); }
   };
 
-  if (!batch) return <View className="flex-1 bg-parchment p-5"><Text onPress={() => router.back()}>{t('back')}</Text><Text>{t('batchNotFound')}</Text></View>;
+  if (!batch) return <View className="flex-1 p-5" style={{ backgroundColor: theme.colors.parchment }}><Text onPress={() => router.back()}>{t('back')}</Text><Text>{t('batchNotFound')}</Text></View>;
 
   const result = batch.result;
   const pricing = batch.pricing;
@@ -141,7 +143,7 @@ export default function Detail() {
   const gradeColor = result.ecx_grade === 'Unclassified' ? '#78716C' : result.ecx_grade === 'Grade 1' ? '#065F46' : result.ecx_grade === 'Grade 2' ? '#047857' : '#D97706';
 
   return (
-    <ScrollView className="flex-1 bg-parchment p-5" contentContainerStyle={{ paddingBottom: 36 }}>
+    <ScrollView className="flex-1 p-5" style={{ backgroundColor: theme.colors.parchment }} contentContainerStyle={{ paddingBottom: 36 }}>
       <View className="flex-row items-center justify-between">
         <Pressable onPress={() => router.back()}><Text className="text-cherry font-bold">‹ {t('back')}</Text></Pressable>
         <LanguageToggle />
@@ -150,7 +152,7 @@ export default function Detail() {
       <Text className="text-stone-500 text-xs mt-1">Jimma Zone, Oromia · {batch.woreda} · {new Date(batch.created_at).toLocaleString()}</Text>
       {batch.image_uri ? <Image source={{ uri: batch.image_uri }} resizeMode="cover" style={{ width: '100%', height: 180, borderRadius: 18, marginTop: 16 }} /> : null}
 
-      <View className="bg-white border border-line p-5 rounded-3xl mt-4">
+      <View className="border p-5 rounded-3xl mt-4" style={{ backgroundColor: theme.colors.surface, borderColor: theme.colors.line }}>
         <View className="flex-row justify-between items-start">
           <View className="flex-1">
             <Text className="text-stone-500 text-xs">{t('quality')} · {cherry ? t('red') : t('green')}</Text>

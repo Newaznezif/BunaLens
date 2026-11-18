@@ -6,6 +6,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useTheme } from '@/contexts/ThemeContext';
 
 function TabItem({ icon: Icon, label, focused, accent = false }: { icon: React.ComponentType<any>; label: string; focused: boolean; accent?: boolean }) {
+  const { theme } = useTheme();
   if (accent) {
     return (
       <View className="items-center justify-center" style={{ width: 68, marginTop: -12 }}>

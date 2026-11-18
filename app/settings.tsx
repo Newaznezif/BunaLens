@@ -19,7 +19,7 @@ function SettingRow({ icon: Icon, title, detail, action, trailing }: { icon: Rea
 export default function Settings() {
   const { t, language, setLanguage } = useLanguage();
   const { online, pendingCount, syncing, syncNow, refresh } = useOfflineQueue();
-  const { station, setStation } = useStation();
+  const { setStation } = useStation();
   const [permission, setPermission] = useState<string>('unknown');
   const [permissionBusy, setPermissionBusy] = useState(false);
   const version = Constants.expoConfig?.version ?? '1.0.0';
@@ -34,14 +34,17 @@ export default function Settings() {
     catch { showAlert(t('permissionError')); }
     finally { setPermissionBusy(false); }
   };
+
   const logout = async () => {
-    if (!supabase || station.id === 'station-demo') { showAlert(t('demoAccount')); return; }
+    if (!supabase) return;
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       setStation({ id: 'station-demo', name: 'Gomma Coffee Washing Station', woreda: 'Gomma', manager: 'Station Manager', credits: 10, feresula_price_etb: 6200 });
       router.replace('/auth');
-    } catch (error) { showAlert(t('accountError'), error instanceof Error ? error.message : t('accountError')); }
+    } catch (error) {
+      showAlert(t('accountError'), error instanceof Error ? error.message : t('accountError'));
+    }
   };
 
   return (
@@ -73,7 +76,12 @@ export default function Settings() {
       <View className="rounded-2xl border px-4 mb-4" style={{ backgroundColor: theme.colors.surface, borderColor: theme.colors.line }}>
         <Text className="text-sm font-black pt-4" style={{ color: theme.colors.espresso }}>{t('about')}</Text><SettingRow icon={Info} title="BunaLens" detail={t('coffeeIntelligence')} /><SettingRow icon={Sun} title={t('themePreference')} detail={t('lightTheme')} /><SettingRow icon={Info} title={t('version')} detail={version} />
       </View>
-      {station.id !== 'station-demo' ? <Pressable onPress={logout} className="rounded-xl border p-4 flex-row items-center justify-center" style={{ borderColor: '#FECACA', backgroundColor: '#FEF2F2' }}><LogOut size={16} color="#B91C1C" /><Text className="text-sm font-extrabold ml-2" style={{ color: '#B91C1C' }}>{t('logout')}</Text></Pressable> : <Text className="text-[10px] text-center mt-2" style={{ color: theme.colors.secondary }}>{t('demoAccount')}</Text>}
+      {supabase ? (
+        <Pressable onPress={logout} className="rounded-xl border p-4 flex-row items-center justify-center" style={{ borderColor: '#FECACA', backgroundColor: '#FEF2F2' }}>
+          <LogOut size={16} color="#B91C1C" />
+          <Text className="text-sm font-extrabold ml-2" style={{ color: '#B91C1C' }}>{t('logout')}</Text>
+        </Pressable>
+      ) : null}
     </ScrollView>
   );
 }

@@ -41,7 +41,7 @@ export default function Settings() {
       if (error) throw error;
       setStation({ id: 'station-demo', name: 'Gomma Coffee Washing Station', woreda: 'Gomma', manager: 'Station Manager', credits: 10, feresula_price_etb: 6200 });
       router.replace('/auth');
-    } catch (error) { showAlert(t('accountError'), error instanceof Error ? error.message : t('accountError')); }
+    } catch { showAlert(t('accountError'), t('accountError')); }
   };
 
   return (

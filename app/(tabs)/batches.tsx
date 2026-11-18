@@ -5,7 +5,7 @@ import { Search, Coffee, ChevronRight, Clock3, ScanLine, ArrowDownUp } from 'luc
 import { useStation } from '@/contexts/StationContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import OfflineBanner from '@/components/OfflineBanner';
-import { BunaLensTheme as theme } from '@/constants/theme';
+import { useTheme } from '@/contexts/ThemeContext';
 import LanguageToggle from '@/components/LanguageToggle';
 import type { CoffeeBatch, EcxGrade, SampleType } from '@/types';
 
@@ -17,6 +17,7 @@ function FilterChip({ label, active, onPress }: { label: string; active: boolean
 export default function Batches() {
   const { batches } = useStation();
   const { t } = useLanguage();
+  const { theme } = useTheme();
   const [q, setQ] = useState('');
   const [sample, setSample] = useState<'all' | SampleType>('all');
   const [grade, setGrade] = useState<'all' | EcxGrade>('all');

@@ -82,7 +82,7 @@ export async function submitCoffeeSample(
     throw new GradingServiceError('Demo mode is enabled. Use a clearly labelled demo sample or set EXPO_PUBLIC_DEMO_MODE=false to enable authenticated cloud grading.', 'configuration');
   }
   if (!SYNC_URL) throw new GradingServiceError('Cloud grading is not configured. Use a clearly labelled offline demonstration or configure the secure sync service.', 'configuration');
-  if (!SUPABASE_ANON_KEY) throw new GradingServiceError('Supabase public credentials are missing.', 'configuration');
+  if (!SUPABASE_ANON_KEY) throw new GradingServiceError('Cloud authentication is not configured for this build.', 'configuration');
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(mimeType) ||
       typeof base64 !== 'string' || base64.length < 32 || base64.length > 14_000_000 ||
       !/^[A-Za-z0-9+/]+={0,2}$/.test(base64.replace(/^data:image\/[a-z0-9.+-]+;base64,/i, '').replace(/\s/g, ''))) {

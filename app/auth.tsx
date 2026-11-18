@@ -11,6 +11,7 @@ import { useOfflineQueue } from '@/contexts/OfflineQueueContext';
 import { isSupabaseConfigured, supabase } from '@/services/supabaseClient';
 import { assignQueuedStation } from '@/services/offlineQueue';
 import { showAlert } from '@/services/platformAlert';
+import { logUserActivity } from '@/services/activityLogger';
 
 type AuthErrorLike = { code?: string; status?: number };
 
@@ -75,6 +76,8 @@ export default function AuthScreen() {
         showAlert(t('confirmEmail'), t('accountCreated'));
         return;
       }
+
+      void logUserActivity(mode === 'signup' ? 'account_registered' : 'user_signed_in');
 
       // Admin accounts are provisioned through Supabase Auth app_metadata. They
       // do not create a washing-station profile in the operator sign-in flow.
@@ -142,6 +145,7 @@ export default function AuthScreen() {
 
   const signOut = async () => {
     if (!supabase) return;
+    await logUserActivity('user_signed_out');
     const { error } = await supabase.auth.signOut();
     if (error) {
       showAlert(t('accountError'), t('accountError'));

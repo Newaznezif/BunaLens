@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTheme } from '@/contexts/ThemeContext';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 import { Link, router } from 'expo-router';
 import * as Linking from 'expo-linking';
@@ -6,6 +7,7 @@ import { Platform } from 'react-native';
 import { supabase } from '@/services/supabaseClient';
 
 export default function ForgotPasswordScreen() {
+  const { theme } = useTheme();
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);

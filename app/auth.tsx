@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 
 import { router } from 'expo-router';
 import { JIMMA_WOREDAS } from '@/constants/jimmaData';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import LanguageToggle from '@/components/LanguageToggle';
 import { useStation } from '@/contexts/StationContext';
 import { useOfflineQueue } from '@/contexts/OfflineQueueContext';
@@ -16,6 +17,7 @@ export default function AuthScreen() {
   const { station, setStation } = useStation();
   const { refresh: refreshQueue } = useOfflineQueue();
   const { t } = useLanguage();
+  const { theme } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState(station.name);
@@ -142,16 +144,16 @@ export default function AuthScreen() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-parchment p-6">
+    <ScrollView className="flex-1 p-6" style={{ backgroundColor: theme.colors.parchment }}>
       <View className="flex-row justify-end mt-8"><LanguageToggle /></View>
-      <Text className="text-espresso text-3xl font-black mt-5">{t('accountTitle')}</Text>
-      <Text className="text-stone-500 mt-2">{t('accountHint')}</Text>
+      <Text className="text-3xl font-black mt-5" style={{ color: theme.colors.espresso }}>{t('accountTitle')}</Text>
+      <Text className="mt-2" style={{ color: theme.colors.secondary }}>{t('accountHint')}</Text>
       {!isSupabaseConfigured ? (
         <View className="bg-amber-50 border border-amber-200 rounded-xl p-3 mt-5">
           <Text className="text-amber-900 text-sm">{t('cloudUnavailableHint')}</Text>
         </View>
       ) : null}
-      <View className="bg-white rounded-2xl p-4 mt-6 border border-line">
+      <View className="rounded-2xl p-4 mt-6 border" style={{ backgroundColor: theme.colors.surface, borderColor: theme.colors.line }}>
         <View className="flex-row gap-2">
           <Pressable onPress={() => setMode('signin')} className={`flex-1 p-3 rounded-lg ${mode === 'signin' ? 'bg-espresso' : 'bg-parchment'}`}>
             <Text className={mode === 'signin' ? 'text-white text-center font-bold' : 'text-espresso text-center'}>{t('signIn')}</Text>

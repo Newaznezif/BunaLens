@@ -8,7 +8,7 @@ import {
 } from 'lucide-react-native';
 import { isSupabaseConfigured, supabase } from '@/services/supabaseClient';
 import { useTheme } from '@/contexts/ThemeContext';
-import DirectoryManager from './DirectoryManager';
+import DirectoryManager from '@/components/admin/DirectoryManager';
 
 type AdminTab = 'overview' | 'stations' | 'payments' | 'directory';
 type StationRow = { id: string; name: string | null; manager: string | null; email: string | null; phone: string | null; woreda: string; credits: number; pro_expires_at: string | null; created_at: string };

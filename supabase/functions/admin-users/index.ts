@@ -53,8 +53,8 @@ Deno.serve(async (req) => {
 
       await admin.from("user_activity_logs").insert({
         user_id: callerData.user.id,
-        event_type: "user_signed_in",
-        metadata: { admin_action: action, target_user_id: targetId },
+        event_type: "admin_action",
+        metadata: { action, target_user_id: targetId },
       });
       return reply({ success: true, userId: targetId, banned_until: updated.user.banned_until ?? null });
     }

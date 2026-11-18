@@ -15,7 +15,7 @@ import type { CoffeeBatch, SampleType } from '@/types';
 import { submitCoffeeSample } from '@/services/geminiVision';
 import { enqueueCapture, isOnline, persistLocalImage } from '@/services/offlineQueue';
 import { priceAssessment, KG_PER_FERESULA } from '@/services/pricing';
-import { BunaLensTheme as theme } from '@/constants/theme';
+import { useTheme } from '@/contexts/ThemeContext';
 import { showAlert } from '@/services/platformAlert';
 import LanguageToggle from '@/components/LanguageToggle';
 
@@ -23,6 +23,7 @@ type Preview = { base64: string; uri: string; mimeType: string };
 
 export default function Scan() {
   const { t, language } = useLanguage();
+  const { theme } = useTheme();
   const { station, addBatch, consumeCredit } = useStation();
   const { refresh: refreshQueue } = useOfflineQueue();
   const [perm, ask] = useCameraPermissions();

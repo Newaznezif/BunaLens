@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { ArrowLeft, Coffee, LockKeyhole, ShieldCheck } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { isSupabaseConfigured, supabase } from '@/services/supabaseClient';
+import { logUserActivity } from '@/services/activityLogger';
 
 export default function AdminLoginScreen() {
   const { theme } = useTheme();
@@ -33,6 +34,7 @@ export default function AdminLoginScreen() {
         setError('This account does not have administrator access.');
         return;
       }
+      void logUserActivity('user_signed_in', { source: 'admin_login' });
       router.replace('/admin');
     } catch {
       setError('Sign-in failed. Check your credentials and try again.');

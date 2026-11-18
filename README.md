@@ -301,7 +301,7 @@ To enable it in a Supabase project:
 3. Sign in at `/admin-login`. The client routes the account to the operator app unless the signed-in JWT carries the trusted `app_metadata.role = admin` claim.
 4. After changing a role, have the user sign out and back in (or refresh their session) so the JWT includes the latest claim.
 
-The admin migration adds SELECT-only RLS access for the trusted admin claim on operational tables. It does not add client writes or expose service-role credentials. The console currently provides an overview, station search and payment review; sensitive payment verification and entitlement changes remain on the server.
+The admin migration adds SELECT-only RLS access for the trusted admin claim on operational tables. It does not add client writes or expose service-role credentials. The console currently provides an overview, station search and payment review; sensitive payment verification and entitlement changes remain on the server. The User Management tab uses the `admin-users` Edge Function to read Supabase Auth accounts securely, display registration/verification/last-sign-in status, connect users to their station and batch activity, and suspend/reactivate non-admin accounts. Apply `20261119140000_admin_user_monitoring.sql` and deploy `admin-users` before using this module. Deploy the function with `supabase functions deploy admin-users`. The app records account registration, sign-in/sign-out and cloud assessment events in `user_activity_logs`.
 
 ## 11. Gemini backend configuration
 

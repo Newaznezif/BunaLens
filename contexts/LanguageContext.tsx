@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
-export type Language = 'en' | 'om';
+export type Language = 'en' | 'om' | 'am';
 
 const translations = {
   en: {
@@ -172,6 +172,70 @@ const translations = {
   },
 } as const;
 
+const amTranslations: Partial<Record<keyof typeof translations.en, string>> = {
+  home: 'መነሻ', scan: 'ቡና መመርመር', batches: 'የቡና ዝርዝሮች', station: 'ጣቢያ',
+  credits: 'የጣቢያ ክሬዲቶች', scanSample: 'ናሙና መመርመር', quality: 'የጥራት ደረጃ',
+  value: 'ግምታዊ ዋጋ', certificate: 'የቡና ማረጋገጫ', red: 'ቀይ ቡና ፍሬ',
+  green: 'አረንጓዴ ቡና ፍሬ', defect: 'የጉድለት መጠን',
+  disclaimer: 'በAI የታገዘ የምስል ግምገማ ብቻ ነው። ይህ የECX ላቦራቶሪ ወይም የQ-Grader ይፋዊ ማረጋገጫ አይደለም።',
+  scanHistory: 'የምርመራ ታሪክ', totalBatches: 'ጠቅላላ የቡና ዝርዝሮች',
+  language: 'ቋንቋ', coffeeIntelligence: 'የቡና ጥራት መረጃ', changeLanguage: 'ቋንቋ ይቀይሩ',
+  yourStation: 'የእርስዎ ማጠቢያ ጣቢያ', availableScans: 'የቀሩ ምርመራዎች',
+  averageQuality: 'አማካይ ጥራት', completedScans: 'ከተጠናቀቁ የAI ምርመራዎች',
+  noAiScans: 'እስካሁን የAI ምርመራ የለም', aiQualityCheck: 'በAI የታገዘ የጥራት ምርመራ',
+  scanYourCoffee: 'ቡናዎን ይመርምሩ', captureAssess: 'የቀይ ወይም አረንጓዴ ቡና ፍሬ ፎቶ በማንሳት ጥራቱን ይገምግሙ።',
+  stationOverview: 'የጣቢያ አጠቃላይ እይታ', yourActivity: 'የእርስዎ እንቅስቃሴ',
+  savedOnDevice: 'በዚህ መሣሪያ ላይ ተቀምጧል', aiAssessments: 'የAI ግምገማዎች',
+  cloudAssessments: 'የተጠናቀቁ የደመና ምርመራዎች', recentBatches: 'የቅርብ ጊዜ የቡና ዝርዝሮች',
+  viewAll: 'ሁሉንም ይመልከቱ', batchHistoryStarts: 'የቡና ታሪክዎ እዚህ ይጀምራል',
+  firstBatchHint: 'የመጀመሪያውን የጥራት መዝገብ ለመፍጠር የቡና ናሙና ፎቶ ያንሱ።',
+  startFirstScan: 'የመጀመሪያ ምርመራ ይጀምሩ', pending: 'በመጠባበቅ ላይ',
+  scanTitle: 'ቡና መመርመር', scanSubtitle: 'የጥራት ግምገማ ለማድረግ ናሙና ፎቶ ያንሱ',
+  fieldLighting: 'ጥሩና እኩል ብርሃን ይጠቀሙ። የቡና ናሙናው ምስሉን እንዲሞላ ያድርጉ፤ ጥላን ያስወግዱ።',
+  selectSampleType: '1. የናሙና ዓይነት ይምረጡ', redCherries: 'ቀይ የቡና ፍሬዎች',
+  greenBeans: 'አረንጓዴ የቡና ፍሬዎች', coffeeOrigin: '2. የቡና መነሻ', woreda: 'ወረዳ',
+  lotWeight: '3. የዕቃው ክብደት (ኪ.ግ)', lotWeightHint: 'ጠቅላላ ክብደቱን ያስገቡ። 1 ፈረሱላ = 17 ኪ.ግ።',
+  captureSample: '4. ናሙና ፎቶ ያንሱ', cameraHint: 'ናሙናውን በምስሉ መሃል እና በቂ ብርሃን ውስጥ ያድርጉ',
+  enableCamera: 'ካሜራውን ያንቁ', cameraPermission: 'የካሜራ ፈቃድ በሚያስፈልግበት ጊዜ ብቻ ይጠየቃል',
+  captureAndAssess: 'ፎቶ ያንሱ እና ናሙናውን ይገምግሙ', chooseGallery: 'ከማዕከለ-ስዕላት ፎቶ ይምረጡ',
+  demoTitle: 'ሙከራ ይሞክሩ', demoOnly: 'የማሳያ ብቻ', demoHint: 'እነዚህ ምሳሌዎች የሪፖርቱን ቅርጽ ያሳያሉ፤ ፎቶዎን አይመረምሩም።',
+  cleanDemo: 'ደረጃ 1 ንጹህ', defectDemo: 'ደረጃ 3 ጉድለቶች',
+  invalidWeight: 'የክብደት መረጃ ትክክል አይደለም', savedForLater: 'ለበኋላ ተቀምጧል',
+  offlineQueue: 'ኢንተርኔት የለም። የናሙናው ፎቶ በመሣሪያው ላይ ተቀምጧል። ለAI ግምገማ ኢንተርኔት ሲገኝ ያመሳስሉ።',
+  registerStation: 'ጣቢያዎን ይመዝግቡ', registerStationHint: 'እውነተኛ ፎቶዎችን ከመመርመርዎ በፊት ይግቡና የቡና ማጠቢያ ጣቢያ ይመዝግቡ።',
+  gradingFailed: 'ግምገማው አልተሳካም', noBatches: 'እስካሁን የቡና መዝገቦች የሉም። የመጀመሪያ ናሙናዎን ይመርምሩ።',
+  searchBatch: 'የቡና መዝገብ ወይም ወረዳ ይፈልጉ', allRecords: 'ሁሉም መዝገቦች',
+  aiOnly: 'የAI ግምገማዎች', demo: 'ማሳያ', records: 'መዝገቦች', record: 'መዝገብ',
+  noMatches: 'ተዛማጅ መዝገብ አልተገኘም', tryDifferentSearch: 'ሌላ የፍለጋ ቃል ወይም ማጣሪያ ይሞክሩ።',
+  noBatchesYet: 'እስካሁን የተመዘገቡ የቡና መዝገቦች የሉም', batchHistory: 'የቡና ታሪክ',
+  redCoffeeCherries: 'ቀይ የቡና ፍሬዎች', greenCoffeeBeans: 'አረንጓዴ የቡና ፍሬዎች',
+  synced: 'ተመሳስሏል', local: 'በመሣሪያው ላይ', demoLabel: 'ማሳያ',
+  manageStation: 'የቡና ማጠቢያ ጣቢያዎን ያስተዳድሩ', signInRegister: 'ይግቡ / ጣቢያ ይመዝግቡ',
+  manageAccount: 'መለያዎን ያስተዳድሩ', connectStation: 'እውነተኛ የAI ግምገማን ለማንቃት ጣቢያ ያገናኙ',
+  accountAccess: 'የመለያና የጣቢያ መዳረሻ', scanCredits: 'የምርመራ ክሬዲቶች',
+  availableCredits: 'ያሉ የምርመራ ክሬዲቶች', refreshBalance: 'የሰርቨር ቀሪ ሂሳብ ያድሱ',
+  stationProfile: 'የጣቢያ መገለጫ', originContact: 'የመነሻና የእውቂያ መረጃ',
+  save: 'አስቀምጥ', edit: 'አርትዕ', stationName: 'የጣቢያ ስም', manager: 'አስተዳዳሪ',
+  stationWoreda: 'ወረዳ', accountDemo: 'የአካባቢ ማሳያ ሁኔታ',
+  balanceUpdated: 'የጣቢያ ቀሪ ሂሳብ ታድሷል', refreshFailed: 'ማደስ አልተሳካም',
+  madeForCoffee: 'ለኢትዮጵያ የቡና እሴት ሰንሰለት የተሰራ',
+  certificateTitle: 'የBunaLens የጥራት ግምገማ', back: 'ተመለስ',
+  batchNotFound: 'የቡና መዝገቡ አልተገኘም።', visualDefects: 'በምስል የታዩ ጉድለቶች',
+  settings: 'ቅንብሮች', stationSettings: 'የጣቢያና የመተግበሪያ ምርጫዎች',
+  languageEnglish: 'እንግሊዝኛ', languageOromo: 'ኦሮምኛ', languageAmharic: 'አማርኛ',
+  themePreference: 'መልክ', lightTheme: 'ብርሃን ገጽታ',
+  locationPermission: 'የአካባቢ ፈቃድ', locationPermissionHint: 'GPS አማራጭ ነው። ፈቃድ ካልተሰጠ ወረዳውን በእጅ ማስገባት ይችላሉ።',
+  allowLocation: 'የአካባቢ ፈቃድ ይስጡ', locationGranted: 'የአካባቢ ፈቃድ ተሰጥቷል',
+  locationDenied: 'የአካባቢ ፈቃድ አልተሰጠም', dataSync: 'የመረጃ ማመሳሰል',
+  syncDescription: 'የኢንተርኔት ግንኙነትን ይመልከቱና የተጠባበቁ የቡና ናሙናዎችን ያመሳስሉ።',
+  syncNow: 'አሁን ያመሳስሉ', privacy: 'ግላዊነትና የመረጃ አጠቃቀም',
+  about: 'ስለ BunaLens', version: 'የመተግበሪያ ስሪት',
+  logout: 'ውጣ', demoAccount: 'የማሳያ ጣቢያ፦ የደመና መለያ አልተገባም።',
+  permissionError: 'የአካባቢ ፈቃድን ማረጋገጥ አልተቻለም።',
+  contactDetails: 'የእውቂያ መረጃ', noPhone: 'አልተሰጠም', noEmail: 'አልተሰጠም',
+  assessmentProgress: 'የቡና ናሙናው እየተገመገመ ነው', pleaseWait: 'ናሙናው እስኪላክና እስኪገመገም ድረስ መተግበሪያውን ክፍት ያቆዩ።',
+};
+
 export type TranslationKey = keyof typeof translations.en;
 type LanguageContextValue = {
   language: Language;
@@ -189,7 +253,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     let active = true;
     AsyncStorage.getItem('bunalens.language')
       .then((stored) => {
-        if (active && (stored === 'en' || stored === 'om')) setLanguageState(stored);
+        if (active && (stored === 'en' || stored === 'om' || stored === 'am')) setLanguageState(stored);
       })
       .catch(() => undefined)
       .finally(() => { if (active) setLoaded(true); });
@@ -204,7 +268,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<LanguageContextValue>(() => ({
     language,
     setLanguage,
-    t: (key) => translations[language][key],
+    t: (key) => language === 'am' ? (amTranslations[key] ?? translations.en[key]) : translations[language][key],
   }), [language]);
 
   return <Context.Provider value={value}>{children}</Context.Provider>;

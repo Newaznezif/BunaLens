@@ -48,7 +48,7 @@ export default function RootLayout() {
     const onPublicAuthRoute = ['auth', 'forgot-password', 'reset-password'].includes(String(segments[0] ?? ''));
     if (authStatus === 'unauthenticated' && !onPublicAuthRoute) {
       router.replace('/auth');
-    } else if (authStatus === 'authenticated' && onAuthScreen) {
+    } else if (authStatus === 'authenticated' && segments[0] === 'auth') {
       router.replace('/(tabs)');
     }
   }, [authStatus, segments, router]);

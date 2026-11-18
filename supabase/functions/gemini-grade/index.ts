@@ -106,7 +106,7 @@ Return only JSON. Include specific, actionable sorting_action_advice and an asse
     const timeout = setTimeout(() => controller.abort(), 35_000);
     let modelResponse: Response;
     try {
-      modelResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + encodeURIComponent(geminiKey), {
+      modelResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=" + encodeURIComponent(geminiKey), {
         method: "POST", signal: controller.signal, headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ role: "user", parts: [{ text: prompt }, { inline_data: { mime_type: mimeType, data: imageBase64 } }] }],
@@ -152,7 +152,7 @@ Return only JSON. Include specific, actionable sorting_action_advice and an asse
       if (debitError) { console.error("Scan credit debit failed", debitError); return json({ error: "Could not confirm station scan entitlement. No assessment was saved." }, 503); }
       if (!debitOk) return json({ error: "No scan credits are available." }, 402);
     }
-    return json({ result: assessment, model: "gemini-2.5-flash", assessed_at: new Date().toISOString() });
+    return json({ result: assessment, model: "gemini-3.1-flash-lite", assessed_at: new Date().toISOString() });
   } catch (error) {
     console.error("gemini-grade failed; request details omitted.");
     return json({ error: "Unable to complete the grading request." }, 500);

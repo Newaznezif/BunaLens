@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { ScrollView, View, Text, Pressable, ActivityIndicator, Alert, TextInput, Image, Modal, Platform } from 'react-native';
+import { ScrollView, View, Text, Pressable, Alert, TextInput, Image, Modal, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { Camera, ImagePlus, ScanLine, Coffee, MapPin, Scale, Info, ShieldCheck, Zap, RotateCcw, ChevronRight } from 'lucide-react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -18,6 +18,7 @@ import { priceAssessment, KG_PER_FERESULA } from '@/services/pricing';
 import { BunaLensTheme as theme } from '@/constants/theme';
 import { showAlert } from '@/services/platformAlert';
 import LanguageToggle from '@/components/LanguageToggle';
+import { ProcessingLoader, Spinner } from '@/components/feedback/Loading';
 
 type Preview = { base64: string; uri: string; mimeType: string };
 
@@ -216,7 +217,7 @@ export default function Scan() {
           <Text className="text-emerald font-bold text-xs text-center mt-3">{t('photoReady')}</Text>
           <View className="flex-row gap-2 mt-3">
             <Pressable onPress={() => setPreview(null)} disabled={busy} className="flex-1 bg-stone-100 p-3 rounded-xl flex-row items-center justify-center"><RotateCcw size={16} color={theme.colors.espresso} /><Text className="text-espresso font-bold ml-2">{t('retake')}</Text></Pressable>
-            <Pressable onPress={submitPreview} disabled={busy} className="flex-1 p-3 rounded-xl flex-row items-center justify-center" style={{ backgroundColor: theme.colors.cherry, opacity: busy ? 0.65 : 1 }}>{busy ? <ActivityIndicator color="white" /> : <><ScanLine size={16} color="white" /><Text className="text-white font-bold ml-2">{t('submitForAssessment')}</Text></>}</Pressable>
+            <Pressable onPress={submitPreview} disabled={busy} className="flex-1 p-3 rounded-xl flex-row items-center justify-center" style={{ backgroundColor: theme.colors.cherry, opacity: busy ? 0.65 : 1 }}>{busy ? <Spinner color="white" /> : <><ScanLine size={16} color="white" /><Text className="text-white font-bold ml-2">{t('submitForAssessment')}</Text></>}</Pressable>
           </View>
         </View>
       ) : perm?.granted ? (
@@ -236,7 +237,7 @@ export default function Scan() {
       {!preview ? <Pressable accessibilityRole="button" onPress={gallery} className="bg-white p-4 rounded-2xl mt-2 border border-line items-center flex-row justify-center"><ImagePlus color={theme.colors.espresso} size={18} /><Text className="text-espresso font-bold ml-2">{t('chooseGallery')}</Text></Pressable> : null}
 
       <Pressable onPress={() => setDemoOpen(true)} className="mt-7 rounded-2xl border p-4 flex-row items-center justify-between" style={{ backgroundColor: '#FFFBEB', borderColor: '#FDE68A' }}><View className="flex-1"><Text className="text-sm font-extrabold" style={{ color: '#92400E' }}>{t('demoTitle')} · {t('demoOnly')}</Text><Text className="text-[11px] mt-1" style={{ color: '#92400E' }}>{t('demoHint')}</Text></View><ChevronRight size={18} color="#92400E" /></Pressable>
-      {busy ? <View className="rounded-2xl p-4 mt-4 flex-row items-center" style={{ backgroundColor: theme.colors.espresso }}><ActivityIndicator color="#FFFFFF" /><View className="ml-3 flex-1"><Text className="text-white font-bold text-sm">{t('assessmentProgress')}</Text><Text className="text-[10px] text-stone-300 mt-1">{t('pleaseWait')}</Text></View></View> : null}
+      {busy ? <View className="mt-4"><ProcessingLoader title={t('assessmentProgress')} description={t('pleaseWait')} /></View> : null}
       <Modal visible={demoOpen} transparent animationType="slide" onRequestClose={() => setDemoOpen(false)}>
         <View className="flex-1 justify-end" style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}><View className="rounded-t-3xl p-6" style={{ backgroundColor: theme.colors.parchment }}>
           <View className="flex-row items-center justify-between mb-2"><Text className="text-lg font-black text-espresso">{t('demoTitle')}</Text><Pressable onPress={() => setDemoOpen(false)}><Text className="text-sm font-bold text-cherry">{t('cancel')}</Text></Pressable></View>

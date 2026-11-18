@@ -3,6 +3,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 import type { CoffeeBatch, Station } from '@/types';
 import { getDemoAssessment } from '@/constants/demoSamples';
 import { priceAssessment } from '@/services/pricing';
+import { supabase } from '@/services/supabaseClient';
 
 const STORAGE_KEYS = ['bunalens.station', 'bunalens.batches'] as const;
 const seed: Station = {
@@ -51,6 +52,30 @@ export function StationProvider({ children }: { children: React.ReactNode }) {
           setBatches(demoBatches);
           await AsyncStorage.setItem(STORAGE_KEYS[1], JSON.stringify(demoBatches));
         }
+      })
+      .then(async () => {
+        if (!active || !supabase) return;
+        const { data: sessionData } = await supabase.auth.getSession();
+        const user = sessionData.session?.user;
+        if (!user || !active) return;
+        const { data: remoteStation, error } = await supabase
+          .from('stations')
+          .select('id,name,manager,woreda,credits,pro_expires_at')
+          .eq('owner_id', user.id)
+          .limit(1)
+          .maybeSingle();
+        if (error || !remoteStation || !active) return;
+        const hydrated: Station = {
+          id: remoteStation.id,
+          name: remoteStation.name || 'My Coffee Station',
+          manager: remoteStation.manager || 'Station Manager',
+          woreda: remoteStation.woreda,
+          credits: remoteStation.credits,
+          feresula_price_etb: seed.feresula_price_etb,
+          pro_expires_at: remoteStation.pro_expires_at || undefined,
+        };
+        setStationState(hydrated);
+        await AsyncStorage.setItem(STORAGE_KEYS[0], JSON.stringify(hydrated));
       })
       .catch(() => undefined);
     return () => { active = false; };

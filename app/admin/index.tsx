@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import type { ViewStyle } from 'react-native';
 import { router } from 'expo-router';
 import {
   Activity, Building2, CheckCircle2, ChevronRight, CircleAlert, Coffee, CreditCard,
@@ -10,10 +11,10 @@ import { useTheme } from '@/contexts/ThemeContext';
 
 type AdminTab = 'overview' | 'stations' | 'payments';
 type StationRow = { id: string; name: string | null; manager: string | null; email: string | null; phone: string | null; woreda: string; credits: number; pro_expires_at: string | null; created_at: string };
-type BatchRow = { id: string; batch_code: string; sample_type: string; woreda: string; grading_status: string; ecx_grade: string; quality_score: number | null; created_at: string; stations?: { name: string | null; manager: string | null } | null };
-type PaymentRow = { id: string; package_id: string; amount_etb: number; currency: string; chapa_tx_ref: string; status: string; created_at: string; verified_at: string | null; stations?: { name: string | null } | null };
+type BatchRow = { id: string; batch_code: string; sample_type: string; woreda: string; grading_status: string; ecx_grade: string; quality_score: number | null; created_at: string; stations?: { name: string | null; manager: string | null }[] | null };
+type PaymentRow = { id: string; package_id: string; amount_etb: number; currency: string; chapa_tx_ref: string; status: string; created_at: string; verified_at: string | null; stations?: { name: string | null }[] | null };
 
-const card: React.CSSProperties = { backgroundColor: '#FFFFFF', borderColor: '#E5E9E0', borderWidth: 1, borderRadius: 20 };
+const card: ViewStyle = { backgroundColor: '#FFFFFF', borderColor: '#E5E9E0', borderWidth: 1, borderRadius: 20 };
 
 function formatDate(value?: string | null) {
   if (!value) return '—';
@@ -104,7 +105,7 @@ export default function AdminDashboard() {
   }, [stations, search]);
   const filteredPayments = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return payments.filter((p) => !query || [p.chapa_tx_ref, p.package_id, p.status, p.stations?.name].some((v) => v?.toLowerCase().includes(query)));
+    return payments.filter((p) => !query || [p.chapa_tx_ref, p.package_id, p.status, p.stations?.[0]?.name].some((v) => v?.toLowerCase().includes(query)));
   }, [payments, search]);
   const weekly = useMemo(() => Array.from({ length: 7 }, (_, i) => {
     const date = new Date(); date.setDate(date.getDate() - (6 - i));
@@ -191,7 +192,7 @@ export default function AdminDashboard() {
             <View style={{ ...card, overflow: 'hidden' }}>
               {batches.slice(0, 6).map((batch, index) => <View key={batch.id} style={{ flexDirection: narrow ? 'column' : 'row', alignItems: narrow ? 'flex-start' : 'center', paddingHorizontal: 16, paddingVertical: 13, borderBottomWidth: index === Math.min(batches.length, 6) - 1 ? 0 : 1, borderColor: '#EEF0EC', gap: 9 }}>
                 <View style={{ width: 34, height: 34, borderRadius: 12, backgroundColor: '#EAF1E8', alignItems: 'center', justifyContent: 'center' }}><Coffee size={16} color="#55765D" /></View>
-                <View style={{ flex: 1 }}><Text style={{ color: '#26372D', fontSize: 11, fontWeight: '900' }}>{batch.batch_code}</Text><Text style={{ color: '#7A8378', fontSize: 10, marginTop: 3 }}>{batch.stations?.name || 'Station'} · {batch.woreda} · {batch.sample_type === 'green_bean' ? 'Green bean' : 'Red cherry'}</Text></View>
+                <View style={{ flex: 1 }}><Text style={{ color: '#26372D', fontSize: 11, fontWeight: '900' }}>{batch.batch_code}</Text><Text style={{ color: '#7A8378', fontSize: 10, marginTop: 3 }}>{batch.stations?.[0]?.name || 'Station'} · {batch.woreda} · {batch.sample_type === 'green_bean' ? 'Green bean' : 'Red cherry'}</Text></View>
                 <Text style={{ color: '#526052', fontSize: 10, fontWeight: '700', minWidth: 78 }}>{batch.quality_score == null ? 'Unscored' : `${Math.round(batch.quality_score)}/100`}</Text>
                 <StatusPill value={batch.grading_status} /><Text style={{ color: '#929A91', fontSize: 9, minWidth: 86 }}>{formatDate(batch.created_at)}</Text>
               </View>)}
@@ -219,7 +220,7 @@ export default function AdminDashboard() {
             <View style={{ ...card, overflow: 'hidden' }}>
               {filteredPayments.map((payment, index) => <View key={payment.id} style={{ flexDirection: 'row', alignItems: 'center', padding: 15, borderBottomWidth: index === filteredPayments.length - 1 ? 0 : 1, borderColor: '#EEF0EC', gap: 10 }}>
                 <View style={{ width: 38, height: 38, borderRadius: 13, backgroundColor: '#F6EFE3', alignItems: 'center', justifyContent: 'center' }}><CreditCard size={17} color="#B7834D" /></View>
-                <View style={{ flex: 1, minWidth: 100 }}><Text style={{ color: '#26372D', fontSize: 11, fontWeight: '900' }}>{payment.stations?.name || 'Station payment'}</Text><Text numberOfLines={1} style={{ color: '#818A7F', fontSize: 9, marginTop: 3 }}>{payment.chapa_tx_ref}</Text></View>
+                <View style={{ flex: 1, minWidth: 100 }}><Text style={{ color: '#26372D', fontSize: 11, fontWeight: '900' }}>{payment.stations?.[0]?.name || 'Station payment'}</Text><Text numberOfLines={1} style={{ color: '#818A7F', fontSize: 9, marginTop: 3 }}>{payment.chapa_tx_ref}</Text></View>
                 <View style={{ alignItems: 'flex-end' }}><Text style={{ color: '#26372D', fontSize: 11, fontWeight: '900' }}>{Number(payment.amount_etb).toLocaleString()} ETB</Text><Text style={{ color: '#818A7F', fontSize: 9, marginTop: 3 }}>{payment.package_id === 'starter_50' ? 'Starter · 50 credits' : 'Station Pro · 30 days'}</Text></View>
                 <StatusPill value={payment.status} />
                 <Text style={{ color: '#929A91', fontSize: 9, minWidth: 76, textAlign: 'right' }}>{formatDate(payment.created_at)}</Text>

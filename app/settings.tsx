@@ -3,21 +3,23 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import Constants from 'expo-constants';
 import * as Location from 'expo-location';
-import { ArrowLeft, Globe2, MapPin, RefreshCw, ShieldCheck, Info, LogOut, ChevronRight, Sun } from 'lucide-react-native';
+import { ArrowLeft, Globe2, MapPin, RefreshCw, ShieldCheck, Info, LogOut, ChevronRight, Sun, Moon } from 'lucide-react-native';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useOfflineQueue } from '@/contexts/OfflineQueueContext';
 import { useStation } from '@/contexts/StationContext';
 import { supabase } from '@/services/supabaseClient';
 import LanguageToggle from '@/components/LanguageToggle';
-import { BunaLensTheme as theme } from '@/constants/theme';
+import { useTheme } from '@/contexts/ThemeContext';
 import { showAlert } from '@/services/platformAlert';
 
 function SettingRow({ icon: Icon, title, detail, action, trailing }: { icon: React.ComponentType<any>; title: string; detail: string; action?: () => void; trailing?: React.ReactNode }) {
-  return <Pressable disabled={!action} onPress={action} className="flex-row items-center py-4 border-b border-stone-100"><View className="w-10 h-10 rounded-xl items-center justify-center mr-3" style={{ backgroundColor: theme.colors.parchment }}><Icon size={18} color={theme.colors.espresso} /></View><View className="flex-1"><Text className="text-sm font-extrabold" style={{ color: theme.colors.espresso }}>{title}</Text><Text className="text-[11px] mt-1 leading-4" style={{ color: theme.colors.secondary }}>{detail}</Text></View>{trailing ?? (action ? <ChevronRight size={16} color={theme.colors.secondary} /> : null)}</Pressable>;
+  const { theme } = useTheme();
+  return <Pressable disabled={!action} onPress={action} className="flex-row items-center py-4" style={{ borderBottomWidth: 1, borderBottomColor: theme.colors.line }}><View className="w-10 h-10 rounded-xl items-center justify-center mr-3" style={{ backgroundColor: theme.colors.parchment }}><Icon size={18} color={theme.colors.espresso} /></View><View className="flex-1"><Text className="text-sm font-extrabold" style={{ color: theme.colors.espresso }}>{title}</Text><Text className="text-[11px] mt-1 leading-4" style={{ color: theme.colors.secondary }}>{detail}</Text></View>{trailing ?? (action ? <ChevronRight size={16} color={theme.colors.secondary} /> : null)}</Pressable>;
 }
 
 export default function Settings() {
   const { t, language, setLanguage } = useLanguage();
+  const { theme, mode, setMode } = useTheme();
   const { online, pendingCount, syncing, syncNow, refresh } = useOfflineQueue();
   const { station, setStation } = useStation();
   const [permission, setPermission] = useState<string>('unknown');
@@ -71,7 +73,7 @@ export default function Settings() {
 
       <View className="rounded-2xl border px-4 mb-4" style={{ backgroundColor: theme.colors.surface, borderColor: theme.colors.line }}><Text className="text-sm font-black pt-4" style={{ color: theme.colors.espresso }}>{t('privacy')}</Text><SettingRow icon={ShieldCheck} title={t('privacy')} detail={t('privacyText')} /></View>
       <View className="rounded-2xl border px-4 mb-4" style={{ backgroundColor: theme.colors.surface, borderColor: theme.colors.line }}>
-        <Text className="text-sm font-black pt-4" style={{ color: theme.colors.espresso }}>{t('about')}</Text><SettingRow icon={Info} title="BunaLens" detail={t('coffeeIntelligence')} /><SettingRow icon={Sun} title={t('themePreference')} detail={t('lightTheme')} /><SettingRow icon={Info} title={t('version')} detail={version} />
+        <Text className="text-sm font-black pt-4" style={{ color: theme.colors.espresso }}>{t('about')}</Text><SettingRow icon={Info} title="BunaLens" detail={t('coffeeIntelligence')} /><View className="py-4" style={{ borderBottomWidth: 1, borderBottomColor: theme.colors.line }}><View className="flex-row items-center mb-3"><View className="w-10 h-10 rounded-xl items-center justify-center mr-3" style={{ backgroundColor: theme.colors.parchment }}>{mode === 'dark' ? <Moon size={18} color={theme.colors.espresso} /> : <Sun size={18} color={theme.colors.espresso} />}</View><View className="flex-1"><Text className="text-sm font-extrabold" style={{ color: theme.colors.espresso }}>{t('themePreference')}</Text><Text className="text-[11px] mt-1" style={{ color: theme.colors.secondary }}>{mode === 'dark' ? 'Dark theme' : 'Light theme'}</Text></View></View><View className="flex-row rounded-xl p-1" style={{ backgroundColor: theme.colors.parchment }}><Pressable accessibilityRole="button" accessibilityState={{ selected: mode === 'light' }} onPress={() => setMode('light')} className="flex-1 flex-row items-center justify-center rounded-lg py-3" style={{ backgroundColor: mode === 'light' ? theme.colors.espresso : 'transparent' }}><Sun size={15} color={mode === 'light' ? '#FFFFFF' : theme.colors.secondary} /><Text className="text-xs font-extrabold ml-2" style={{ color: mode === 'light' ? '#FFFFFF' : theme.colors.espresso }}>Light</Text></Pressable><Pressable accessibilityRole="button" accessibilityState={{ selected: mode === 'dark' }} onPress={() => setMode('dark')} className="flex-1 flex-row items-center justify-center rounded-lg py-3" style={{ backgroundColor: mode === 'dark' ? theme.colors.espresso : 'transparent' }}><Moon size={15} color={mode === 'dark' ? '#FFFFFF' : theme.colors.secondary} /><Text className="text-xs font-extrabold ml-2" style={{ color: mode === 'dark' ? '#FFFFFF' : theme.colors.espresso }}>Dark</Text></Pressable></View></View><SettingRow icon={Info} title={t('version')} detail={version} />
       </View>
       {station.id !== 'station-demo' ? <Pressable onPress={logout} className="rounded-xl border p-4 flex-row items-center justify-center" style={{ borderColor: '#FECACA', backgroundColor: '#FEF2F2' }}><LogOut size={16} color="#B91C1C" /><Text className="text-sm font-extrabold ml-2" style={{ color: '#B91C1C' }}>{t('logout')}</Text></Pressable> : <Text className="text-[10px] text-center mt-2" style={{ color: theme.colors.secondary }}>{t('demoAccount')}</Text>}
     </ScrollView>

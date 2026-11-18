@@ -17,6 +17,7 @@ import { enqueueCapture, isOnline, persistLocalImage } from '@/services/offlineQ
 import { priceAssessment, KG_PER_FERESULA } from '@/services/pricing';
 import { useTheme } from '@/contexts/ThemeContext';
 import { showAlert } from '@/services/platformAlert';
+import { logUserActivity } from '@/services/activityLogger';
 import LanguageToggle from '@/components/LanguageToggle';
 
 type Preview = { base64: string; uri: string; mimeType: string };
@@ -121,6 +122,7 @@ export default function Scan() {
       const savedImage = await persistLocalImage(preview.uri, captureId, preview.mimeType).catch(() => preview.uri);
       const finalBatch: CoffeeBatch = { ...batch, image_uri: savedImage, origin_coordinates: coordinates, status: 'synced' };
       addBatch(finalBatch);
+      void logUserActivity('coffee_batch_submitted', { batch_id: finalBatch.id, batch_code: finalBatch.batch_code, station_id: station.id });
       setPreview(null);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.push({ pathname: '/batch/[id]', params: { id: finalBatch.id } });

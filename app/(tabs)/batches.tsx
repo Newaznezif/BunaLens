@@ -11,6 +11,7 @@ import type { CoffeeBatch, EcxGrade, SampleType } from '@/types';
 
 type StatusFilter = 'all' | CoffeeBatch['status'];
 function FilterChip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  const { theme } = useTheme();
   return <Pressable onPress={onPress} className="rounded-full px-3.5 py-2.5 mr-2 mb-2 border" style={{ backgroundColor: active ? theme.colors.espresso : theme.colors.surface, borderColor: active ? theme.colors.espresso : theme.colors.line }}><Text className="text-[10px] font-bold" style={{ color: active ? '#FFFFFF' : theme.colors.secondary }}>{label}</Text></Pressable>;
 }
 

@@ -45,19 +45,19 @@ export default function RootLayout() {
   useEffect(() => {
     if (authStatus === 'checking') return;
 
-    const onAuthScreen = segments[0] === 'auth';
-    if (authStatus === 'unauthenticated' && !onAuthScreen) {
+    const onPublicAuthRoute = ['auth', 'forgot-password', 'reset-password'].includes(String(segments[0] ?? ''));
+    if (authStatus === 'unauthenticated' && !onPublicAuthRoute) {
       router.replace('/auth');
     } else if (authStatus === 'authenticated' && onAuthScreen) {
       router.replace('/(tabs)');
     }
   }, [authStatus, segments, router]);
 
-  const onAuthScreen = segments[0] === 'auth';
+  const onPublicAuthRoute = ['auth', 'forgot-password', 'reset-password'].includes(String(segments[0] ?? ''));
   const redirecting =
     authStatus === 'checking' ||
-    (authStatus === 'unauthenticated' && !onAuthScreen) ||
-    (authStatus === 'authenticated' && onAuthScreen);
+    (authStatus === 'unauthenticated' && !onPublicAuthRoute) ||
+    (authStatus === 'authenticated' && segments[0] === 'auth');
 
   return (
     <LanguageProvider>
@@ -75,6 +75,8 @@ export default function RootLayout() {
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="batch/[id]" />
               <Stack.Screen name="auth" />
+              <Stack.Screen name="forgot-password" />
+              <Stack.Screen name="reset-password" />
               <Stack.Screen name="settings" />
             </Stack>
 

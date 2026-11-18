@@ -9,6 +9,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useStation } from '@/contexts/StationContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import LanguageToggle from '@/components/LanguageToggle';
+import BunaLogo from '@/components/BunaLogo';
 import OfflineBanner from '@/components/OfflineBanner';
 
 function SectionHeading({ title, action, onAction }: { title: string; action?: string; onAction?: () => void }) {
@@ -65,9 +66,7 @@ export default function Home() {
     >
       <View className="flex-row items-center justify-between mb-6">
         <View className="flex-row items-center">
-          <View className="w-11 h-11 rounded-2xl items-center justify-center mr-3" style={{ backgroundColor: theme.colors.emerald }}>
-            <Coffee size={22} color="#FFFFFF" strokeWidth={1.8} />
-          </View>
+          <View className="mr-3"><BunaLogo size={44} /></View>
           <View>
             <Text style={{ color: theme.colors.espresso, fontSize: 20, fontWeight: '900', letterSpacing: -0.6 }}>BunaLens</Text>
             <Text style={{ color: theme.colors.secondary, fontSize: 10, fontWeight: '700', letterSpacing: 0.7 }}>{t('coffeeIntelligence')}</Text>

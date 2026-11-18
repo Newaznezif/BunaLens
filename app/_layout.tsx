@@ -4,13 +4,15 @@ import { ActivityIndicator, Text, View } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { LanguageProvider } from '@/contexts/LanguageContext';
+import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { StationProvider } from '@/contexts/StationContext';
 import { OfflineQueueProvider } from '@/contexts/OfflineQueueContext';
 import { isSupabaseConfigured, supabase } from '@/services/supabaseClient';
 
 type AuthStatus = 'checking' | 'authenticated' | 'unauthenticated';
 
-export default function RootLayout() {
+function AppShell() {
+  const { theme, isDark } = useTheme();
   const router = useRouter();
   const segments = useSegments();
   const [authStatus, setAuthStatus] = useState<AuthStatus>('checking');
@@ -63,13 +65,13 @@ export default function RootLayout() {
     <LanguageProvider>
       <StationProvider>
         <OfflineQueueProvider>
-          <View style={{ flex: 1, backgroundColor: '#FAF8F5' }}>
-            <StatusBar style="dark" />
+          <View style={{ flex: 1, backgroundColor: theme.colors.parchment }}>
+            <StatusBar style={isDark ? 'light' : 'dark'} />
             <Stack
               initialRouteName="auth"
               screenOptions={{
                 headerShown: false,
-                contentStyle: { backgroundColor: '#FAF8F5' },
+                contentStyle: { backgroundColor: theme.colors.parchment },
               }}
             >
               <Stack.Screen name="(tabs)" />
@@ -92,11 +94,11 @@ export default function RootLayout() {
                   left: 0,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  backgroundColor: '#FAF8F5',
+                  backgroundColor: theme.colors.parchment,
                 }}
               >
                 <ActivityIndicator size="large" color="#55765D" />
-                <Text style={{ color: '#26372D', marginTop: 12, fontSize: 13, fontWeight: '600' }}>
+                <Text style={{ color: theme.colors.espresso, marginTop: 12, fontSize: 13, fontWeight: '600' }}>
                   Checking your account…
                 </Text>
               </View>
@@ -106,4 +108,8 @@ export default function RootLayout() {
       </StationProvider>
     </LanguageProvider>
   );
+}
+
+export default function RootLayout() {
+  return <ThemeProvider><AppShell /></ThemeProvider>;
 }

@@ -7,7 +7,7 @@ import {
 } from 'lucide-react-native';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useStation } from '@/contexts/StationContext';
-import { BunaLensTheme as theme } from '@/constants/theme';
+import { useTheme } from '@/contexts/ThemeContext';
 import LanguageToggle from '@/components/LanguageToggle';
 import OfflineBanner from '@/components/OfflineBanner';
 
@@ -44,6 +44,7 @@ function Metric({ label, value, note, icon: Icon, accent }: {
 
 export default function Home() {
   const { t } = useLanguage();
+  const { theme } = useTheme();
   const { station, batches } = useStation();
   const actual = useMemo(() => batches.filter((b) => b.status === 'synced' && b.result), [batches]);
   const demos = useMemo(() => batches.filter((b) => b.status === 'demo'), [batches]);

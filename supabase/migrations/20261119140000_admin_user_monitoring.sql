@@ -9,7 +9,8 @@ create table if not exists public.user_activity_logs (
     'account_registered',
     'user_signed_in',
     'user_signed_out',
-    'coffee_batch_submitted'
+    'coffee_batch_submitted',
+    'admin_action'
   )),
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()

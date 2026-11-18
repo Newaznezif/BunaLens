@@ -12,6 +12,7 @@ import LanguageToggle from '@/components/LanguageToggle';
 import OfflineBanner from '@/components/OfflineBanner';
 
 function SectionHeading({ title, action, onAction }: { title: string; action?: string; onAction?: () => void }) {
+  const { theme } = useTheme();
   return (
     <View className="flex-row items-center justify-between mb-3 mt-2">
       <Text style={{ color: theme.colors.espresso, fontSize: 18, fontWeight: '800', letterSpacing: -0.35 }}>{title}</Text>
@@ -28,6 +29,7 @@ function SectionHeading({ title, action, onAction }: { title: string; action?: s
 function Metric({ label, value, note, icon: Icon, accent }: {
   label: string; value: string; note: string; icon: React.ComponentType<any>; accent: string;
 }) {
+  const { theme } = useTheme();
   return (
     <View className="flex-1 p-4 rounded-3xl" style={{ backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.line }}>
       <View className="flex-row items-center justify-between">

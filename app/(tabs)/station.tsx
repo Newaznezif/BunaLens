@@ -7,7 +7,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { JIMMA_WOREDAS } from '@/constants/jimmaData';
 import { startChapaCheckout } from '@/services/chapaService';
 import { supabase } from '@/services/supabaseClient';
-import { BunaLensTheme as theme } from '@/constants/theme';
+import { useTheme } from '@/contexts/ThemeContext';
 import { showAlert } from '@/services/platformAlert';
 import LanguageToggle from '@/components/LanguageToggle';
 import ChapaTopUpModal from '@/components/ChapaTopUpModal';
@@ -17,6 +17,7 @@ import { getDemoPaymentHistory } from '@/services/chapaService';
 export default function Station() {
   const { station, setStation, addCredits } = useStation();
   const { t } = useLanguage();
+  const { theme } = useTheme();
   const [name, setName] = useState(station.name);
   const [manager, setManager] = useState(station.manager);
   const [woreda, setWoreda] = useState(station.woreda);

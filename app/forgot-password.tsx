@@ -41,14 +41,14 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
-    <View className="flex-1 bg-parchment px-6 justify-center">
-      <Text className="text-espresso text-3xl font-black">Reset your password</Text>
-      <Text className="text-stone-500 mt-2 leading-6">
+    <View className="flex-1 px-6 justify-center" style={{ backgroundColor: theme.colors.parchment }}>
+      <Text className="text-3xl font-black" style={{ color: theme.colors.espresso }}>Reset your password</Text>
+      <Text className="mt-2 leading-6" style={{ color: theme.colors.secondary }}>
         Enter the email address associated with your BunaLens account. We will send you a secure password-reset link.
       </Text>
 
       {sent ? (
-        <View className="bg-white rounded-2xl border border-line p-5 mt-7">
+        <View className="rounded-2xl border p-5 mt-7" style={{ backgroundColor: theme.colors.surface, borderColor: theme.colors.line }}>
           <Text className="text-espresso text-lg font-bold">Check your email</Text>
           <Text className="text-stone-600 mt-2 leading-6">
             If an account exists for {email.trim()}, a password-reset link has been sent. Check your inbox and spam folder.

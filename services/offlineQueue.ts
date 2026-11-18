@@ -5,6 +5,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import type { CoffeeBatch, SampleType } from '@/types';
 import { getSupabaseAccessToken } from '@/services/supabaseClient';
 import { validateGradingResult } from '@/services/geminiVision';
+import { saveWebImage, getWebImageBase64, deleteWebImage } from '@/services/webImageStorage';
 
 const KEY = 'bunalens.offline.queue';
 const QUEUE_DIR = (FileSystem.documentDirectory || '') + 'bunalens-queue/';
@@ -35,12 +36,19 @@ async function saveQueue(items: QueuedCapture[]) {
 }
 
 export async function persistLocalImage(uri: string, id: string, mimeType = 'image/jpeg'): Promise<string> {
-  // Browsers expose no document directory; the picked/captured URI is already
-  // displayable, so keep it instead of failing the capture.
+  if (Platform.OS === 'web') {
+    // Browsers expose no document directory. Store in IndexedDB or retain persistent URI.
+    try {
+      return await saveWebImage(id, uri, mimeType);
+    } catch {
+      return uri;
+    }
+  }
+
   if (!FileSystem.documentDirectory) {
-    if (Platform.OS === 'web') return uri;
     throw new Error('Local document storage is unavailable.');
   }
+
   const dir = FileSystem.documentDirectory + 'bunalens-batches/';
   await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
   const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg';
@@ -54,14 +62,36 @@ export async function persistLocalImage(uri: string, id: string, mimeType = 'ima
 export async function enqueueCapture(item: QueuedCapture) {
   const current = await getQueue();
   if (current.some((queued) => queued.id === item.id)) return;
-  if (!FileSystem.documentDirectory) throw new Error('Local document storage is unavailable on this device.');
-  if (!Number.isFinite(item.lot_weight_kg) || item.lot_weight_kg <= 0) throw new Error('The queued lot weight is invalid.');
-  await FileSystem.makeDirectoryAsync(QUEUE_DIR, { intermediates: true });
-  const extension = item.mime_type === 'image/png' ? 'png' : item.mime_type === 'image/webp' ? 'webp' : 'jpg';
-  const destination = QUEUE_DIR + item.id + '.' + extension;
-  const existing = await FileSystem.getInfoAsync(destination);
-  if (!existing.exists) await FileSystem.copyAsync({ from: item.image_uri, to: destination });
-  await saveQueue([{ ...item, image_uri: destination }, ...current]);
+  if (!Number.isFinite(item.lot_weight_kg) || item.lot_weight_kg <= 0) {
+    throw new Error('The queued lot weight is invalid.');
+  }
+
+  let storedImageUri = item.image_uri;
+
+  if (Platform.OS === 'web') {
+    // On web, persist the image blob in IndexedDB to survive browser refreshes
+    try {
+      storedImageUri = await saveWebImage(item.id, item.image_uri, item.mime_type || 'image/jpeg');
+    } catch (err) {
+      console.warn('Could not store image in IndexedDB; retaining memory URI:', err);
+      storedImageUri = item.image_uri;
+    }
+  } else {
+    // Native mobile filesystem storage
+    if (!FileSystem.documentDirectory) {
+      throw new Error('Local document storage is unavailable on this device.');
+    }
+    await FileSystem.makeDirectoryAsync(QUEUE_DIR, { intermediates: true });
+    const extension = item.mime_type === 'image/png' ? 'png' : item.mime_type === 'image/webp' ? 'webp' : 'jpg';
+    const destination = QUEUE_DIR + item.id + '.' + extension;
+    const existing = await FileSystem.getInfoAsync(destination);
+    if (!existing.exists) {
+      await FileSystem.copyAsync({ from: item.image_uri, to: destination });
+    }
+    storedImageUri = destination;
+  }
+
+  await saveQueue([{ ...item, image_uri: storedImageUri }, ...current]);
 }
 
 export async function assignQueuedStation(stationId: string) {
@@ -88,9 +118,27 @@ export async function syncQueuedCaptures(): Promise<{ synced: CoffeeBatch[]; rem
     for (const item of queue) {
       try {
         if (!item.station_id || item.station_id === 'station-demo') break;
-        const info = await FileSystem.getInfoAsync(item.image_uri);
-        if (!info.exists) break;
-        const imageBase64 = await FileSystem.readAsStringAsync(item.image_uri, { encoding: FileSystem.EncodingType.Base64 });
+
+        let imageBase64 = '';
+
+        if (Platform.OS === 'web') {
+          // Retrieve base64 from IndexedDB or data URL
+          const fromDb = await getWebImageBase64(item.id);
+          if (fromDb) {
+            imageBase64 = fromDb;
+          } else if (item.image_uri.startsWith('data:image/')) {
+            imageBase64 = item.image_uri.replace(/^data:image\/[a-z0-9.+-]+;base64,/i, '').replace(/\s/g, '');
+          } else {
+            console.warn('Web queued image missing for capture:', item.id);
+            break;
+          }
+        } else {
+          // Native mobile filesystem check
+          const info = await FileSystem.getInfoAsync(item.image_uri);
+          if (!info.exists) break;
+          imageBase64 = await FileSystem.readAsStringAsync(item.image_uri, { encoding: FileSystem.EncodingType.Base64 });
+        }
+
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 45_000);
         let response: Response;
@@ -115,9 +163,8 @@ export async function syncQueuedCaptures(): Promise<{ synced: CoffeeBatch[]; rem
         if (!result.is_coffee_sample) break;
         const permanentImage = await persistLocalImage(item.image_uri, item.id, item.mime_type || 'image/jpeg').catch(() => null);
         const completedBatch: CoffeeBatch = { ...batch, result, image_uri: permanentImage || item.image_uri, status: 'synced' };
+
         // Persist the completed record before acknowledging/removing the queue item.
-        // If the app is terminated between server response and context update, the
-        // station provider can still recover this batch after the next launch.
         try {
           const stored = JSON.parse((await AsyncStorage.getItem('bunalens.batches')) || '[]') as CoffeeBatch[];
           const merged = [completedBatch, ...stored.filter((saved) => saved.id !== completedBatch.id)];
@@ -125,10 +172,17 @@ export async function syncQueuedCaptures(): Promise<{ synced: CoffeeBatch[]; rem
         } catch {
           break;
         }
+
         synced.push(completedBatch);
         const latest = await getQueue();
         await saveQueue(latest.filter((queued) => queued.id !== item.id));
-        if (permanentImage && permanentImage !== item.image_uri) await FileSystem.deleteAsync(item.image_uri, { idempotent: true }).catch(() => undefined);
+
+        // Cleanup temporary queued storage
+        if (Platform.OS === 'web') {
+          await deleteWebImage(item.id).catch(() => undefined);
+        } else if (permanentImage && permanentImage !== item.image_uri) {
+          await FileSystem.deleteAsync(item.image_uri, { idempotent: true }).catch(() => undefined);
+        }
       } catch {
         break;
       }

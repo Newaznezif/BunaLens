@@ -2,10 +2,11 @@ import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Languages } from 'lucide-react-native';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { BunaLensTheme as theme } from '@/constants/theme';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function LanguageToggle() {
   const { language, setLanguage } = useLanguage();
+  const { theme } = useTheme();
   const next = language === 'en' ? 'om' : 'en';
   return (
     <Pressable

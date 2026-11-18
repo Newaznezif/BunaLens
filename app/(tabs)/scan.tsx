@@ -82,7 +82,28 @@ export default function Scan() {
         return;
       }
       if (station.id === 'station-demo') {
-        showAlert(t('registerStation'), t('registerStationHint'));
+        if (Platform.OS === 'web') {
+          const wantsAuth = typeof window !== 'undefined' && window.confirm(
+            t('registerStation') + '\n\n' + t('registerStationHint') + '\n\n' +
+            (language === 'om' ? 'Gara herregaatti ce’uun buufata galmeessuu barbaadduu?' : 'Click OK to sign in / register your station, or Cancel to run a demonstration assessment.')
+          );
+          if (wantsAuth) {
+            router.push('/auth');
+          } else {
+            setDemoOpen(true);
+          }
+        } else {
+          Alert.alert(
+            t('registerStation'),
+            t('registerStationHint'),
+            [
+              { text: t('cancel'), style: 'cancel' },
+              { text: t('demoTitle'), onPress: () => setDemoOpen(true) },
+              { text: t('signInRegister'), onPress: () => router.push('/auth') },
+            ],
+            { cancelable: true }
+          );
+        }
         return;
       }
       const hasPro = Boolean(station.pro_expires_at && new Date(station.pro_expires_at).getTime() > Date.now());

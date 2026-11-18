@@ -3,7 +3,7 @@ import { Tabs } from 'expo-router';
 import { Home, ScanLine, Layers3, Warehouse } from 'lucide-react-native';
 import { View, Text } from 'react-native';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { BunaLensTheme as theme } from '@/constants/theme';
+import { useTheme } from '@/contexts/ThemeContext';
 
 function TabItem({ icon: Icon, label, focused, accent = false }: { icon: React.ComponentType<any>; label: string; focused: boolean; accent?: boolean }) {
   if (accent) {
@@ -27,6 +27,7 @@ function TabItem({ icon: Icon, label, focused, accent = false }: { icon: React.C
 
 export default function TabLayout() {
   const { t } = useLanguage();
+  const { theme } = useTheme();
   return (
     <Tabs
       screenOptions={{

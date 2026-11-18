@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
-import { Check, ChevronDown, CircleAlert, Plus, RefreshCw, X } from 'lucide-react-native';
+import { CircleAlert, Plus, RefreshCw, X } from 'lucide-react-native';
 import { supabase } from '@/services/supabaseClient';
 
 type Woreda = { id: string; name: string; zone: string; is_active: boolean };

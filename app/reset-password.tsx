@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTheme } from '@/contexts/ThemeContext';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import * as Linking from 'expo-linking';
@@ -12,6 +13,7 @@ function getParams(url: string, part: 'query' | 'hash') {
 }
 
 export default function ResetPasswordScreen() {
+  const { theme } = useTheme();
   const [ready, setReady] = useState(false);
   const [checking, setChecking] = useState(true);
   const [password, setPassword] = useState('');

@@ -29,8 +29,9 @@ export default function ResetPasswordScreen() {
       return;
     }
 
+    const client = supabase;
     let active = true;
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = client.auth.onAuthStateChange((event, session) => {
       if (!active) return;
       if (event === 'PASSWORD_RECOVERY' && session) setReady(true);
     });
@@ -46,11 +47,11 @@ export default function ResetPasswordScreen() {
           const refreshToken = hash.get('refresh_token') ?? query.get('refresh_token');
 
           if (code) {
-            const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+            const { error: exchangeError } = await client.auth.exchangeCodeForSession(code);
             if (exchangeError) throw exchangeError;
             if (active) setReady(true);
           } else if (accessToken && refreshToken) {
-            const { error: sessionError } = await supabase.auth.setSession({
+            const { error: sessionError } = await client.auth.setSession({
               access_token: accessToken,
               refresh_token: refreshToken,
             });
@@ -59,7 +60,7 @@ export default function ResetPasswordScreen() {
           }
         }
 
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session } } = await client.auth.getSession();
         if (active && session) setReady(true);
       } catch (e) {
         console.warn('BunaLens recovery link could not be verified', (e as { code?: string })?.code);
@@ -79,10 +80,10 @@ export default function ResetPasswordScreen() {
           const accessToken = hash.get('access_token') ?? query.get('access_token');
           const refreshToken = hash.get('refresh_token') ?? query.get('refresh_token');
           if (code) {
-            const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+            const { error: exchangeError } = await client.auth.exchangeCodeForSession(code);
             if (exchangeError) throw exchangeError;
           } else if (accessToken && refreshToken) {
-            const { error: sessionError } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+            const { error: sessionError } = await client.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
             if (sessionError) throw sessionError;
           }
           if (active) { setReady(true); setError(''); setChecking(false); }

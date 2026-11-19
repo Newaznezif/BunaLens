@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { AlertCircle, ArrowLeft, ChevronLeft, ChevronRight, Coffee, Eye, Filter, ImageOff, RefreshCw, Search, X } from 'lucide-react-native';
+import { AlertCircle, ArrowLeft, ChevronLeft, ChevronRight, Coffee, Filter, ImageOff, RefreshCw, Search, X } from 'lucide-react-native';
 import { supabase } from '@/services/supabaseClient';
 
 type Batch = {

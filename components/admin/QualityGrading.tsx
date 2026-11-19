@@ -116,30 +116,31 @@ export default function QualityGrading() {
     setNotice(`Editing draft version ${set.version}. Save before activating.`);
   };
 
-  const saveDraft = async () => {
-    if (!supabase || !draft || saving) return;
-    if (draftName.trim().length < 2) { setError('Give this rule set a name of at least 2 characters.'); return; }
+  const saveDraft = async (): Promise<boolean> => {
+    if (!supabase || !draft || saving) return false;
+    if (draftName.trim().length < 2) { setError('Give this rule set a name of at least 2 characters.'); return false; }
     const sorted = [...rules].sort((a, b) => a.min_score - b.min_score);
     for (let i = 0; i < sorted.length; i++) {
       const rule = sorted[i];
       if (!rule.label.trim() || !Number.isFinite(rule.min_score) || !Number.isFinite(rule.max_score) || rule.min_score < 0 || rule.max_score > 100 || rule.min_score > rule.max_score) {
-        setError('Each band needs a label and valid score limits between 0 and 100.'); return;
+        setError('Each band needs a label and valid score limits between 0 and 100.'); return false;
       }
-      if (i > 0 && sorted[i - 1].max_score >= rule.min_score) { setError('Score bands cannot overlap. Adjust the minimum or maximum score.'); return; }
+      if (i > 0 && sorted[i - 1].max_score >= rule.min_score) { setError('Score bands cannot overlap. Adjust the minimum or maximum score.'); return false; }
     }
     setSaving(true); setError(''); setNotice('');
     try {
       const { error: updateError } = await supabase.from('grading_rule_sets').update({ name: draftName.trim(), description: draftDescription.trim(), rules: sorted }).eq('id', draft.id).eq('status', 'draft');
       if (updateError) throw updateError;
-      await load(true); setNotice(`Draft version ${draft.version} saved. It has not been applied to assessments.`);
-    } catch (e) { setError(e instanceof Error ? e.message : 'Draft could not be saved.'); }
+      await load(true); setNotice(`Draft version ${draft.version} saved. It has not been applied to assessments.`); return true;
+    } catch (e) { setError(e instanceof Error ? e.message : 'Draft could not be saved.'); return false; }
     finally { setSaving(false); }
   };
 
   const activateDraft = async () => {
     if (!supabase || !draft || saving) return;
     if (!draft.rules.length && !rules.length) { setError('Add at least one score band before activating this rule set.'); return; }
-    await saveDraft();
+    const saved = await saveDraft();
+    if (!saved) return;
     setSaving(true); setError(''); setNotice('');
     try {
       const { error: rpcError } = await supabase.rpc('activate_grading_rule_set', { p_rule_set_id: draft.id });

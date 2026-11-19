@@ -3,15 +3,19 @@ import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View, useWin
 import type { ViewStyle } from 'react-native';
 import { router } from 'expo-router';
 import {
-  Activity, Building2, CheckCircle2, ChevronRight, CircleAlert, Coffee, CreditCard,
-  Database, LayoutDashboard, LogOut, RefreshCw, Search, ShieldCheck, Sprout, TrendingUp, Users,
+  Activity, Building2, CheckCircle2, ChevronRight, CircleAlert, ClipboardList, Coffee, CreditCard,
+  Database, FileText, LayoutDashboard, LogOut, Radio, RefreshCw, Search, ShieldCheck, Sprout, TrendingUp, Users,
 } from 'lucide-react-native';
 import { isSupabaseConfigured, supabase } from '@/services/supabaseClient';
 import { useTheme } from '@/contexts/ThemeContext';
 import DirectoryManager from '@/components/admin/DirectoryManager';
 import UserManagement from '@/components/admin/UserManagement';
+import LiveMonitoring from '@/components/admin/LiveMonitoring';
+import BatchManagement from '@/components/admin/BatchManagement';
+import QualityGrading from '@/components/admin/QualityGrading';
+import CertificateTemplateManagement from '@/components/admin/CertificateTemplateManagement';
 
-type AdminTab = 'overview' | 'stations' | 'payments' | 'directory' | 'users';
+type AdminTab = 'overview' | 'live' | 'batches' | 'quality' | 'certificates' | 'stations' | 'payments' | 'directory' | 'users';
 type StationRow = { id: string; name: string | null; manager: string | null; email: string | null; phone: string | null; woreda: string; credits: number; pro_expires_at: string | null; created_at: string };
 type BatchRow = { id: string; batch_code: string; sample_type: string; woreda: string; grading_status: string; ecx_grade: string; quality_score: number | null; created_at: string; stations?: { name: string | null; manager: string | null }[] | null };
 type PaymentRow = { id: string; package_id: string; amount_etb: number; currency: string; chapa_tx_ref: string; status: string; created_at: string; verified_at: string | null; stations?: { name: string | null }[] | null };
@@ -119,6 +123,10 @@ export default function AdminDashboard() {
   const signOut = async () => { await supabase?.auth.signOut(); router.replace('/admin-login'); };
   const tabs: { key: AdminTab; label: string; icon: React.ComponentType<any> }[] = [
     { key: 'overview', label: 'Overview', icon: LayoutDashboard },
+    { key: 'live', label: 'Live Monitoring', icon: Radio },
+    { key: 'batches', label: 'Batch Management', icon: ClipboardList },
+    { key: 'quality', label: 'Quality & Grading', icon: ShieldCheck },
+    { key: 'certificates', label: 'Certificate Templates', icon: FileText },
     { key: 'stations', label: 'Stations', icon: Building2 },
     { key: 'payments', label: 'Payments', icon: CreditCard },
     { key: 'directory', label: 'Directory', icon: Database },
@@ -153,7 +161,7 @@ export default function AdminDashboard() {
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ width: '100%', maxWidth: 1500, alignSelf: 'center', padding: narrow ? 17 : 30, paddingBottom: 50 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
-          <View style={{ flex: 1 }}><Text style={{ color: theme.colors.secondary, fontSize: 11, fontWeight: '700' }}>BUNALENS / ADMIN</Text><Text style={{ color: theme.colors.espresso, fontSize: narrow ? 26 : 31, fontWeight: '900', letterSpacing: -0.8, marginTop: 5 }}>{tab === 'overview' ? 'Operations overview' : tab === 'stations' ? 'Coffee stations' : tab === 'payments' ? 'Payment activity' : tab === 'users' ? 'User management' : 'Location directory'}</Text><Text style={{ color: theme.colors.secondary, fontSize: 12, marginTop: 4 }}>{tab === 'overview' ? 'A live view of the BunaLens network in Jimma.' : tab === 'stations' ? 'Station accounts registered across the network.' : tab === 'payments' ? 'Verified and pending station transactions.' : tab === 'users' ? 'Monitor every registered account, station association and user activity.' : 'Manage woredas and the station options shown during registration.'}</Text></View>
+          <View style={{ flex: 1 }}><Text style={{ color: theme.colors.secondary, fontSize: 11, fontWeight: '700' }}>BUNALENS / ADMIN</Text><Text style={{ color: theme.colors.espresso, fontSize: narrow ? 26 : 31, fontWeight: '900', letterSpacing: -0.8, marginTop: 5 }}>{tab === 'overview' ? 'Operations overview' : tab === 'live' ? 'Live Monitoring' : tab === 'batches' ? 'Batch Management' : tab === 'quality' ? 'Quality & Grading' : tab === 'certificates' ? 'Certificate Templates' : tab === 'stations' ? 'Coffee stations' : tab === 'payments' ? 'Payment activity' : tab === 'users' ? 'User management' : 'Location directory'}</Text><Text style={{ color: theme.colors.secondary, fontSize: 12, marginTop: 4 }}>{tab === 'overview' ? 'A live view of the BunaLens network in Jimma.' : tab === 'live' ? 'Real-time batch submissions, account activity and operational events.' : tab === 'batches' ? 'Search and inspect coffee samples, images and grading assessments.' : tab === 'quality' ? 'Review assessment quality, defect signals and versioned internal grading rules.' : tab === 'certificates' ? 'Manage certificate identity, legal wording and QR verification display.' : tab === 'stations' ? 'Station accounts registered across the network.' : tab === 'payments' ? 'Verified and pending station transactions.' : tab === 'users' ? 'Monitor every registered account, station association and user activity.' : 'Manage woredas and the station options shown during registration.'}</Text></View>
           {!narrow ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E9E0', borderRadius: 99, paddingHorizontal: 12, paddingVertical: 8 }}><View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: '#55765D', marginRight: 7 }} /><Text style={{ color: '#55765D', fontSize: 10, fontWeight: '800' }}>LIVE DATA</Text></View>
             <Pressable onPress={() => void load(true)} disabled={refreshing} style={{ flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: '#26372D', borderRadius: 12, paddingHorizontal: 13, paddingVertical: 11 }}><RefreshCw size={14} color="#FFFFFF" /><Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '800' }}>{refreshing ? 'Refreshing' : 'Refresh'}</Text></Pressable>
@@ -232,6 +240,10 @@ export default function AdminDashboard() {
               {!filteredPayments.length ? <Text style={{ color: '#727C70', padding: 20, fontSize: 12 }}>{payments.length ? 'No payments match that search.' : 'No payment transactions have been recorded yet.'}</Text> : null}
             </View>
           </> : null}
+          {tab === 'live' ? <LiveMonitoring /> : null}
+          {tab === 'batches' ? <BatchManagement /> : null}
+          {tab === 'quality' ? <QualityGrading /> : null}
+          {tab === 'certificates' ? <CertificateTemplateManagement /> : null}
           {tab === 'directory' ? <DirectoryManager /> : null}
           {tab === 'users' ? <UserManagement /> : null}
         </>}

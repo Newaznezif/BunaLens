@@ -1,16 +1,19 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, Image } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import type { CoffeeBatch } from '@/types';
 import BunaLogo from './BunaLogo';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { DEFAULT_CERTIFICATE_TEMPLATE, getActiveCertificateTemplate, type CertificateTemplate } from '@/services/certificateTemplate';
 
 const VERIFY_BASE = process.env.EXPO_PUBLIC_CERTIFICATE_VERIFY_BASE_URL;
 
 export default function CertificateCard({ batch }: { batch: CoffeeBatch }) {
   const { t } = useLanguage();
   const { theme } = useTheme();
+  const [template, setTemplate] = useState<CertificateTemplate>(DEFAULT_CERTIFICATE_TEMPLATE);
+  useEffect(() => { let mounted = true; void getActiveCertificateTemplate().then((value) => { if (mounted) setTemplate(value); }); return () => { mounted = false; }; }, []);
   const verificationId = batch.verification_id || batch.id;
   const qrValue = VERIFY_BASE
     ? VERIFY_BASE.replace(/\/$/, '') + '/' + encodeURIComponent(verificationId)
@@ -19,11 +22,11 @@ export default function CertificateCard({ batch }: { batch: CoffeeBatch }) {
   const confidence = batch.result.confidence_score ?? Math.round((batch.result.confidence ?? 0) * 100);
 
   return (
-    <View className="rounded-2xl p-5 w-80 items-center" style={{ backgroundColor: theme.colors.surface, borderWidth: 2, borderColor: theme.colors.espresso }}>
+    <View className="rounded-2xl p-5 w-80 items-center" style={{ backgroundColor: theme.colors.surface, borderWidth: 2, borderColor: template.border_color }}>
       <BunaLogo size={52} />
-      <Text className="text-espresso text-xl font-black mt-2">BunaLens</Text>
-      <Text className="text-cherry text-[10px] font-black text-center mt-1">BUNALENS DIGITAL COFFEE QUALITY CERTIFICATE</Text>
-      <Text className="text-stone-500 text-[9px] text-center mt-1">JIMMA ZONE · OROMIA · ETHIOPIA</Text>
+      <Text className="text-xl font-black mt-2" style={{ color: template.accent_color }}>{template.organization_name}</Text>
+      <Text className="text-[10px] font-black text-center mt-1" style={{ color: template.accent_color }}>{template.certificate_title}</Text>
+      <Text className="text-stone-500 text-[9px] text-center mt-1">{template.region_line}</Text>
       {batch.image_uri ? <Image source={{ uri: batch.image_uri }} resizeMode="cover" style={{ width: 230, height: 112, borderRadius: 10, marginTop: 14 }} /> : null}
       <Text className="text-espresso font-black text-lg mt-4">{batch.batch_code}</Text>
       <Text className="text-stone-500 text-center text-xs">{batch.sample_type === 'red_cherry' ? t('red') : t('green')} · {batch.woreda}</Text>
@@ -44,7 +47,8 @@ export default function CertificateCard({ batch }: { batch: CoffeeBatch }) {
       <View className="mt-4"><QRCode value={qrValue} size={88} /></View>
       <Text className="text-stone-500 text-[9px] mt-2">{t('qrVerification')}</Text>
       <Text className="text-stone-500 text-[9px] mt-1">ID: {verificationId}</Text>
-      <Text className="text-stone-400 text-[8px] text-center mt-3 leading-3">{t('certificateLegalDisclaimer')}</Text>
+      <Text className="text-stone-500 text-[8px] text-center mt-3 leading-3">{template.footer_note}</Text>
+      <Text className="text-stone-400 text-[8px] text-center mt-2 leading-3">{template.disclaimer}</Text>
     </View>
   );
 }

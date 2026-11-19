@@ -61,7 +61,6 @@ export default function QualityGrading() {
     const channel = supabase.channel('bunalens-quality-grading')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'coffee_batches' }, () => { void load(true); })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'grading_results' }, () => { void load(true); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'grading_rule_sets' }, () => { void load(true); })
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [load]);
@@ -146,7 +145,7 @@ export default function QualityGrading() {
       const { error: rpcError } = await supabase.rpc('activate_grading_rule_set', { p_rule_set_id: draft.id });
       if (rpcError) throw rpcError;
       setDraftId(null); await load(true);
-      setNotice(`Rule set version ${draft.version} is now active. Existing assessments were not changed.`);
+      setNotice(`Version ${draft.version} is selected as the active configuration. The current assessment pipeline is not yet wired to consume these rules; existing and new assessments remain unchanged.`);
     } catch (e) { setError(e instanceof Error ? e.message : 'Rule set could not be activated.'); }
     finally { setSaving(false); }
   };
@@ -172,12 +171,12 @@ export default function QualityGrading() {
       <Metric label="Real assessments" value={assessments.length} note="Latest 200 non-demo batches" />
       <Metric label="Scored samples" value={scored.length} note="Quality score present" />
       <Metric label="Unclassified" value={unclassified} note="No grade mapping recorded" />
-      <Metric label="Active rule version" value={active ? `v${active.version}` : 'None'} note={active?.name || 'No active rule set'} />
+      <Metric label="Selected config version" value={active ? `v${active.version}` : 'None'} note="Stored configuration; pipeline integration pending" />
     </View>
 
     <View style={{ ...panel, padding: 14, gap: 8 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><ShieldAlert size={16} color="#9A6A37" /><Text style={{ color: ink, fontSize: 12, fontWeight: '900' }}>Assessment boundary</Text></View>
-      <Text style={{ color: muted, fontSize: 10, lineHeight: 16 }}>BunaLens visual estimates are preliminary screening outputs. These configurable score bands are internal platform rules, not certified ECX grades, export approvals or laboratory measurements. Activating a version does not recalculate or relabel historical batches.</Text>
+      <Text style={{ color: muted, fontSize: 10, lineHeight: 16 }}>BunaLens visual estimates are preliminary screening outputs. These configurable score bands are internal platform criteria, not certified ECX grades, export approvals or laboratory measurements. They are stored and versioned here, but the current AI assessment pipeline does not consume them yet. Activation selects a configuration version only; neither historical nor new assessments are changed until a separate pipeline integration is implemented.</Text>
     </View>
 
     {error ? <View style={{ ...panel, padding: 11, borderColor: '#E7BDB3', backgroundColor: '#FBF0ED', flexDirection: 'row', gap: 7 }}><AlertCircle size={14} color="#A34F3E" /><Text style={{ color: '#7D3C32', fontSize: 10, flex: 1 }}>{error}</Text></View> : null}
@@ -192,7 +191,7 @@ export default function QualityGrading() {
     </View>
 
     <View style={{ ...panel, padding: 14, gap: 9 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}><View style={{ flex: 1 }}><Section title="Grading rule versions" detail="Create a draft, review its score bands, then activate it explicitly." /></View><Action label="New version" onPress={() => void startDraft()} disabled={saving || !!draft} /></View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}><View style={{ flex: 1 }}><Section title="Grading rule versions" detail="Create a draft, review its score bands, then select it as the active configuration. Pipeline integration is a separate step." /></View><Action label="New version" onPress={() => void startDraft()} disabled={saving || !!draft} /></View>
       {loading ? <ActivityIndicator color={green} /> : sets.map((set) => <View key={set.id} style={{ paddingVertical: 10, borderTopWidth: 1, borderColor: '#EEF0EC', gap: 5 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Text style={{ color: ink, fontSize: 11, fontWeight: '900', flex: 1 }}>v{set.version} · {set.name}</Text><Text style={{ color: set.status === 'active' ? green : muted, fontSize: 9, fontWeight: '900', textTransform: 'uppercase' }}>{set.status}</Text></View>
         <Text style={{ color: muted, fontSize: 9 }}>{set.rules?.length || 0} score bands · Created {dateLabel(set.created_at)}{set.activated_at ? ` · Activated ${dateLabel(set.activated_at)}` : ''}</Text>

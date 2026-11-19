@@ -28,7 +28,7 @@ type Batch = {
   is_demo: boolean;
   created_at: string;
   updated_at: string;
-  stations?: { name?: string | null; station_name?: string | null; manager?: string | null; zone?: string | null; woreda?: string | null } | null;
+  stations?: { name?: string | null; station_name?: string | null; manager?: string | null; zone?: string | null; woreda?: string | null }[] | null;
 };
 type GradingRecord = {
   id: string;
@@ -180,7 +180,7 @@ export default function BatchManagement() {
   const maxPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const pageStart = total ? page * PAGE_SIZE + 1 : 0;
   const pageEnd = Math.min((page + 1) * PAGE_SIZE, total);
-  const stationName = (batch: Batch) => batch.stations?.station_name || batch.stations?.name || 'Station not linked';
+  const stationName = (batch: Batch) => batch.stations?.[0]?.station_name || batch.stations?.[0]?.name || 'Station not linked';
   const result = selected?.grading_result || {};
   const breakdown = detail?.breakdown || result.breakdown || {};
   const breakdownEntries = useMemo(() => Object.entries(breakdown).filter(([, value]) => typeof value === 'number'), [breakdown]);
@@ -287,7 +287,7 @@ export default function BatchManagement() {
             <DetailRow label="ECX grade" value={selected.ecx_grade} />
             <DetailRow label="Lot weight" value={Number(selected.lot_weight_kg).toLocaleString() + ' kg'} />
             <DetailRow label="Woreda" value={selected.woreda} />
-            <DetailRow label="Station manager" value={selected.stations?.manager || '—'} />
+            <DetailRow label="Station manager" value={selected.stations?.[0]?.manager || '—'} />
             <DetailRow label="Submitted" value={formatDate(selected.created_at)} />
             <DetailRow label="Last updated" value={formatDate(selected.updated_at)} />
             <DetailRow label="Batch ID" value={selected.id} />

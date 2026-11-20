@@ -401,11 +401,8 @@ using (
   )
 )
 with check (
-  exists (
-    select 1 from public.marketplace_listings l
-    where l.id = listing_id
-      and (l.seller_id = (select auth.uid()) or (select public.marketplace_is_admin()))
-  )
+  public.marketplace_is_listing_owner(listing_id::text)
+  or (select public.marketplace_is_admin())
 );
 
 drop policy if exists "marketplace inquiry participants and admins read" on public.marketplace_inquiries;
@@ -433,10 +430,7 @@ using (
   public.marketplace_is_listing_owner(listing_id::text)
 )
 with check (
-  exists (
-    select 1 from public.marketplace_listings l
-    where l.id = listing_id and l.seller_id = (select auth.uid())
-  )
+  public.marketplace_is_listing_owner(listing_id::text)
 );
 
 -- Explicit table/column grants keep private ownership and contact fields out of direct buyer reads.

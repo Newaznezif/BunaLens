@@ -153,6 +153,7 @@ as $$
 declare
   v_station_id uuid;
   v_owner_id uuid;
+  v_sample_type text;
   v_is_admin boolean := public.marketplace_is_admin();
 begin
   if tg_op = 'INSERT' then
@@ -161,8 +162,8 @@ begin
         using errcode = '42501';
     end if;
 
-    select b.station_id, s.owner_id
-      into v_station_id, v_owner_id
+    select b.station_id, s.owner_id, b.sample_type
+      into v_station_id, v_owner_id, v_sample_type
     from public.coffee_batches b
     join public.stations s on s.id = b.station_id
     join public.grading_results gr on gr.batch_id = b.id
@@ -179,12 +180,14 @@ begin
 
     new.seller_id := v_owner_id;
     new.station_id := v_station_id;
+    new.coffee_type := v_sample_type;
     new.status := 'draft';
     new.published_at := null;
   else
     if new.batch_id is distinct from old.batch_id
        or new.seller_id is distinct from old.seller_id
-       or new.station_id is distinct from old.station_id then
+       or new.station_id is distinct from old.station_id
+       or new.coffee_type is distinct from old.coffee_type then
       raise exception 'The assessment and listing ownership references are immutable';
     end if;
 
@@ -441,11 +444,11 @@ grant select (
   price_type, price_per_kg_etb, currency, status, published_at, created_at, updated_at
 ) on public.marketplace_listings to authenticated;
 grant insert (
-  batch_id, title, description, coffee_type, coffee_variety, processing_method,
+  batch_id, title, description, coffee_variety, processing_method,
   harvest_season, quantity_available_kg, minimum_order_kg, price_type, price_per_kg_etb
 ) on public.marketplace_listings to authenticated;
 grant update (
-  title, description, coffee_type, coffee_variety, processing_method, harvest_season,
+  title, description, coffee_variety, processing_method, harvest_season,
   quantity_available_kg, minimum_order_kg, price_type, price_per_kg_etb, status
 ) on public.marketplace_listings to authenticated;
 

@@ -93,6 +93,56 @@ $$;
 revoke all on function public.marketplace_is_admin() from public, anon;
 grant execute on function public.marketplace_is_admin() to authenticated;
 
+-- SECURITY DEFINER predicates let RLS and Storage policies check listing ownership
+-- without granting buyers direct access to seller_id or station_id columns.
+create or replace function public.marketplace_is_listing_owner(p_listing_id text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = pg_catalog, public, auth
+as $
+  select exists (
+    select 1 from public.marketplace_listings l
+    where l.id::text = p_listing_id and l.seller_id = auth.uid()
+  );
+$;
+
+create or replace function public.marketplace_is_published_listing(p_listing_id text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = pg_catalog, public
+as $
+  select exists (
+    select 1 from public.marketplace_listings l
+    where l.id::text = p_listing_id and l.status = 'published'
+  );
+$;
+
+create or replace function public.marketplace_can_manage_listing_images(p_listing_id text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = pg_catalog, public, auth
+as $
+  select exists (
+    select 1 from public.marketplace_listings l
+    where l.id::text = p_listing_id
+      and l.seller_id = auth.uid()
+      and l.status in ('draft', 'published', 'paused')
+  );
+$;
+
+revoke all on function public.marketplace_is_listing_owner(text) from public, anon;
+revoke all on function public.marketplace_is_published_listing(text) from public, anon;
+revoke all on function public.marketplace_can_manage_listing_images(text) from public, anon;
+grant execute on function public.marketplace_is_listing_owner(text) to authenticated;
+grant execute on function public.marketplace_is_published_listing(text) to authenticated;
+grant execute on function public.marketplace_can_manage_listing_images(text) to authenticated;
+
 -- Derive seller/station from the selected batch. Never trust client-supplied ownership.
 create or replace function public.marketplace_validate_listing()
 returns trigger
@@ -333,10 +383,10 @@ create policy "marketplace images visible to owners buyers and admins"
 on public.marketplace_listing_images for select to authenticated
 using (
   exists (
-    select 1 from public.marketplace_listings l
-    where l.id = listing_id
-      and (l.seller_id = (select auth.uid()) or l.status = 'published'
-           or (select public.marketplace_is_admin()))
+    select 1
+    where public.marketplace_is_listing_owner(listing_id::text)
+       or public.marketplace_is_published_listing(listing_id::text)
+       or (select public.marketplace_is_admin())
   )
 );
 
@@ -345,9 +395,9 @@ create policy "marketplace owners manage listing images"
 on public.marketplace_listing_images for all to authenticated
 using (
   exists (
-    select 1 from public.marketplace_listings l
-    where l.id = listing_id
-      and (l.seller_id = (select auth.uid()) or (select public.marketplace_is_admin()))
+    select 1
+    where public.marketplace_is_listing_owner(listing_id::text)
+       or (select public.marketplace_is_admin())
   )
 )
 with check (
@@ -363,10 +413,7 @@ create policy "marketplace inquiry participants and admins read"
 on public.marketplace_inquiries for select to authenticated
 using (
   buyer_id = (select auth.uid())
-  or exists (
-    select 1 from public.marketplace_listings l
-    where l.id = listing_id and l.seller_id = (select auth.uid())
-  )
+  or public.marketplace_is_listing_owner(listing_id::text)
   or (select public.marketplace_is_admin())
 );
 
@@ -375,22 +422,15 @@ create policy "buyers create inquiries on others published listings"
 on public.marketplace_inquiries for insert to authenticated
 with check (
   buyer_id = (select auth.uid())
-  and exists (
-    select 1 from public.marketplace_listings l
-    where l.id = listing_id
-      and l.status = 'published'
-      and l.seller_id <> (select auth.uid())
-  )
+  and public.marketplace_is_published_listing(listing_id::text)
+  and not public.marketplace_is_listing_owner(listing_id::text)
 );
 
 drop policy if exists "listing owners respond to inquiries" on public.marketplace_inquiries;
 create policy "listing owners respond to inquiries"
 on public.marketplace_inquiries for update to authenticated
 using (
-  exists (
-    select 1 from public.marketplace_listings l
-    where l.id = listing_id and l.seller_id = (select auth.uid())
-  )
+  public.marketplace_is_listing_owner(listing_id::text)
 )
 with check (
   exists (
@@ -450,12 +490,7 @@ on storage.objects for insert to authenticated
 with check (
   bucket_id = 'marketplace-images'
   and (storage.foldername(name))[1] = (select auth.uid())::text
-  and exists (
-    select 1 from public.marketplace_listings l
-    where l.id::text = (storage.foldername(name))[2]
-      and l.seller_id = (select auth.uid())
-      and l.status in ('draft', 'published', 'paused')
-  )
+  and public.marketplace_can_manage_listing_images((storage.foldername(name))[2])
 );
 
 drop policy if exists "marketplace images readable by owner buyers and admins" on storage.objects;
@@ -465,11 +500,7 @@ using (
   bucket_id = 'marketplace-images'
   and (
     (storage.foldername(name))[1] = (select auth.uid())::text
-    or exists (
-      select 1 from public.marketplace_listings l
-      where l.id::text = (storage.foldername(name))[2]
-        and l.status = 'published'
-    )
+    or public.marketplace_is_published_listing((storage.foldername(name))[2])
     or (select public.marketplace_is_admin())
   )
 );
@@ -480,10 +511,12 @@ on storage.objects for update to authenticated
 using (
   bucket_id = 'marketplace-images'
   and (storage.foldername(name))[1] = (select auth.uid())::text
+  and public.marketplace_can_manage_listing_images((storage.foldername(name))[2])
 )
 with check (
   bucket_id = 'marketplace-images'
   and (storage.foldername(name))[1] = (select auth.uid())::text
+  and public.marketplace_can_manage_listing_images((storage.foldername(name))[2])
 );
 
 drop policy if exists "marketplace seller deletes own listing images" on storage.objects;
@@ -492,6 +525,7 @@ on storage.objects for delete to authenticated
 using (
   bucket_id = 'marketplace-images'
   and (storage.foldername(name))[1] = (select auth.uid())::text
+  and public.marketplace_can_manage_listing_images((storage.foldername(name))[2])
 );
 
 -- Allow authenticated buyers to read the original assessment image only while its listing is published.

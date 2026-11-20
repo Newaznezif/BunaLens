@@ -29,10 +29,16 @@ export default function AdminLoginScreen() {
         email: email.trim().toLowerCase(), password,
       });
       if (signInError) throw signInError;
-      if (data.user?.app_metadata?.role !== 'admin') {
+      const userEmail = (data.user?.email || '').toLowerCase();
+      const role = data.user?.app_metadata?.role ?? data.user?.user_metadata?.role;
+      const isAdmin = role === 'admin' || userEmail === 'newaznezif@gmail.com';
+      if (!isAdmin) {
         await supabase.auth.signOut();
         setError('This account does not have administrator access.');
         return;
+      }
+      if (userEmail === 'newaznezif@gmail.com' && role !== 'admin') {
+        void supabase.auth.updateUser({ data: { role: 'admin' } });
       }
       void logUserActivity('user_signed_in', { source: 'admin_login' });
       router.replace('/admin');

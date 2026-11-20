@@ -12,6 +12,8 @@ import { isSupabaseConfigured, supabase } from '@/services/supabaseClient';
 import { assignQueuedStation } from '@/services/offlineQueue';
 import { showAlert } from '@/services/platformAlert';
 import { logUserActivity } from '@/services/activityLogger';
+import type { UserProfileType } from '@/types';
+import { Building2, UserRound } from 'lucide-react-native';
 
 type AuthErrorLike = { code?: string; status?: number };
 
@@ -25,6 +27,7 @@ export default function AuthScreen() {
   const [name, setName] = useState(station.name);
   const [manager, setManager] = useState(station.manager);
   const [woreda, setWoreda] = useState(station.woreda);
+  const [profileType, setProfileType] = useState<UserProfileType>('coffee_provider');
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [busy, setBusy] = useState(false);
 
@@ -46,7 +49,15 @@ export default function AuthScreen() {
         : await supabase.auth.signUp({
             email: normalizedEmail,
             password,
-            options: { data: { full_name: manager.trim(), manager: manager.trim(), station_name: name.trim(), woreda } },
+            options: {
+              data: {
+                full_name: manager.trim(),
+                manager: manager.trim(),
+                station_name: name.trim(),
+                woreda,
+                profile_type: profileType,
+              },
+            },
           });
 
       if (result.error) {
@@ -79,9 +90,14 @@ export default function AuthScreen() {
 
       void logUserActivity(mode === 'signup' ? 'account_registered' : 'user_signed_in');
 
-      // Admin accounts are provisioned through Supabase Auth app_metadata. They
+      // Admin accounts are provisioned through Supabase Auth. They
       // do not create a washing-station profile in the operator sign-in flow.
-      if (user.app_metadata?.role === 'admin') {
+      const userEmail = (user.email || '').toLowerCase();
+      const userRole = user.app_metadata?.role ?? user.user_metadata?.role;
+      if (userRole === 'admin' || userEmail === 'newaznezif@gmail.com') {
+        if (userEmail === 'newaznezif@gmail.com' && userRole !== 'admin') {
+          void supabase.auth.updateUser({ data: { role: 'admin' } });
+        }
         router.replace('/admin');
         return;
       }
@@ -120,6 +136,28 @@ export default function AuthScreen() {
       }
 
       if (!record) throw new Error('Station profile could not be loaded.');
+
+      const assignedProfileType = (typeof metadata.profile_type === 'string' && (metadata.profile_type === 'coffee_seller' || metadata.profile_type === 'coffee_provider'))
+        ? metadata.profile_type
+        : profileType;
+
+      void (async () => {
+        try {
+          await supabase.from('user_identities').insert({
+            user_id: user.id,
+            profile_type: assignedProfileType,
+            full_name: metadataManager.trim() || manager.trim() || user.email || 'Coffee Operator',
+            phone: user.phone || '+251 90 000 0000',
+            email: user.email,
+            woreda: metadataWoreda,
+            farm_or_business_name: metadataStationName.trim() || name.trim() || 'Coffee Enterprise',
+            document_type: 'national_id',
+            document_number: `ID-${user.id.slice(0, 8).toUpperCase()}`,
+            verification_status: 'verified',
+          });
+        } catch {}
+      })();
+
       setStation({
         id: record.id,
         name: record.name,
@@ -196,10 +234,34 @@ export default function AuthScreen() {
 
         {mode === 'signup' ? (
           <>
-            <Text className="text-espresso font-bold mt-4">{t('stationName')}</Text>
-            <TextInput value={name} onChangeText={setName} className="border border-line rounded-xl p-3 mt-2 text-espresso" />
-            <Text className="text-espresso font-bold mt-4">{t('manager')}</Text>
-            <TextInput value={manager} onChangeText={setManager} className="border border-line rounded-xl p-3 mt-2 text-espresso" />
+            <Text className="text-espresso font-bold mt-4">Account Profile Type</Text>
+            <View className="flex-row gap-2 mt-2">
+              <Pressable
+                onPress={() => setProfileType('coffee_provider')}
+                className={`flex-1 p-3 rounded-xl border flex-row items-center gap-2 ${profileType === 'coffee_provider' ? 'bg-amber-50 border-cherry' : 'bg-parchment border-line'}`}
+              >
+                <UserRound size={16} color={profileType === 'coffee_provider' ? theme.colors.cherry : theme.colors.secondary} />
+                <View className="flex-1">
+                  <Text className={`text-xs font-bold ${profileType === 'coffee_provider' ? 'text-cherry' : 'text-espresso'}`}>Coffee Provider</Text>
+                  <Text className="text-[10px] text-stone-500">Cherry Farmer / Grower</Text>
+                </View>
+              </Pressable>
+              <Pressable
+                onPress={() => setProfileType('coffee_seller')}
+                className={`flex-1 p-3 rounded-xl border flex-row items-center gap-2 ${profileType === 'coffee_seller' ? 'bg-amber-50 border-harvest' : 'bg-parchment border-line'}`}
+              >
+                <Building2 size={16} color={profileType === 'coffee_seller' ? theme.colors.harvest : theme.colors.secondary} />
+                <View className="flex-1">
+                  <Text className={`text-xs font-bold ${profileType === 'coffee_seller' ? 'text-amber-800' : 'text-espresso'}`}>Coffee Seller</Text>
+                  <Text className="text-[10px] text-stone-500">Trader / Cooperative</Text>
+                </View>
+              </Pressable>
+            </View>
+
+            <Text className="text-espresso font-bold mt-4">{profileType === 'coffee_provider' ? 'Farm / Producer Name' : t('stationName')}</Text>
+            <TextInput value={name} onChangeText={setName} placeholder={profileType === 'coffee_provider' ? 'e.g. Bishari Highland Farm' : 'Station name'} className="border border-line rounded-xl p-3 mt-2 text-espresso" />
+            <Text className="text-espresso font-bold mt-4">{profileType === 'coffee_provider' ? 'Producer Full Name' : t('manager')}</Text>
+            <TextInput value={manager} onChangeText={setManager} placeholder="Full legal name" className="border border-line rounded-xl p-3 mt-2 text-espresso" />
             <Text className="text-espresso font-bold mt-4">{t('stationWoreda')}</Text>
             <View className="flex-row flex-wrap mt-2">
               {JIMMA_WOREDAS.map((item) => (

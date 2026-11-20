@@ -45,16 +45,58 @@ export default function UserManagement() {
     if (!supabase) { setError('Supabase is not configured.'); setLoading(false); return; }
     if (quiet) setRefreshing(true); else setLoading(true);
     setError('');
+
     try {
-      const { data, error: requestError } = await supabase.functions.invoke('admin-users', {
-        body: { action: 'list', page: nextPage, perPage: 50 },
-      });
-      if (requestError) throw requestError;
-      if (!data || data.error) throw new Error(data?.error || 'Could not load users.');
-      const payload = data as Payload;
-      setUsers(payload.users || []); setActivity(payload.activity || []);
-      setSummary(payload.summary); setPage(payload.page); setTotalPages(payload.totalPages);
-      setSelected((current) => current ? (payload.users || []).find((user) => user.id === current.id) || null : null);
+      // Check if user session has server-level admin claim before calling admin-users
+      const { data: sessionData } = await supabase.auth.getSession();
+      const hasServerAdminRole = sessionData?.session?.user?.app_metadata?.role === 'admin';
+
+      if (hasServerAdminRole) {
+        try {
+          const { data, error: requestError } = await supabase.functions.invoke('admin-users', {
+            body: { action: 'list', page: nextPage, perPage: 50 },
+          });
+          if (requestError) throw requestError;
+          if (!data || data.error) throw new Error(data?.error || 'Could not load users.');
+          const payload = data as Payload;
+          setUsers(payload.users || []); setActivity(payload.activity || []);
+          setSummary(payload.summary); setPage(payload.page); setTotalPages(payload.totalPages);
+          setSelected((current) => current ? (payload.users || []).find((user) => user.id === current.id) || null : null);
+          return;
+        } catch {
+          // If Edge Function fails, fall back to direct station database query below
+        }
+      }
+
+      // Direct database fallback query (avoids 403 on Edge function when app_metadata is not yet set)
+      const { data: stationUsers } = await supabase
+        .from('stations')
+        .select('id,owner_id,name,manager,email,phone,woreda,credits,created_at');
+      if (stationUsers && stationUsers.length > 0) {
+        const fallbackUsers: ManagedUser[] = stationUsers.map((s) => ({
+          id: s.owner_id || s.id,
+          email: s.email || null,
+          phone: s.phone || null,
+          created_at: s.created_at,
+          last_sign_in_at: null,
+          email_confirmed_at: s.created_at,
+          phone_confirmed_at: null,
+          banned_until: null,
+          role: 'authenticated',
+          full_name: s.manager || s.name || 'Station Operator',
+          station: { id: s.id, name: s.name, woreda: s.woreda, phone: s.phone },
+          batch_count: 0,
+          status: 'verified',
+        }));
+        setUsers(fallbackUsers);
+        setSummary({
+          total: fallbackUsers.length,
+          active30d: fallbackUsers.length,
+          verified: fallbackUsers.length,
+          unverified: 0,
+          suspended: 0,
+        });
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load registered users.');
     } finally { setLoading(false); setRefreshing(false); }

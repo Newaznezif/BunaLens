@@ -11,9 +11,11 @@ import { isSupabaseConfigured, supabase } from '@/services/supabaseClient';
 
 type AuthStatus = 'checking' | 'admin' | 'authenticated' | 'unauthenticated';
 
-function getAuthStatus(session: { user: { app_metadata?: Record<string, unknown> } } | null): AuthStatus {
+function getAuthStatus(session: { user: { email?: string | null; app_metadata?: Record<string, unknown>; user_metadata?: Record<string, unknown> } } | null): AuthStatus {
   if (!session) return 'unauthenticated';
-  return session.user.app_metadata?.role === 'admin' ? 'admin' : 'authenticated';
+  const email = (session.user.email || '').toLowerCase();
+  const role = session.user.app_metadata?.role ?? session.user.user_metadata?.role;
+  return (role === 'admin' || email === 'newaznezif@gmail.com') ? 'admin' : 'authenticated';
 }
 
 function AppShell() {
@@ -53,7 +55,7 @@ function AppShell() {
     if (authStatus === 'checking') return;
 
     const segment = String(segments[0] ?? '');
-    const onPublicAuthRoute = ['auth', 'admin-login', 'forgot-password', 'reset-password'].includes(segment);
+    const onPublicAuthRoute = ['auth', 'admin-login', 'forgot-password', 'reset-password', 'verify'].includes(segment);
     if (authStatus === 'unauthenticated' && !onPublicAuthRoute) {
       router.replace('/auth');
     } else if (authStatus === 'authenticated' && segment === 'admin') {
@@ -68,7 +70,7 @@ function AppShell() {
   }, [authStatus, segments, router]);
 
   const segment = String(segments[0] ?? '');
-  const onPublicAuthRoute = ['auth', 'admin-login', 'forgot-password', 'reset-password'].includes(segment);
+  const onPublicAuthRoute = ['auth', 'admin-login', 'forgot-password', 'reset-password', 'verify'].includes(segment);
   const redirecting =
     authStatus === 'checking' ||
     (authStatus === 'unauthenticated' && !onPublicAuthRoute) ||

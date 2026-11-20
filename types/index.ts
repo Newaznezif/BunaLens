@@ -2,6 +2,57 @@ export type SampleType = 'red_cherry' | 'green_bean';
 export type EcxGrade = 'Grade 1' | 'Grade 2' | 'Grade 3' | 'Grade 4' | 'Undergrade' | 'Unclassified';
 export type ExportReadiness = 'Specialty Export' | 'Commercial Export' | 'Local Market Only' | 'Reject / Re-sort' | 'Insufficient Evidence';
 
+export type UserProfileType = 'coffee_provider' | 'coffee_seller';
+export type IdentityDocumentType = 'national_id' | 'passport' | 'kebele_id';
+export type VerificationStatus = 'pending' | 'verified' | 'rejected';
+
+export interface DocumentExtractedData {
+  document_type: IdentityDocumentType;
+  document_number: string;
+  full_name: string;
+  date_of_birth?: string;
+  gender?: 'M' | 'F' | 'Other';
+  nationality?: string;
+  expiry_date?: string;
+  issue_date?: string;
+  issuing_authority?: string;
+  address_or_woreda?: string;
+  confidence_score: number;
+  raw_text_summary?: string;
+}
+
+export interface BiometricData {
+  facial_photo_uri?: string;
+  facial_recognition_score?: number;
+  facial_liveness_verified?: boolean;
+  fingerprint_enrolled?: boolean;
+  fingerprint_hash?: string;
+  fingerprint_quality_score?: number;
+  fingerprint_method?: 'hardware_sensor' | 'optical_scanner' | 'secure_passkey';
+  captured_at: string;
+}
+
+export interface RegisteredUserIdentity {
+  id: string;
+  user_id?: string | null;
+  profile_type: UserProfileType;
+  full_name: string;
+  phone: string;
+  email?: string;
+  woreda: string;
+  kebele?: string;
+  farm_or_business_name?: string;
+  document_type: IdentityDocumentType;
+  document_number: string;
+  document_image_url?: string;
+  document_extracted_data: DocumentExtractedData;
+  biometric_data: BiometricData;
+  verification_status: VerificationStatus;
+  registered_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface GradingBreakdown {
   sound_or_ripe_pct: number;
   unripe_green_pct: number;

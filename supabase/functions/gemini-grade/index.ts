@@ -24,6 +24,22 @@ function validateAssessment(raw: unknown) {
   const v = raw as Record<string, unknown>;
   if (typeof v.is_coffee_sample !== "boolean") throw new Error("Missing sample classification.");
   if (v.rejection_reason !== undefined && typeof v.rejection_reason !== "string") throw new Error("Invalid rejection reason.");
+  if (v.is_coffee_sample === false) {
+    return {
+      is_coffee_sample: false,
+      rejection_reason: "This is not a coffee sample. Please scan a valid coffee sample.",
+      ecx_grade: "Unclassified",
+      quality_score: 0,
+      confidence_score: 0,
+      breakdown: { sound_or_ripe_pct: 0, unripe_green_pct: 0, black_overfermented_pct: 0, insect_broken_pct: 0, foreign_matter_pct: 0 },
+      estimated_price_per_feresula_etb: 0,
+      potential_gain_if_sorted_etb: 0,
+      export_readiness: "Insufficient Evidence",
+      sorting_action_advice: "No coffee assessment was performed because the image did not pass the coffee-only screening gate.",
+      assessment_limitations: ["Image rejected: the primary subject was not confidently identified as the selected coffee sample."],
+      assessment_method: "ai_visual_estimate" as const,
+    };
+  }
   if (!grades.includes(v.ecx_grade as typeof grades[number])) throw new Error("Unvalidated grade mapping is not permitted.");
   if (typeof v.quality_score !== "number" || !Number.isFinite(v.quality_score) || v.quality_score < 0 || v.quality_score > 100) throw new Error("Invalid quality score.");
   if (typeof v.confidence_score !== "number" || !Number.isFinite(v.confidence_score) || v.confidence_score < 0 || v.confidence_score > 100) throw new Error("Invalid confidence score.");

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { CheckCircle2, RefreshCw, XCircle, ShieldCheck, Coffee } from 'lucide-react-native';
+import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
+import { RefreshCw, Coffee } from 'lucide-react-native';
 import { supabase } from '@/services/supabaseClient';
 
 type ScanRow = {
@@ -55,8 +55,7 @@ export default function AdminScanReview() {
 
   const approveSeller = async (row: ScanRow) => {
     if (!supabase) return;
-    const stationId = (row as any).station_id;
-    const station = row.stations?.[0];
+    const stationId = row.station_id;
     if (!stationId) { setError('Station identifier is unavailable for this scan.'); return; }
     setBusyId(row.id); setError(''); setNotice('');
     const { error: rpcError } = await supabase.rpc('bunalens_set_seller_status', {

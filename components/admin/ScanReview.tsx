@@ -4,7 +4,7 @@ import { CheckCircle2, RefreshCw, XCircle, ShieldCheck, Coffee } from 'lucide-re
 import { supabase } from '@/services/supabaseClient';
 
 type ScanRow = {
-  id: string; batch_code: string; sample_type: string; woreda: string; lot_weight_kg: number;
+  id: string; station_id: string; batch_code: string; sample_type: string; woreda: string; lot_weight_kg: number;
   grading_status: string; eligibility_status: string; is_demo: boolean; created_at: string;
   grading_result: any;
   stations?: { name: string | null; station_name?: string | null; manager: string | null; marketplace_seller_status: string }[] | null;
@@ -26,7 +26,7 @@ export default function AdminScanReview() {
     setLoading(true); setError('');
     const { data, error: queryError } = await supabase
       .from('coffee_batches')
-      .select('id,batch_code,sample_type,woreda,lot_weight_kg,grading_status,eligibility_status,is_demo,created_at,grading_result,stations(name,station_name,manager,marketplace_seller_status)')
+      .select('id,station_id,batch_code,sample_type,woreda,lot_weight_kg,grading_status,eligibility_status,is_demo,created_at,grading_result,stations(name,station_name,manager,marketplace_seller_status)')
       .order('created_at', { ascending: false }).limit(500);
     if (queryError) setError(queryError.message);
     else setRows((data || []) as unknown as ScanRow[]);

@@ -116,7 +116,7 @@ export default function AdminScanReview() {
         <Pressable accessibilityRole="button" accessibilityLabel="Refresh scan review queue" onPress={() => void load()} style={{ padding: 10 }}><RefreshCw size={17} color={green} /></Pressable>
       </View>
       {error ? <Text accessibilityRole="alert" style={{ color: '#A34F3E', fontSize: 12 }}>{error}</Text> : null}
-      {notice ? <Text accessibilityRole="status" style={{ color: green, fontSize: 12, fontWeight: '800' }}>{notice}</Text> : null}
+      {notice ? <Text accessibilityLiveRegion="polite" style={{ color: green, fontSize: 12, fontWeight: '800' }}>{notice}</Text> : null}
       {loading ? <View style={{ padding: 36, alignItems: 'center' }}><ActivityIndicator color={green} /><Text style={{ color: muted, marginTop: 9 }}>Loading submitted scans…</Text></View> : rows.map((row) => {
         const station = row.stations?.[0];
         const sellerStatus = station?.marketplace_seller_status || 'pending';

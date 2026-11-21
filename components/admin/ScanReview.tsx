@@ -16,6 +16,10 @@ const green = '#55765D', ink = '#26372D', muted = '#727C70';
 export default function AdminScanReview() {
   const [rows, setRows] = useState<ScanRow[]>([]);
   const [prices, setPrices] = useState<Record<string, string>>({});
+  const [grades, setGrades] = useState<Record<string, string>>({});
+  const [classifications, setClassifications] = useState<Record<string, string>>({});
+  const gradeOptions = ['Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7'];
+  const classificationOptions = ['Specialty Export','Commercial Export','Local Market Only','Reject / Re-sort'];
   const [reasons, setReasons] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState('');
@@ -87,7 +91,7 @@ export default function AdminScanReview() {
       if (decision === 'eligible' && !(data as any)?.listing) {
         throw new Error('The review was accepted, but the server did not return a marketplace listing. Refresh the queue and verify the listing before retrying.');
       }
-      setNotice(decision === 'eligible' ? row.batch_code + ' approved and published to the marketplace.' : row.batch_code + ' rejected.');
+      setNotice(decision === 'eligible' ? row.batch_code + ' certified and published. The station owner has been notified.' : row.batch_code + ' rejected. The station owner has been notified.');
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'The review action failed. Refresh the queue and try again.');
@@ -124,7 +128,7 @@ export default function AdminScanReview() {
   return (
     <View style={{ gap: 14 }}>
       <View style={{ ...panel, padding: 17, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <View style={{ flex: 1 }}><Text style={{ color: ink, fontSize: 17, fontWeight: '900' }}>Scan review queue</Text><Text style={{ color: muted, fontSize: 11, marginTop: 4 }}>Every cloud-saved coffee scan appears here. Only administrator-approved, usable live-evidence lots can be published.</Text></View>
+        <View style={{ flex: 1 }}><Text style={{ color: ink, fontSize: 17, fontWeight: '900' }}>Scan review queue</Text><Text style={{ color: muted, fontSize: 11, marginTop: 4 }}>Every cloud-saved coffee scan appears here. Only administrator-reviewed, usable live-evidence lots can be certified and published.</Text></View>
         <Pressable accessibilityRole="button" accessibilityLabel="Refresh scan review queue" onPress={() => void load()} style={{ padding: 10 }}><RefreshCw size={17} color={green} /></Pressable>
       </View>
       {error ? <Text accessibilityRole="alert" style={{ color: '#A34F3E', fontSize: 12 }}>{error}</Text> : null}
@@ -155,9 +159,17 @@ export default function AdminScanReview() {
             {row.is_demo ? <Text style={{ color: '#A34F3E', fontSize: 11 }}>Demonstration record. It cannot be published as real coffee.</Text> : null}
             {!row.is_demo && sellerStatus !== 'approved' ? <Pressable disabled={busyId === row.id} onPress={() => void approveSeller(row)} style={{ backgroundColor: '#F6EFE3', borderRadius: 11, padding: 11, alignItems: 'center' }}><Text style={{ color: '#805B2D', fontSize: 11, fontWeight: '900' }}>{busyId === row.id ? 'Saving…' : 'Approve marketplace seller'}</Text></Pressable> : null}
             {!row.is_demo && pending ? <>
+              <Text style={{ color: ink, fontSize: 11, fontWeight: '800' }}>Administrator-certified coffee grade</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                {gradeOptions.map((grade) => <Pressable key={grade} onPress={() => setGrades((old) => ({ ...old, [row.id]: grade }))} style={{ borderRadius: 9, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: grades[row.id] === grade ? green : '#F1F4EF' }}><Text style={{ color: grades[row.id] === grade ? '#FFFFFF' : ink, fontSize: 10, fontWeight: '800' }}>{grade}</Text></Pressable>)}
+              </View>
+              <Text style={{ color: ink, fontSize: 11, fontWeight: '800' }}>Quality classification</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                {classificationOptions.map((item) => <Pressable key={item} onPress={() => setClassifications((old) => ({ ...old, [row.id]: item }))} style={{ borderRadius: 9, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: classifications[row.id] === item ? green : '#F1F4EF' }}><Text style={{ color: classifications[row.id] === item ? '#FFFFFF' : ink, fontSize: 10, fontWeight: '800' }}>{item}</Text></Pressable>)}
+              </View>
               <Text style={{ color: ink, fontSize: 11, fontWeight: '800' }}>Public price (ETB / kg)</Text>
               <TextInput value={prices[row.id] || ''} onChangeText={(value) => setPrices((old) => ({ ...old, [row.id]: value }))} keyboardType="decimal-pad" placeholder="Enter approved selling price" style={{ borderWidth: 1, borderColor: '#E5E9E0', borderRadius: 11, padding: 11, color: ink }} />
-              <Text style={{ color: ink, fontSize: 11, fontWeight: '800' }}>Administrator review note</Text>
+              <Text style={{ color: ink, fontSize: 11, fontWeight: '800' }}>Administrator certification note</Text>
               <TextInput value={reasons[row.id] || ''} onChangeText={(value) => setReasons((old) => ({ ...old, [row.id]: value }))} placeholder="Record the basis for your decision (minimum 10 characters)" multiline style={{ borderWidth: 1, borderColor: '#E5E9E0', borderRadius: 11, padding: 11, color: ink, minHeight: 64 }} />
               <View style={{ flexDirection: 'row', gap: 9 }}>
                 <Pressable testID={'publish-' + row.batch_code} accessibilityRole="button" disabled={busyId === row.id} onPress={() => void decide(row, 'eligible')} style={{ flex: 1, backgroundColor: busyId === row.id ? '#AAB3A8' : green, borderRadius: 11, padding: 12, alignItems: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '900' }}>{busyId === row.id ? 'Processing…' : 'Approve & publish'}</Text></Pressable>

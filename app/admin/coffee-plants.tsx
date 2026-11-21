@@ -41,44 +41,112 @@ function Metric({ title, value, unit, status, detail, icon: Icon }: any) {
 function Status({ children, tone = GREEN }: any) {
   return <View style={{ backgroundColor: tone + '18', borderRadius: 99, paddingHorizontal: 9, paddingVertical: 5 }}><Text style={{ color: tone, fontSize: 9, fontWeight: '900' }}>{children}</Text></View>;
 }
+declare global {
+  interface Window { google?: any; }
+}
 function EthiopiaMap({ site, points, zoom, onToggle }: { site: Site; points: Point[]; zoom: boolean; onToggle: () => void }) {
-  const [country, setCountry] = useState<any>(null);
-  const [boundaryError, setBoundaryError] = useState(false);
+  const hostRef = React.useRef<any>(null);
+  const mapRef = React.useRef<any>(null);
+  const overlaysRef = React.useRef<any[]>([]);
+  const [mapError, setMapError] = useState('');
+  const [mapReady, setMapReady] = useState(false);
+  const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
   useEffect(() => {
-    let live = true;
-    const loadBoundary = async () => {
+    let active = true;
+    if (!apiKey) { setMapError('Google Maps API key is not configured. Add EXPO_PUBLIC_GOOGLE_MAPS_API_KEY to the Vercel production environment.'); return; }
+    const init = async () => {
       try {
-        const meta = await fetch('https://www.geoboundaries.org/api/current/gbOpen/ETH/ADM0/').then(r => { if (!r.ok) throw new Error('Boundary metadata unavailable'); return r.json(); });
-        const geo = await fetch(meta.gjDownloadURL).then(r => { if (!r.ok) throw new Error('Boundary file unavailable'); return r.json(); });
-        if (live) setCountry(geo);
-      } catch { if (live) setBoundaryError(true); }
+        if (!window.google?.maps) {
+          const existing = document.querySelector('script[data-bunalens-google-maps="true"]') as HTMLScriptElement | null;
+          if (!existing) {
+            const script = document.createElement('script');
+            script.dataset.bunalensGoogleMaps = 'true';
+            script.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(apiKey) + '&v=weekly';
+            script.async = true;
+            script.defer = true;
+            document.head.appendChild(script);
+            await new Promise<void>((resolve, reject) => { script.onload = () => resolve(); script.onerror = () => reject(new Error('Google Maps failed to load. Check API key, billing and HTTP referrer restrictions.')); });
+          } else if (!window.google?.maps) {
+            await new Promise<void>((resolve, reject) => { existing.addEventListener('load', () => resolve(), { once: true }); existing.addEventListener('error', () => reject(new Error('Google Maps failed to load.')), { once: true }); });
+          }
+        }
+        if (!active || !hostRef.current || !window.google?.maps) return;
+        const map = new window.google.maps.Map(hostRef.current, {
+          center: zoom ? { lat: 7.72, lng: 36.72 } : { lat: 9.15, lng: 40.49 },
+          zoom: zoom ? 9 : 6,
+          mapTypeId: 'roadmap',
+          streetViewControl: false,
+          mapTypeControl: true,
+          fullscreenControl: true,
+          clickableIcons: false,
+          gestureHandling: 'greedy',
+        });
+        mapRef.current = map;
+        const [countryMeta, jimmaMeta] = await Promise.all([
+          fetch('https://www.geoboundaries.org/api/current/gbOpen/ETH/ADM0/').then(r => { if (!r.ok) throw new Error('Ethiopia boundary metadata unavailable'); return r.json(); }),
+          fetch('https://www.geoboundaries.org/api/current/gbOpen/ETH/ADM2/').then(r => { if (!r.ok) throw new Error('Jimma Zone boundary metadata unavailable'); return r.json(); }),
+        ]);
+        const [countryGeo, adm2Geo] = await Promise.all([
+          fetch(countryMeta.simplifiedGeometryGeoJSON || countryMeta.gjDownloadURL).then(r => { if (!r.ok) throw new Error('Ethiopia GeoJSON unavailable'); return r.json(); }),
+          fetch(jimmaMeta.simplifiedGeometryGeoJSON || jimmaMeta.gjDownloadURL).then(r => { if (!r.ok) throw new Error('ADM2 GeoJSON unavailable'); return r.json(); }),
+        ]);
+        if (!active) return;
+        map.data.addGeoJson(countryGeo);
+        map.data.setStyle((feature: any) => ({
+          fillColor: '#D9E0D8', fillOpacity: 0.18, strokeColor: '#7D8A7D', strokeOpacity: 0.8, strokeWeight: 1,
+          zIndex: 1,
+        }));
+        const features = (adm2Geo.features || []).filter((feature: any) => {
+          const props = feature.properties || {};
+          const name = String(props.shapeName || props.ADM2_EN || props.name || props.shapeName_en || '').toLowerCase();
+          return name === 'jimma' || name === 'jimma zone' || name.includes('jimma');
+        });
+        if (!features.length) throw new Error('Jimma Zone was not found in the current Ethiopia ADM2 boundary dataset. The map will not substitute an approximate rectangle.');
+        const jimmaCollection = { type: 'FeatureCollection', features };
+        map.data.addGeoJson(jimmaCollection);
+        map.data.setStyle((feature: any) => {
+          const props = feature.getProperty ? feature : null;
+          const isJimma = features.some((f: any) => String(f.properties?.shapeName || f.properties?.ADM2_EN || '').toLowerCase().includes('jimma'));
+          return { fillColor: '#1F8A50', fillOpacity: 0.25, strokeColor: '#0B6B3A', strokeOpacity: 1, strokeWeight: 3, zIndex: isJimma ? 5 : 2 };
+        });
+        const info = new window.google.maps.InfoWindow();
+        const bounds = new window.google.maps.LatLngBounds();
+        const collect = (coords: any): void => {
+          if (!Array.isArray(coords)) return;
+          if (typeof coords[0] === 'number' && typeof coords[1] === 'number') { bounds.extend({ lat: coords[1], lng: coords[0] }); return; }
+          coords.forEach(collect);
+        };
+        features.forEach((feature: any) => collect(feature.geometry?.coordinates));
+        SITES.forEach(s => {
+          const marker = new window.google.maps.Marker({ map, position: { lat: s.lat, lng: s.lon }, title: s.name, label: { text: s.id === site.id ? '★' : '●', color: '#FFFFFF', fontSize: '12px' }, icon: { path: window.google.maps.SymbolPath.CIRCLE, scale: s.id === site.id ? 9 : 7, fillColor: s.id === site.id ? '#A34F3E' : '#247849', fillOpacity: 1, strokeColor: '#FFFFFF', strokeWeight: 2 } });
+          marker.addListener('click', () => { info.setContent('<strong>' + s.name + '</strong><br/>' + s.lat.toFixed(4) + ', ' + s.lon.toFixed(4)); info.open({ map, anchor: marker }); });
+          overlaysRef.current.push(marker);
+        });
+        points.slice(0, 300).forEach(p => {
+          const marker = new window.google.maps.Marker({ map, position: { lat: p.decimalLatitude, lng: p.decimalLongitude }, title: 'GBIF Coffea arabica · ' + (p.establishmentMeans || 'occurrence'), icon: { path: window.google.maps.SymbolPath.CIRCLE, scale: 3.5, fillColor: '#8B4D36', fillOpacity: 0.9, strokeColor: '#FFFFFF', strokeWeight: 1 } });
+          overlaysRef.current.push(marker);
+        });
+        if (!bounds.isEmpty()) map.fitBounds(bounds, 45);
+        if (!zoom) map.setZoom(6);
+        setMapReady(true);
+      } catch (error: any) {
+        if (active) setMapError(error?.message || 'Unable to load Google Maps and verified administrative boundaries.');
+      }
     };
-    void loadBoundary();
-    return () => { live = false; };
-  }, []);
-  const bounds = zoom ? { minLon: 36.05, maxLon: 37.45, minLat: 7.2, maxLat: 8.15 } : { minLon: 32.8, maxLon: 48.0, minLat: 3.3, maxLat: 15.0 };
-  const project = (lon: number, lat: number) => ({ x: 20 + (lon - bounds.minLon) / (bounds.maxLon - bounds.minLon) * 360, y: 18 + (bounds.maxLat - lat) / (bounds.maxLat - bounds.minLat) * 255 });
-  const paths: string[] = [];
-  const collect = (coords: any) => {
-    if (!Array.isArray(coords) || !coords.length) return;
-    if (typeof coords[0]?.[0] === 'number') {
-      paths.push('M ' + coords.map((p: number[]) => { const q = project(p[0], p[1]); return q.x + ' ' + q.y; }).join(' L ') + ' Z');
-    } else coords.forEach(collect);
-  };
-  (country?.features || []).forEach((f: any) => collect(f.geometry?.coordinates));
-  const cluster = [[36.05,7.2],[37.45,7.2],[37.45,8.15],[36.05,8.15]].map(([lon,lat]) => { const p=project(lon,lat); return p.x+','+p.y; }).join(' ');
+    void init();
+    return () => { active = false; overlaysRef.current.forEach(marker => marker.setMap(null)); overlaysRef.current = []; mapRef.current = null; };
+  }, [apiKey, site.id, zoom, points]);
   return <View style={{ ...panel, padding: 15, flex: 1, minWidth: 280 }}>
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}><View style={{ flex: 1 }}><Text style={{ color: INK, fontSize: 15, fontWeight: '900' }}>Ethiopia Origin & Jimma Coffee Cluster</Text><Text style={{ color: MUTED, fontSize: 10, marginTop: 3 }}>Jimma study extent highlighted · GBIF occurrence records</Text></View><Pressable onPress={onToggle} style={{ backgroundColor: '#26372D', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 }}><Text style={{ color: '#FFFFFF', fontSize: 9, fontWeight: '900' }}>{zoom ? 'Full Ethiopia View' : 'Zoom to Jimma'}</Text></Pressable></View>
-    <Svg viewBox="0 0 400 290" style={{ width: '100%', height: 285, marginTop: 10 }}>
-      <Rect x="0" y="0" width="400" height="290" rx="12" fill="#F7F8F4" />
-      {paths.length ? paths.map((d,i)=><Path key={i} d={d} fill="#DCE3D9" stroke="#8D9A8C" strokeWidth={zoom ? 0.8 : 1.4} />) : <Path d="M125 25 L205 18 L258 55 L285 112 L265 164 L238 220 L180 260 L120 230 L88 170 L100 105 Z" fill="#DCE3D9" stroke="#8D9A8C" strokeWidth="2" />}
-      {!zoom ? <Polygon points={cluster} fill="#3B8D5A" fillOpacity={0.26} stroke="#277449" strokeWidth="2.5" /> : <Rect x="20" y="18" width="360" height="255" fill="none" stroke="#A34F3E" strokeDasharray="5 4" strokeWidth="1" />}
-      {SITES.map(s=>{const p=project(s.lon,s.lat);return <Circle key={s.id} cx={p.x} cy={p.y} r={s.id===site.id?7:5} fill={s.id===site.id?'#A34F3E':'#277449'} stroke="#FFFFFF" strokeWidth="2" />;})}
-      {points.slice(0,100).map((p,i)=>{const q=project(p.decimalLongitude,p.decimalLatitude);return <Circle key={p.key||i} cx={q.x} cy={q.y} r="2.7" fill={p.establishmentMeans?.toUpperCase()==='NATIVE'?'#8B4D36':'#7A8DA8'} stroke="#FFFFFF" strokeWidth="0.7" />;})}
-      <Text />
-    </Svg>
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 4 }}><View style={{ flexDirection:'row',alignItems:'center',gap:5 }}><View style={{width:8,height:8,borderRadius:4,backgroundColor:'#A34F3E'}}/><Text style={{color:MUTED,fontSize:9}}>Selected site</Text></View><View style={{flexDirection:'row',alignItems:'center',gap:5}}><View style={{width:8,height:8,borderRadius:4,backgroundColor:'#277449'}}/><Text style={{color:MUTED,fontSize:9}}>Jimma coffee site</Text></View><View style={{flexDirection:'row',alignItems:'center',gap:5}}><View style={{width:8,height:8,borderRadius:4,backgroundColor:'#8B4D36'}}/><Text style={{color:MUTED,fontSize:9}}>GBIF native record</Text></View></View>
-    <Text style={{ color: MUTED, fontSize: 9, marginTop: 8, lineHeight: 14 }}>{boundaryError ? 'Administrative border service unavailable; a schematic locator is shown.' : 'Boundary: geoBoundaries Ethiopia ADM0. The highlighted rectangle is the requested Jimma study bounding box, not an official woreda boundary.'} GBIF records are occurrence records; only records explicitly marked NATIVE are styled as native. They are not automatically proof of wild populations.</Text>
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+      <View style={{ flex: 1 }}><Text style={{ color: INK, fontSize: 15, fontWeight: '900' }}>Ethiopia Origin & Jimma Coffee Cluster</Text><Text style={{ color: MUTED, fontSize: 10, marginTop: 3 }}>Google Maps · real administrative boundary · live coffee coordinates</Text></View>
+      <Pressable onPress={onToggle} style={{ backgroundColor: '#26372D', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 }}><Text style={{ color: '#FFFFFF', fontSize: 9, fontWeight: '900' }}>{zoom ? 'Full Ethiopia View' : 'Zoom to Jimma'}</Text></Pressable>
+    </View>
+    <View ref={hostRef} style={{ width: '100%', height: 360, marginTop: 12, borderRadius: 12, overflow: 'hidden', backgroundColor: '#E9EEE8' }} />
+    {!mapReady ? <View style={{ padding: 12 }}><ActivityIndicator color={GREEN}/><Text style={{ color: mapError ? '#A34F3E' : MUTED, fontSize: 10, marginTop: 6 }}>{mapError || 'Loading Google Maps and official Jimma Zone boundary…'}</Text></View> : null}
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 10 }}>
+      <Text style={{ color: MUTED, fontSize: 9 }}>● Selected coffee site</Text><Text style={{ color: GREEN, fontSize: 9 }}>● Other coffee sites</Text><Text style={{ color: '#8B4D36', fontSize: 9 }}>● GBIF native occurrence</Text>
+    </View>
+    <Text style={{ color: MUTED, fontSize: 9, marginTop: 8, lineHeight: 14 }}>Google Maps road basemap with geoBoundaries Ethiopia ADM0 and ADM2 administrative polygons. Jimma is selected by its boundary name; no bounding-box substitute is used. Boundary data: geoBoundaries gbOpen (CC BY 4.0).</Text>
   </View>;
 }
 export default function CoffeePlantMonitor() {

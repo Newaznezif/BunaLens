@@ -32,6 +32,7 @@ export function StationProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let active = true;
+    let realtimeChannel: any = null;
     AsyncStorage.multiGet([...STORAGE_KEYS])
       .then(async (values) => {
         if (!active) return;
@@ -95,8 +96,8 @@ export function StationProvider({ children }: { children: React.ReactNode }) {
             woreda: row.woreda,
             created_at: row.created_at,
             image_path: row.image_path || undefined,
-            origin_coordinates: Number.isFinite(Number(row.gps_latitude ?? row.latitude)) &&
-              Number.isFinite(Number(row.gps_longitude ?? row.longitude))
+            origin_coordinates: (row.gps_latitude ?? row.latitude) != null && (row.gps_longitude ?? row.longitude) != null &&
+              Number.isFinite(Number(row.gps_latitude ?? row.latitude)) && Number.isFinite(Number(row.gps_longitude ?? row.longitude))
               ? { latitude: Number(row.gps_latitude ?? row.latitude), longitude: Number(row.gps_longitude ?? row.longitude) }
               : undefined,
             result: row.grading_result,
@@ -118,17 +119,20 @@ export function StationProvider({ children }: { children: React.ReactNode }) {
         await refreshCloudBatches();
         // Keep the scan history current when this station receives another
         // scan from a second signed-in device.
-        const channel = supabase
+        realtimeChannel = supabase
           .channel('coffee-batches-' + remoteStation.id)
           .on('postgres_changes', {
             event: '*', schema: 'public', table: 'coffee_batches',
             filter: 'station_id=eq.' + remoteStation.id,
           }, () => { void refreshCloudBatches(); })
           .subscribe();
-        if (!active) void supabase.removeChannel(channel);
+        if (!active && realtimeChannel) void supabase.removeChannel(realtimeChannel);
       })
       .catch(() => undefined);
-    return () => { active = false; };
+    return () => {
+      active = false;
+      if (supabase && realtimeChannel) void supabase.removeChannel(realtimeChannel);
+    };
   }, []);
 
   const setStation = (next: Station) => {

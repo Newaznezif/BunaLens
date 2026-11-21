@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { JIMMA_WOREDAS } from '@/constants/jimmaData';
 import { fetchListings, type Listing } from '@/services/marketplace';
 import type { SampleType } from '@/types';
@@ -34,7 +34,13 @@ export default function Marketplace() {
       setError(null);
     } catch (e) { setError(e instanceof Error ? e.message : 'Listings could not be loaded.'); }
   }, [origin, stage, maxPrice, minPrice]);
-  useEffect(() => { void load(); }, [load]);
+
+  // Tabs can remain mounted while the admin publishes a lot. Refetch whenever
+  // the marketplace comes back into focus so the newly published listing appears.
+  useFocusEffect(useCallback(() => {
+    void load();
+    return undefined;
+  }, [load]));
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: '#FAF7F2' }} contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>

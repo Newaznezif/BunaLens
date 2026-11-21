@@ -12,7 +12,7 @@ import DirectoryManager from '@/components/admin/DirectoryManager';
 import UserManagement from '@/components/admin/UserManagement';
 import AdminScanReview from '@/components/admin/ScanReview';
 
-type AdminTab = 'overview' | 'stations' | 'payments' | 'directory' | 'users' | 'reviews';
+type AdminTab = 'overview' | 'stations' | 'payments' | 'directory' | 'users' | 'reviews' | 'coffeePlants';
 type StationRow = { id: string; name: string | null; manager: string | null; email: string | null; phone: string | null; woreda: string; credits: number; pro_expires_at: string | null; created_at: string };
 type BatchRow = { id: string; batch_code: string; sample_type: string; woreda: string; grading_status: string; ecx_grade: string; quality_score: number | null; created_at: string; stations?: { name: string | null; manager: string | null }[] | null };
 type PaymentRow = { id: string; package_id: string; amount_etb: number; currency: string; chapa_tx_ref: string; status: string; created_at: string; verified_at: string | null; stations?: { name: string | null }[] | null };
@@ -125,6 +125,7 @@ export default function AdminDashboard() {
     { key: 'directory', label: 'Directory', icon: Database },
     { key: 'users', label: 'Users', icon: Users },
     { key: 'reviews', label: 'Scan reviews', icon: ClipboardCheck },
+    { key: 'coffeePlants', label: 'Coffee Plant Monitor', icon: Sprout },
   ];
 
   return (
@@ -139,7 +140,7 @@ export default function AdminDashboard() {
         <View style={{ flexDirection: narrow ? 'row' : 'column', gap: 5 }}>
           {tabs.map(({ key, label, icon: Icon }) => {
             const selected = tab === key;
-            return <Pressable key={key} onPress={() => { setTab(key); setSearch(''); }} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 11, borderRadius: 12, backgroundColor: selected ? '#3C5142' : 'transparent', flex: narrow ? 1 : undefined }}>
+            return <Pressable key={key} onPress={() => { if (key === 'coffeePlants') { router.push('/admin/coffee-plants'); return; } setTab(key); setSearch(''); }} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 11, borderRadius: 12, backgroundColor: selected ? '#3C5142' : 'transparent', flex: narrow ? 1 : undefined }}>
               <Icon size={16} color={selected ? '#FFFFFF' : '#AFB9AE'} /><Text style={{ color: selected ? '#FFFFFF' : '#AFB9AE', fontSize: 12, fontWeight: selected ? '800' : '600', marginLeft: 10 }}>{label}</Text>
             </Pressable>;
           })}

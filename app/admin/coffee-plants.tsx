@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import Svg, { Circle, Path, Polygon, Rect } from 'react-native-svg';
 import { router } from 'expo-router';
-import { ArrowLeft, CloudRain, Droplets, Leaf, MapPin, RefreshCw, Sprout, Sun, Thermometer, Wind } from 'lucide-react-native';
+import { ArrowLeft, Coffee, CreditCard, Database, Building2, ClipboardCheck, LayoutDashboard, LogOut, RefreshCw, Sprout, Thermometer, Wind, Droplets, Activity, Users } from 'lucide-react-native';
 import { supabase } from '@/services/supabaseClient';
 
 type Site = { id: string; name: string; short: string; lat: number; lon: number };
@@ -134,7 +134,29 @@ export default function CoffeePlantMonitor() {
   const soilStatus=ph===null?'SOIL DATA UNAVAILABLE':ph>=5&&ph<=6.2?'WITHIN TARGET PH':'OUTSIDE TARGET PH';
   const timestamp=data.fetchedAt?new Date(data.fetchedAt).toLocaleTimeString(): 'Not yet updated';
   const narrow=width<850;
-  return <View style={{flex:1,backgroundColor:BG}}>
+  const menu = [
+    { label: 'Overview', icon: LayoutDashboard }, { label: 'Stations', icon: Building2 },
+    { label: 'Payments', icon: CreditCard }, { label: 'Directory', icon: Database },
+    { label: 'Users', icon: Users }, { label: 'Scan reviews', icon: ClipboardCheck },
+  ];
+  const signOut = async () => { await supabase?.auth.signOut(); router.replace('/admin-login'); };
+  return <View style={{flex:1,flexDirection:narrow?'column':'row',backgroundColor:BG}}>
+    <View style={{width:narrow?'100%':248,backgroundColor:INK,paddingHorizontal:15,paddingTop:narrow?12:26,paddingBottom:12}}>
+      <View style={{flexDirection:'row',alignItems:'center',gap:10,marginBottom:narrow?10:30}}>
+        <View style={{width:40,height:40,borderRadius:14,backgroundColor:GREEN,alignItems:'center',justifyContent:'center'}}><Coffee size={21} color="#FFFFFF"/></View>
+        <View style={{flex:1}}><Text style={{color:'#FFFFFF',fontSize:17,fontWeight:'900'}}>BunaLens</Text><Text style={{color:'#C3D0C1',fontSize:9,fontWeight:'800',letterSpacing:1}}>ADMIN CONSOLE</Text></View>
+        {narrow?<Pressable onPress={signOut} style={{padding:8}}><LogOut size={16} color="#FFFFFF"/></Pressable>:null}
+      </View>
+      {!narrow?<Text style={{color:'#9CAA9B',fontSize:9,fontWeight:'900',letterSpacing:1.2,marginHorizontal:10,marginBottom:9}}>WORKSPACE</Text>:null}
+      <View style={{flexDirection:narrow?'row':'column',flexWrap:narrow?'wrap':'nowrap',gap:5}}>
+        {menu.map(({label,icon:Icon})=><Pressable key={label} onPress={()=>router.replace('/admin')} style={{flexDirection:'row',alignItems:'center',gap:9,paddingHorizontal:10,paddingVertical:10,borderRadius:10,flexGrow:narrow?1:0,backgroundColor:'transparent'}}><Icon size={15} color="#AFB9AE"/><Text style={{color:'#AFB9AE',fontSize:11,fontWeight:'600'}}>{label}</Text></Pressable>)}
+        <View style={{flexDirection:'row',alignItems:'center',gap:9,paddingHorizontal:10,paddingVertical:10,borderRadius:10,backgroundColor:'#3C5142',flexGrow:narrow?1:0}}><Sprout size={15} color="#FFFFFF"/><Text style={{color:'#FFFFFF',fontSize:11,fontWeight:'900'}}>Coffee Plant Monitor</Text></View>
+      </View>
+      {!narrow?<View style={{marginTop:'auto',paddingTop:20}}>
+        <View style={{backgroundColor:'#35473A',borderRadius:14,padding:12,marginBottom:10}}><Text style={{color:'#DCE7D8',fontSize:10,fontWeight:'800'}}>Protected workspace</Text><Text style={{color:'#AEBBAD',fontSize:9,lineHeight:14,marginTop:5}}>Admin access is verified by your secure Supabase role.</Text></View>
+        <Pressable onPress={signOut} style={{flexDirection:'row',alignItems:'center',padding:10,gap:9}}><LogOut size={15} color="#B7C0B5"/><Text style={{color:'#B7C0B5',fontSize:11,fontWeight:'700'}}>Sign out</Text></Pressable>
+      </View>:null}
+    </View>
     <ScrollView contentContainerStyle={{padding: narrow?14:28,paddingBottom:50,maxWidth:1600,width:'100%',alignSelf:'center'}}>
       <Pressable onPress={()=>router.replace('/admin')} style={{flexDirection:'row',alignItems:'center',gap:7,marginBottom:17}}><ArrowLeft size={16} color={GREEN}/><Text style={{color:GREEN,fontSize:11,fontWeight:'800'}}>Back to Admin Console</Text></Pressable>
       <View style={{flexDirection:narrow?'column':'row',justifyContent:'space-between',alignItems:narrow?'flex-start':'center',gap:12,marginBottom:19}}>

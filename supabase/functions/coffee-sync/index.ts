@@ -90,11 +90,18 @@ Deno.serve(async(req)=>{
    const {data:updated,error:updateError}=await db.from("coffee_batches").update({
     image_path:imagePath,grading_result:stored,pricing_result:pricing||null,grading_status:"completed",is_demo:false,ecx_grade:"Unclassified",quality_score:result.quality_score,confidence_score:result.confidence_score,
     eligibility_status:"unreviewed",eligibility_updated_at:new Date().toISOString(),
+    certification_status:"pending_admin_review",certified_grade:null,quality_classification:null,
+    certification_origin_zone:null,certified_by:null,certified_at:null,certification_note:null,
     ...(hasGps?{gps_latitude:lat,gps_longitude:lng}:{})
    }).eq("id",lot.id).eq("station_id",stationId).select("*").single();
    if(updateError||!updated){
     console.error("Lot assessment persistence failed",updateError);
     return reply({error:"Assessment completed but the lot record could not be updated. Retry using the same capture."},503);
+   }
+   const {error:pauseError}=await db.from("marketplace_listings").update({status:"paused",updated_at:new Date().toISOString()}).eq("batch_id",lot.id).eq("status","published");
+   if(pauseError){
+    console.error("Previously published lot listing could not be paused after a new assessment",pauseError);
+    return reply({error:"The new scan was saved and its old certification was reset, but the marketplace listing needs administrator attention."},503);
    }
    return reply({batch:asBatch(updated,{origin_coordinates:hasGps?{latitude:lat,longitude:lng}:undefined})});
   }

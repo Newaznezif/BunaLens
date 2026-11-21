@@ -148,8 +148,8 @@ export default function AdminScanReview() {
         const liveEvidence = screening?.source === 'live_inference';
         const photoUsable = screening?.photo?.usable === true && screening?.needs_review !== true;
         const listingRows = Array.isArray(row.marketplace_listings) ? row.marketplace_listings : row.marketplace_listings ? [row.marketplace_listings] : [];
-        const hasPublishedListing = listingRows.some((listing) => listing.status === 'published');
-        const pending = row.eligibility_status === 'unreviewed' || row.eligibility_status === 'needs_review' || (row.certification_status === 'certified' && !hasPublishedListing);
+        const hasListing = listingRows.length > 0;
+        const pending = row.eligibility_status === 'unreviewed' || row.eligibility_status === 'needs_review' || (row.certification_status === 'certified' && !hasListing);
         return (
           <View key={row.id} style={{ ...panel, padding: 16, gap: 10 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>

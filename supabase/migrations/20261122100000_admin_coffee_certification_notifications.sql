@@ -35,6 +35,41 @@ create table if not exists public.user_notifications (
   created_at timestamptz not null default now()
 );
 
+-- Certification fields are immutable to station users; only trusted admin RPCs may change them.
+create or replace function public.bunalens_guard_certificate_fields()
+returns trigger
+language plpgsql
+set search_path = ''
+as $
+begin
+  if tg_op = 'INSERT' then
+    if coalesce(new.certification_status,'pending_admin_review') <> 'pending_admin_review'
+       or new.certified_grade is not null or new.quality_classification is not null
+       or new.certified_by is not null or new.certified_at is not null then
+      if (select auth.uid()) is null or public.bunalens_jwt_role() <> 'admin' then
+        raise exception 'Only an administrator can create a certified coffee record.' using errcode = '42501';
+      end if;
+    end if;
+  elsif new.certification_status is distinct from old.certification_status
+     or new.certified_grade is distinct from old.certified_grade
+     or new.quality_classification is distinct from old.quality_classification
+     or new.certification_origin_zone is distinct from old.certification_origin_zone
+     or new.certified_by is distinct from old.certified_by
+     or new.certified_at is distinct from old.certified_at
+     or new.certification_note is distinct from old.certification_note then
+    if (select auth.uid()) is null or public.bunalens_jwt_role() <> 'admin' then
+      raise exception 'Only an administrator can change coffee certification fields.' using errcode = '42501';
+    end if;
+  end if;
+  return new;
+end;
+$;
+
+drop trigger if exists coffee_batches_guard_certificate_fields on public.coffee_batches;
+create trigger coffee_batches_guard_certificate_fields
+before insert or update on public.coffee_batches
+for each row execute function public.bunalens_guard_certificate_fields();
+
 create index if not exists user_notifications_user_created_idx
   on public.user_notifications(user_id, created_at desc);
 create index if not exists coffee_batches_certification_status_idx

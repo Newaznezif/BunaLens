@@ -8,6 +8,8 @@ type ScanRow = {
   id: string; station_id: string; batch_code: string; sample_type: string; woreda: string; lot_weight_kg: number; image_path: string | null;
   grading_status: string; eligibility_status: string; is_demo: boolean; created_at: string;
   grading_result: any;
+  certification_status?: string; certified_grade?: string | null; quality_classification?: string | null;
+  marketplace_listings?: { status: string }[] | null;
   stations?: StationSummary[] | null;
 };
 const panel = { backgroundColor: '#FFFFFF', borderColor: '#E5E9E0', borderWidth: 1, borderRadius: 18 } as const;
@@ -34,7 +36,7 @@ export default function AdminScanReview() {
     try {
       const { data, error: queryError } = await client
         .from('coffee_batches')
-        .select('id,station_id,batch_code,sample_type,woreda,lot_weight_kg,image_path,grading_status,eligibility_status,is_demo,created_at,grading_result,stations(name,station_name,manager,marketplace_seller_status)')
+        .select('id,station_id,batch_code,sample_type,woreda,lot_weight_kg,image_path,grading_status,eligibility_status,is_demo,created_at,grading_result,certification_status,certified_grade,quality_classification,marketplace_listings(status),stations(name,station_name,manager,marketplace_seller_status)')
         .order('created_at', { ascending: false }).limit(500);
       if (queryError) throw queryError;
       const scans = (data || []) as unknown as ScanRow[];
@@ -73,13 +75,13 @@ export default function AdminScanReview() {
     const reason = (reasons[row.id] || '').trim();
     const sellerStatus = row.stations?.[0]?.marketplace_seller_status || 'pending';
     const screening = row.grading_result?.screening;
-    if (decision === 'eligible' && sellerStatus !== 'approved') { setError('Approve this station as a marketplace seller before publishing ' + row.batch_code + '.'); return; }
     if (decision === 'eligible' && screening?.source !== 'live_inference') { setError(row.batch_code + ' has no live AI screening evidence. Retake and submit a real sample scan before publishing.'); return; }
     if (decision === 'eligible' && (screening?.photo?.usable !== true || screening?.needs_review === true)) { setError(screening?.photo?.retake_guidance || row.batch_code + ' requires a new, usable sample photograph before publishing.'); return; }
     if (reason.length < 10) { setError('Add a review reason of at least 10 characters for ' + row.batch_code + '.'); return; }
-    const price = Number(prices[row.id]);
-    if (decision === 'eligible' && (!Number.isFinite(price) || price <= 0)) {
-      setError('Enter the public price per kg in ETB before approving ' + row.batch_code + '.'); return;
+    const priceText = (prices[row.id] || '').trim();
+    const price = priceText ? Number(priceText) : null;
+    if (decision === 'eligible' && priceText && (!Number.isFinite(price) || (price as number) <= 0)) {
+      setError('Enter a valid positive public price per kg in ETB, or leave it blank to certify without publishing.'); return;
     }
     if (decision === 'eligible' && !grades[row.id]) { setError('Select the administrator-certified grade for ' + row.batch_code + '.'); return; }
     if (decision === 'eligible' && !classifications[row.id]) { setError('Select the quality classification for ' + row.batch_code + '.'); return; }
@@ -88,15 +90,16 @@ export default function AdminScanReview() {
     try {
       const { data, error: rpcError } = await supabase.rpc('bunalens_admin_certify_and_publish_lot', {
         p_batch_id: row.id, p_decision: decision, p_reason: reason,
-        p_price_per_kg_etb: decision === 'eligible' ? price : null,
+        p_price_per_kg_etb: decision === 'eligible' && price !== null ? price : null,
         p_certified_grade: decision === 'eligible' ? grades[row.id] : null,
         p_quality_classification: decision === 'eligible' ? classifications[row.id] : null,
       });
       if (rpcError) throw rpcError;
-      if (decision === 'eligible' && !(data as any)?.listing) {
-        throw new Error('The review was accepted, but the server did not return a marketplace listing. Refresh the queue and verify the listing before retrying.');
-      }
-      setNotice(decision === 'eligible' ? row.batch_code + ' certified and published. The station owner has been notified.' : row.batch_code + ' rejected. The station owner has been notified.');
+      setNotice(decision === 'eligible'
+        ? (data as any)?.listing
+          ? row.batch_code + ' certified and published to the marketplace.'
+          : row.batch_code + ' certified. Marketplace publication can happen later after seller approval and a price are provided.'
+        : row.batch_code + ' rejected. The station owner has been notified.');
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'The review action failed. Refresh the queue and try again.');
@@ -133,7 +136,7 @@ export default function AdminScanReview() {
   return (
     <View style={{ gap: 14 }}>
       <View style={{ ...panel, padding: 17, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <View style={{ flex: 1 }}><Text style={{ color: ink, fontSize: 17, fontWeight: '900' }}>Scan review queue</Text><Text style={{ color: muted, fontSize: 11, marginTop: 4 }}>Every cloud-saved coffee scan appears here. Only administrator-reviewed, usable live-evidence lots can be certified and published.</Text></View>
+        <View style={{ flex: 1 }}><Text style={{ color: ink, fontSize: 17, fontWeight: '900' }}>Scan review queue</Text><Text style={{ color: muted, fontSize: 11, marginTop: 4 }}>Every cloud-saved coffee scan appears here. Administrators assign the final grade and quality classification. Certification is separate from optional marketplace publication.</Text></View>
         <Pressable accessibilityRole="button" accessibilityLabel="Refresh scan review queue" onPress={() => void load()} style={{ padding: 10 }}><RefreshCw size={17} color={green} /></Pressable>
       </View>
       {error ? <Text accessibilityRole="alert" style={{ color: '#A34F3E', fontSize: 12 }}>{error}</Text> : null}
@@ -144,7 +147,8 @@ export default function AdminScanReview() {
         const screening = row.grading_result?.screening;
         const liveEvidence = screening?.source === 'live_inference';
         const photoUsable = screening?.photo?.usable === true && screening?.needs_review !== true;
-        const pending = row.eligibility_status === 'unreviewed' || row.eligibility_status === 'needs_review';
+        const hasPublishedListing = (row.marketplace_listings || []).some((listing) => listing.status === 'published');
+        const pending = row.eligibility_status === 'unreviewed' || row.eligibility_status === 'needs_review' || (row.certification_status === 'certified' && !hasPublishedListing);
         const canPublish = sellerStatus === 'approved' && liveEvidence && photoUsable;
         return (
           <View key={row.id} style={{ ...panel, padding: 16, gap: 10 }}>
@@ -177,7 +181,7 @@ export default function AdminScanReview() {
               <Text style={{ color: ink, fontSize: 11, fontWeight: '800' }}>Administrator certification note</Text>
               <TextInput value={reasons[row.id] || ''} onChangeText={(value) => setReasons((old) => ({ ...old, [row.id]: value }))} placeholder="Record the basis for your decision (minimum 10 characters)" multiline style={{ borderWidth: 1, borderColor: '#E5E9E0', borderRadius: 11, padding: 11, color: ink, minHeight: 64 }} />
               <View style={{ flexDirection: 'row', gap: 9 }}>
-                <Pressable testID={'publish-' + row.batch_code} accessibilityRole="button" disabled={busyId === row.id} onPress={() => void decide(row, 'eligible')} style={{ flex: 1, backgroundColor: busyId === row.id ? '#AAB3A8' : green, borderRadius: 11, padding: 12, alignItems: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '900' }}>{busyId === row.id ? 'Processing…' : 'Approve & publish'}</Text></Pressable>
+                <Pressable testID={'publish-' + row.batch_code} accessibilityRole="button" disabled={busyId === row.id} onPress={() => void decide(row, 'eligible')} style={{ flex: 1, backgroundColor: busyId === row.id ? '#AAB3A8' : green, borderRadius: 11, padding: 12, alignItems: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '900' }}>{busyId === row.id ? 'Processing…' : row.certification_status === 'certified' ? 'Publish certified lot' : 'Approve & certify'}</Text></Pressable>
                 <Pressable testID={'reject-' + row.batch_code} accessibilityRole="button" disabled={busyId === row.id} onPress={() => void decide(row, 'rejected')} style={{ backgroundColor: '#F7EAE5', borderRadius: 11, paddingHorizontal: 16, justifyContent: 'center' }}><Text style={{ color: '#A34F3E', fontSize: 11, fontWeight: '900' }}>Reject</Text></Pressable>
               </View>
               {!liveEvidence ? <Text style={{ color: '#9A6A37', fontSize: 10 }}>This record has no live screening evidence. Press Approve &amp; publish to see the exact requirement; it must be reassessed with a real scan first.</Text> : null}

@@ -116,7 +116,7 @@ begin
   if (select auth.uid()) is null or public.bunalens_jwt_role() <> 'admin' then
     raise exception 'Only an administrator can review and certify coffee scans.' using errcode = '42501';
   end if;
-  if p_decision not in ('eligible', 'rejected') then
+  if p_decision is null or p_decision not in ('eligible', 'rejected') then
     raise exception 'Decision must be eligible or rejected.' using errcode = '22023';
   end if;
   if length(btrim(coalesce(p_reason, ''))) < 10 then
@@ -134,7 +134,7 @@ begin
     update public.coffee_batches
       set certification_status = 'rejected',
           certified_grade = null,
-          quality_classification = null,
+          quality_classification = 'Reject / Re-sort',
           certified_by = (select auth.uid()),
           certified_at = now(),
           certification_note = left(btrim(p_reason), 1000)
@@ -146,10 +146,10 @@ begin
     return jsonb_build_object('decision','rejected','review',v_review,'listing',null,'certification_status','rejected');
   end if;
 
-  if p_certified_grade not in ('Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7') then
+  if p_certified_grade is null or p_certified_grade not in ('Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7') then
     raise exception 'Administrator must assign a valid coffee grade from Grade 1 to Grade 7.' using errcode = '22023';
   end if;
-  if p_quality_classification not in ('Specialty Export','Commercial Export','Local Market Only','Reject / Re-sort') then
+  if p_quality_classification is null or p_quality_classification not in ('Specialty Export','Commercial Export','Local Market Only','Reject / Re-sort') then
     raise exception 'Administrator must assign a valid quality classification.' using errcode = '22023';
   end if;
   if p_quality_classification = 'Reject / Re-sort' then

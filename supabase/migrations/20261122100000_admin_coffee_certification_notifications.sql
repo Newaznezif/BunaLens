@@ -40,7 +40,7 @@ create or replace function public.bunalens_guard_certificate_fields()
 returns trigger
 language plpgsql
 set search_path = ''
-as $
+as $guard$
 begin
   if tg_op = 'INSERT' then
     if coalesce(new.certification_status,'pending_admin_review') <> 'pending_admin_review'
@@ -63,7 +63,7 @@ begin
   end if;
   return new;
 end;
-$;
+$guard$;
 
 drop trigger if exists coffee_batches_guard_certificate_fields on public.coffee_batches;
 create trigger coffee_batches_guard_certificate_fields

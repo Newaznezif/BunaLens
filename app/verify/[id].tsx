@@ -6,7 +6,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useStation } from '@/contexts/StationContext';
 import type { CoffeeBatch } from '@/types';
 
-const VERIFY_BASE = process.env.EXPO_PUBLIC_CERTIFICATE_VERIFY_BASE_URL;
+const VERIFY_BASE = process.env.EXPO_PUBLIC_CERTIFICATE_VERIFY_BASE_URL || (process.env.EXPO_PUBLIC_SUPABASE_URL ? process.env.EXPO_PUBLIC_SUPABASE_URL.replace(/\/$/, '') + '/functions/v1/certificate-verify' : undefined);
 
 type VerificationStatus = 'loading' | 'verified' | 'demo' | 'local' | 'invalid' | 'offline' | 'unavailable';
 type RemoteCertificate = {

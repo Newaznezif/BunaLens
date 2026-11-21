@@ -26,6 +26,7 @@ export default function AdminScanReview() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState('');
   const [error, setError] = useState('');
+  const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
   const [notice, setNotice] = useState('');
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
 
@@ -72,21 +73,22 @@ export default function AdminScanReview() {
 
   const decide = async (row: ScanRow, decision: 'eligible' | 'rejected') => {
     if (!supabase) return;
+    const fail = (message: string) => { setRowErrors((old) => ({ ...old, [row.id]: message })); setError(''); };
     const reason = (reasons[row.id] || '').trim();
     const sellerStatus = row.stations?.[0]?.marketplace_seller_status || 'pending';
     const screening = row.grading_result?.screening;
-    if (decision === 'eligible' && screening?.source !== 'live_inference') { setError(row.batch_code + ' has no live AI screening evidence. Retake and submit a real sample scan before publishing.'); return; }
-    if (decision === 'eligible' && (screening?.photo?.usable !== true || screening?.needs_review === true)) { setError(screening?.photo?.retake_guidance || row.batch_code + ' requires a new, usable sample photograph before publishing.'); return; }
-    if (reason.length < 10) { setError('Add a review reason of at least 10 characters for ' + row.batch_code + '.'); return; }
+    if (decision === 'eligible' && screening?.source !== 'live_inference') { fail('Cannot certify yet: this record has no live AI screening evidence. The station must retake and submit a real coffee sample scan.'); return; }
+    if (decision === 'eligible' && (screening?.photo?.usable !== true || screening?.needs_review === true)) { fail('Cannot certify this photo yet: ' + (screening?.photo?.retake_guidance || 'the photo-quality check requires a clearer sample photograph.')); return; }
+    if (reason.length < 10) { fail('Add an administrator review note of at least 10 characters. You have entered ' + reason.length + '.'); return; }
     const priceText = (prices[row.id] || '').trim();
     const price = priceText ? Number(priceText) : null;
     if (decision === 'eligible' && priceText && (!Number.isFinite(price) || (price as number) <= 0)) {
-      setError('Enter a valid positive public price per kg in ETB, or leave it blank to certify without publishing.'); return;
+      fail('The price must be a positive number in ETB/kg. Leave this field empty if you only want to certify and not publish.'); return;
     }
-    if (decision === 'eligible' && !(grades[row.id] || row.certified_grade)) { setError('Select the administrator-certified grade for ' + row.batch_code + '.'); return; }
-    if (decision === 'eligible' && !(classifications[row.id] || row.quality_classification)) { setError('Select the quality classification for ' + row.batch_code + '.'); return; }
-    if (decision === 'eligible' && (classifications[row.id] || row.quality_classification) === 'Reject / Re-sort') { setError('Reject / Re-sort cannot be certified or published. Use the Reject action.'); return; }
-    setBusyId(row.id); setError(''); setNotice('');
+    if (decision === 'eligible' && !(grades[row.id] || row.certified_grade)) { fail('Select one coffee grade (Grade 1–7) before certifying.'); return; }
+    if (decision === 'eligible' && !(classifications[row.id] || row.quality_classification)) { fail('Select a quality classification before certifying.'); return; }
+    if (decision === 'eligible' && (classifications[row.id] || row.quality_classification) === 'Reject / Re-sort') { fail('Reject / Re-sort is not a certificate outcome. Use the Reject button for this sample.'); return; }
+    setBusyId(row.id); setError(''); setRowErrors((old) => ({ ...old, [row.id]: '' })); setNotice('');
     try {
       const { data, error: rpcError } = await supabase.rpc('bunalens_admin_certify_and_publish_lot', {
         p_batch_id: row.id, p_decision: decision, p_reason: reason,
@@ -102,7 +104,7 @@ export default function AdminScanReview() {
         : row.batch_code + ' rejected. The station owner has been notified.');
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'The review action failed. Refresh the queue and try again.');
+      fail(e instanceof Error ? e.message : 'The review action failed. Refresh the queue and try again.');
     } finally {
       setBusyId('');
     }
@@ -170,16 +172,18 @@ export default function AdminScanReview() {
             {!row.is_demo && pending ? <>
               <Text style={{ color: ink, fontSize: 11, fontWeight: '800' }}>Administrator-certified coffee grade</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                {gradeOptions.map((grade) => <Pressable key={grade} onPress={() => setGrades((old) => ({ ...old, [row.id]: grade }))} style={{ borderRadius: 9, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: (grades[row.id] || row.certified_grade) === grade ? green : '#F1F4EF' }}><Text style={{ color: (grades[row.id] || row.certified_grade) === grade ? '#FFFFFF' : ink, fontSize: 10, fontWeight: '800' }}>{grade}</Text></Pressable>)}
+                {gradeOptions.map((grade) => <Pressable key={grade} onPress={() => { setGrades((old) => ({ ...old, [row.id]: grade })); setRowErrors((old) => ({ ...old, [row.id]: '' })); }} style={{ borderRadius: 9, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: (grades[row.id] || row.certified_grade) === grade ? green : '#F1F4EF' }}><Text style={{ color: (grades[row.id] || row.certified_grade) === grade ? '#FFFFFF' : ink, fontSize: 10, fontWeight: '800' }}>{grade}</Text></Pressable>)}
               </View>
               <Text style={{ color: ink, fontSize: 11, fontWeight: '800' }}>Quality classification</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                {classificationOptions.map((item) => <Pressable key={item} onPress={() => setClassifications((old) => ({ ...old, [row.id]: item }))} style={{ borderRadius: 9, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: (classifications[row.id] || row.quality_classification) === item ? green : '#F1F4EF' }}><Text style={{ color: (classifications[row.id] || row.quality_classification) === item ? '#FFFFFF' : ink, fontSize: 10, fontWeight: '800' }}>{item}</Text></Pressable>)}
+                {classificationOptions.map((item) => <Pressable key={item} onPress={() => { setClassifications((old) => ({ ...old, [row.id]: item })); setRowErrors((old) => ({ ...old, [row.id]: '' })); }} style={{ borderRadius: 9, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: (classifications[row.id] || row.quality_classification) === item ? green : '#F1F4EF' }}><Text style={{ color: (classifications[row.id] || row.quality_classification) === item ? '#FFFFFF' : ink, fontSize: 10, fontWeight: '800' }}>{item}</Text></Pressable>)}
               </View>
               <Text style={{ color: ink, fontSize: 11, fontWeight: '800' }}>Public price (ETB / kg)</Text>
-              <TextInput value={prices[row.id] || ''} onChangeText={(value) => setPrices((old) => ({ ...old, [row.id]: value }))} keyboardType="decimal-pad" placeholder="Optional: enter price to publish marketplace listing" style={{ borderWidth: 1, borderColor: '#E5E9E0', borderRadius: 11, padding: 11, color: ink }} />
+              <TextInput value={prices[row.id] || ''} onChangeText={(value) => { setPrices((old) => ({ ...old, [row.id]: value })); setRowErrors((old) => ({ ...old, [row.id]: '' })); }} keyboardType="decimal-pad" placeholder="Optional: enter price to publish marketplace listing" style={{ borderWidth: 1, borderColor: '#E5E9E0', borderRadius: 11, padding: 11, color: ink }} />
               <Text style={{ color: ink, fontSize: 11, fontWeight: '800' }}>Administrator certification note</Text>
-              <TextInput value={reasons[row.id] || ''} onChangeText={(value) => setReasons((old) => ({ ...old, [row.id]: value }))} placeholder="Record the basis for your decision (minimum 10 characters)" multiline style={{ borderWidth: 1, borderColor: '#E5E9E0', borderRadius: 11, padding: 11, color: ink, minHeight: 64 }} />
+              <TextInput value={reasons[row.id] || ''} onChangeText={(value) => { setReasons((old) => ({ ...old, [row.id]: value })); setRowErrors((old) => ({ ...old, [row.id]: '' })); }} placeholder="Record the basis for your decision (minimum 10 characters)" multiline style={{ borderWidth: 1, borderColor: '#E5E9E0', borderRadius: 11, padding: 11, color: ink, minHeight: 64 }} />
+              <Text style={{ color: muted, fontSize: 10 }}>{(reasons[row.id] || '').trim().length}/10 minimum characters for the administrator note</Text>
+              {rowErrors[row.id] ? <View accessibilityRole="alert" style={{ backgroundColor: '#FFF1ED', borderColor: '#E7B7A9', borderWidth: 1, borderRadius: 10, padding: 11 }}><Text style={{ color: '#963F2D', fontSize: 11, lineHeight: 16, fontWeight: '700' }}>{rowErrors[row.id]}</Text></View> : null}
               <View style={{ flexDirection: 'row', gap: 9 }}>
                 <Pressable testID={'publish-' + row.batch_code} accessibilityRole="button" disabled={busyId === row.id} onPress={() => void decide(row, 'eligible')} style={{ flex: 1, backgroundColor: busyId === row.id ? '#AAB3A8' : green, borderRadius: 11, padding: 12, alignItems: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '900' }}>{busyId === row.id ? 'Processing…' : row.certification_status === 'certified' ? 'Publish certified lot' : 'Approve & certify'}</Text></Pressable>
                 <Pressable testID={'reject-' + row.batch_code} accessibilityRole="button" disabled={busyId === row.id} onPress={() => void decide(row, 'rejected')} style={{ backgroundColor: '#F7EAE5', borderRadius: 11, paddingHorizontal: 16, justifyContent: 'center' }}><Text style={{ color: '#A34F3E', fontSize: 11, fontWeight: '900' }}>Reject</Text></Pressable>

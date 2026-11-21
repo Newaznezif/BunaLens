@@ -81,11 +81,16 @@ export default function AdminScanReview() {
     if (decision === 'eligible' && (!Number.isFinite(price) || price <= 0)) {
       setError('Enter the public price per kg in ETB before approving ' + row.batch_code + '.'); return;
     }
+    if (decision === 'eligible' && !grades[row.id]) { setError('Select the administrator-certified grade for ' + row.batch_code + '.'); return; }
+    if (decision === 'eligible' && !classifications[row.id]) { setError('Select the quality classification for ' + row.batch_code + '.'); return; }
+    if (decision === 'eligible' && classifications[row.id] === 'Reject / Re-sort') { setError('Reject / Re-sort cannot be certified or published. Use the Reject action.'); return; }
     setBusyId(row.id); setError(''); setNotice('');
     try {
-      const { data, error: rpcError } = await supabase.rpc('bunalens_admin_review_and_publish_lot', {
+      const { data, error: rpcError } = await supabase.rpc('bunalens_admin_certify_and_publish_lot', {
         p_batch_id: row.id, p_decision: decision, p_reason: reason,
         p_price_per_kg_etb: decision === 'eligible' ? price : null,
+        p_certified_grade: decision === 'eligible' ? grades[row.id] : null,
+        p_quality_classification: decision === 'eligible' ? classifications[row.id] : null,
       });
       if (rpcError) throw rpcError;
       if (decision === 'eligible' && !(data as any)?.listing) {

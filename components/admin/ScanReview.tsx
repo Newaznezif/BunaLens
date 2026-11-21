@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, Text, TextInput, View } from 'react-native';
 import { RefreshCw, Coffee } from 'lucide-react-native';
 import { supabase } from '@/services/supabaseClient';
 
 type StationSummary = { name: string | null; station_name?: string | null; manager: string | null; marketplace_seller_status: string };
 type ScanRow = {
-  id: string; station_id: string; batch_code: string; sample_type: string; woreda: string; lot_weight_kg: number;
+  id: string; station_id: string; batch_code: string; sample_type: string; woreda: string; lot_weight_kg: number; image_path: string | null;
   grading_status: string; eligibility_status: string; is_demo: boolean; created_at: string;
   grading_result: any;
   stations?: StationSummary[] | null;
@@ -21,14 +21,16 @@ export default function AdminScanReview() {
   const [busyId, setBusyId] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
-    if (!supabase) { setError('Supabase is not configured.'); setLoading(false); return; }
+    const client = supabase;
+    if (!client) { setError('Supabase is not configured.'); setLoading(false); return; }
     setLoading(true); setError('');
     try {
-      const { data, error: queryError } = await supabase
+      const { data, error: queryError } = await client
         .from('coffee_batches')
-        .select('id,station_id,batch_code,sample_type,woreda,lot_weight_kg,grading_status,eligibility_status,is_demo,created_at,grading_result,stations(name,station_name,manager,marketplace_seller_status)')
+        .select('id,station_id,batch_code,sample_type,woreda,lot_weight_kg,image_path,grading_status,eligibility_status,is_demo,created_at,grading_result,stations(name,station_name,manager,marketplace_seller_status)')
         .order('created_at', { ascending: false }).limit(500);
       if (queryError) throw queryError;
       const scans = (data || []) as unknown as ScanRow[];
@@ -37,12 +39,17 @@ export default function AdminScanReview() {
       if (stationIds.length) {
         // Read seller status directly from stations instead of relying only on
         // an embedded PostgREST relationship that can remain stale after an RPC.
-        const { data: stationStates, error: stationError } = await supabase
+        const { data: stationStates, error: stationError } = await client
           .from('stations').select('id,marketplace_seller_status').in('id', stationIds);
         if (!stationError) for (const station of stationStates || []) {
           statusByStation.set(station.id, station.marketplace_seller_status || 'pending');
         }
       }
+      const signedEntries = await Promise.all(scans.filter((row) => row.image_path).map(async (row) => {
+        const { data, error } = await client.storage.from('coffee-samples').createSignedUrl(row.image_path as string, 60 * 30);
+        return [row.id, error ? '' : (data?.signedUrl || '')] as const;
+      }));
+      setImageUrls(Object.fromEntries(signedEntries.filter(([, url]) => Boolean(url))));
       setRows(scans.map((row) => {
         const related = row.stations?.[0];
         const currentStatus = statusByStation.get(row.station_id) || related?.marketplace_seller_status || 'pending';
@@ -60,6 +67,11 @@ export default function AdminScanReview() {
   const decide = async (row: ScanRow, decision: 'eligible' | 'rejected') => {
     if (!supabase) return;
     const reason = (reasons[row.id] || '').trim();
+    const sellerStatus = row.stations?.[0]?.marketplace_seller_status || 'pending';
+    const screening = row.grading_result?.screening;
+    if (decision === 'eligible' && sellerStatus !== 'approved') { setError('Approve this station as a marketplace seller before publishing ' + row.batch_code + '.'); return; }
+    if (decision === 'eligible' && screening?.source !== 'live_inference') { setError(row.batch_code + ' has no live AI screening evidence. Retake and submit a real sample scan before publishing.'); return; }
+    if (decision === 'eligible' && (screening?.photo?.usable !== true || screening?.needs_review === true)) { setError(screening?.photo?.retake_guidance || row.batch_code + ' requires a new, usable sample photograph before publishing.'); return; }
     if (reason.length < 10) { setError('Add a review reason of at least 10 characters for ' + row.batch_code + '.'); return; }
     const price = Number(prices[row.id]);
     if (decision === 'eligible' && (!Number.isFinite(price) || price <= 0)) {
@@ -139,6 +151,7 @@ export default function AdminScanReview() {
               <Text style={{ color: muted, fontSize: 11 }}>Evidence: {liveEvidence ? 'live AI screening' : screening?.source || 'no structured screening'}</Text>
               {liveEvidence ? <Text style={{ color: photoUsable ? green : '#9A6A37', fontSize: 11 }}>Photo: {photoUsable ? 'usable' : 'retake required'}</Text> : null}
             </View>
+            {imageUrls[row.id] ? <Image source={{ uri: imageUrls[row.id] }} accessibilityLabel={'Stored sample photograph for ' + row.batch_code} resizeMode="contain" style={{ width: '100%', height: 190, borderRadius: 12, backgroundColor: '#F3F4F1' }} /> : <Text style={{ color: muted, fontSize: 10 }}>{row.image_path ? 'Stored photograph is not currently accessible. Refresh or check storage permissions.' : 'No photograph is attached to this scan.'}</Text>}
             {row.is_demo ? <Text style={{ color: '#A34F3E', fontSize: 11 }}>Demonstration record. It cannot be published as real coffee.</Text> : null}
             {!row.is_demo && sellerStatus !== 'approved' ? <Pressable disabled={busyId === row.id} onPress={() => void approveSeller(row)} style={{ backgroundColor: '#F6EFE3', borderRadius: 11, padding: 11, alignItems: 'center' }}><Text style={{ color: '#805B2D', fontSize: 11, fontWeight: '900' }}>{busyId === row.id ? 'Saving…' : 'Approve marketplace seller'}</Text></Pressable> : null}
             {!row.is_demo && pending ? <>
@@ -147,10 +160,10 @@ export default function AdminScanReview() {
               <Text style={{ color: ink, fontSize: 11, fontWeight: '800' }}>Administrator review note</Text>
               <TextInput value={reasons[row.id] || ''} onChangeText={(value) => setReasons((old) => ({ ...old, [row.id]: value }))} placeholder="Record the basis for your decision (minimum 10 characters)" multiline style={{ borderWidth: 1, borderColor: '#E5E9E0', borderRadius: 11, padding: 11, color: ink, minHeight: 64 }} />
               <View style={{ flexDirection: 'row', gap: 9 }}>
-                <Pressable testID={'publish-' + row.batch_code} accessibilityRole="button" disabled={busyId === row.id || !canPublish} onPress={() => void decide(row, 'eligible')} style={{ flex: 1, backgroundColor: canPublish ? green : '#AAB3A8', borderRadius: 11, padding: 12, alignItems: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '900' }}>{busyId === row.id ? 'Processing…' : 'Approve & publish'}</Text></Pressable>
+                <Pressable testID={'publish-' + row.batch_code} accessibilityRole="button" disabled={busyId === row.id} onPress={() => void decide(row, 'eligible')} style={{ flex: 1, backgroundColor: busyId === row.id ? '#AAB3A8' : green, borderRadius: 11, padding: 12, alignItems: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '900' }}>{busyId === row.id ? 'Processing…' : 'Approve & publish'}</Text></Pressable>
                 <Pressable testID={'reject-' + row.batch_code} accessibilityRole="button" disabled={busyId === row.id} onPress={() => void decide(row, 'rejected')} style={{ backgroundColor: '#F7EAE5', borderRadius: 11, paddingHorizontal: 16, justifyContent: 'center' }}><Text style={{ color: '#A34F3E', fontSize: 11, fontWeight: '900' }}>Reject</Text></Pressable>
               </View>
-              {!liveEvidence ? <Text style={{ color: '#9A6A37', fontSize: 10 }}>This record has no live screening evidence. It must be reassessed with a real scan before public publication.</Text> : null}
+              {!liveEvidence ? <Text style={{ color: '#9A6A37', fontSize: 10 }}>This record has no live screening evidence. Press Approve &amp; publish to see the exact requirement; it must be reassessed with a real scan first.</Text> : null}
               {liveEvidence && !photoUsable ? <Text style={{ color: '#9A6A37', fontSize: 10 }}>{screening?.photo?.retake_guidance || 'The AI screening marked this photo as unusable or requiring review. Retake the sample photo before publication.'}</Text> : null}
             </> : null}
             {row.eligibility_status === 'eligible' ? <Text style={{ color: green, fontSize: 11, fontWeight: '800' }}>Approved. Check the public marketplace listing status below.</Text> : null}

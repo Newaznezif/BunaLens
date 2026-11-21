@@ -76,7 +76,7 @@ create index if not exists coffee_batches_certification_status_idx
   on public.coffee_batches(certification_status, created_at desc);
 
 alter table public.user_notifications enable row level security;
-revoke all on public.user_notifications from anon, public;
+revoke all on public.user_notifications from anon, public, authenticated;
 grant select on public.user_notifications to authenticated;
 grant update (read_at) on public.user_notifications to authenticated;
 drop policy if exists "Users read their own notifications" on public.user_notifications;

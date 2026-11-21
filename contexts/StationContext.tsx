@@ -55,11 +55,12 @@ export function StationProvider({ children }: { children: React.ReactNode }) {
         }
       })
       .then(async () => {
-        if (!active || !supabase) return;
-        const { data: sessionData } = await supabase.auth.getSession();
+        const client = supabase;
+        if (!active || !client) return;
+        const { data: sessionData } = await client.auth.getSession();
         const user = sessionData.session?.user;
         if (!user || !active) return;
-        const { data: remoteStation, error } = await supabase
+        const { data: remoteStation, error } = await client
           .from('stations')
           .select('id,name,manager,woreda,credits,pro_expires_at')
           .eq('owner_id', user.id)
@@ -82,7 +83,7 @@ export function StationProvider({ children }: { children: React.ReactNode }) {
         // clearly separated, but replace stale local "synced" copies with the
         // authoritative records for this signed-in station.
         const refreshCloudBatches = async () => {
-          const { data: cloudRows, error: cloudError } = await supabase
+          const { data: cloudRows, error: cloudError } = await client
             .from('coffee_batches')
             .select('id,batch_code,sample_type,woreda,created_at,image_path,gps_latitude,gps_longitude,latitude,longitude,lot_weight_kg,grading_result,pricing_result,verification_id,station_id,is_demo')
             .eq('station_id', remoteStation.id)
@@ -119,14 +120,14 @@ export function StationProvider({ children }: { children: React.ReactNode }) {
         await refreshCloudBatches();
         // Keep the scan history current when this station receives another
         // scan from a second signed-in device.
-        realtimeChannel = supabase
+        realtimeChannel = client
           .channel('coffee-batches-' + remoteStation.id)
           .on('postgres_changes', {
             event: '*', schema: 'public', table: 'coffee_batches',
             filter: 'station_id=eq.' + remoteStation.id,
           }, () => { void refreshCloudBatches(); })
           .subscribe();
-        if (!active && realtimeChannel) void supabase.removeChannel(realtimeChannel);
+        if (!active && realtimeChannel) void client.removeChannel(realtimeChannel);
       })
       .catch(() => undefined);
     return () => {

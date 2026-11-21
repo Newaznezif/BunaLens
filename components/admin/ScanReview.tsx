@@ -24,10 +24,11 @@ export default function AdminScanReview() {
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
-    if (!supabase) { setError('Supabase is not configured.'); setLoading(false); return; }
+    const client = supabase;
+    if (!client) { setError('Supabase is not configured.'); setLoading(false); return; }
     setLoading(true); setError('');
     try {
-      const { data, error: queryError } = await supabase
+      const { data, error: queryError } = await client
         .from('coffee_batches')
         .select('id,station_id,batch_code,sample_type,woreda,lot_weight_kg,image_path,grading_status,eligibility_status,is_demo,created_at,grading_result,stations(name,station_name,manager,marketplace_seller_status)')
         .order('created_at', { ascending: false }).limit(500);
@@ -38,14 +39,14 @@ export default function AdminScanReview() {
       if (stationIds.length) {
         // Read seller status directly from stations instead of relying only on
         // an embedded PostgREST relationship that can remain stale after an RPC.
-        const { data: stationStates, error: stationError } = await supabase
+        const { data: stationStates, error: stationError } = await client
           .from('stations').select('id,marketplace_seller_status').in('id', stationIds);
         if (!stationError) for (const station of stationStates || []) {
           statusByStation.set(station.id, station.marketplace_seller_status || 'pending');
         }
       }
       const signedEntries = await Promise.all(scans.filter((row) => row.image_path).map(async (row) => {
-        const { data, error } = await supabase.storage.from('coffee-samples').createSignedUrl(row.image_path as string, 60 * 30);
+        const { data, error } = await client.storage.from('coffee-samples').createSignedUrl(row.image_path as string, 60 * 30);
         return [row.id, error ? '' : (data?.signedUrl || '')] as const;
       }));
       setImageUrls(Object.fromEntries(signedEntries.filter(([, url]) => Boolean(url))));

@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { JIMMA_WOREDAS } from '@/constants/jimmaData';
 import { fetchListings, type Listing } from '@/services/marketplace';
@@ -72,6 +72,7 @@ export default function Marketplace() {
       {(listings ?? []).map((item) => (
         <Pressable key={item.id} testID={'market-listing-' + item.batch_code} onPress={() => router.push({ pathname: '/market/[id]', params: { id: item.id } })}
           style={{ backgroundColor: '#FFFFFF', borderRadius: 16, borderWidth: 1, borderColor: '#E7E5E4', padding: 14, marginBottom: 12 }}>
+          {item.image_url ? <Image source={{ uri: item.image_url }} accessibilityLabel={'Coffee sample photograph for lot ' + item.batch_code} resizeMode="cover" style={{ width: '100%', height: 170, borderRadius: 11, backgroundColor: '#F3F0EA', marginBottom: 10 }} /> : <View style={{ width: '100%', height: 110, borderRadius: 11, backgroundColor: '#F3F0EA', marginBottom: 10, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#78716C', fontSize: 11 }}>Coffee photograph unavailable</Text></View>}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
             <Text style={{ fontSize: 15, fontWeight: '900', color: '#1C1917' }}>{stageLabel(item.coffee_stage)} · {item.origin_woreda}</Text>
             <Text style={{ fontSize: 15, fontWeight: '900', color: '#166534' }}>{item.price_per_kg_etb.toLocaleString()} ETB/kg</Text>

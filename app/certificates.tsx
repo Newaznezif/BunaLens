@@ -62,7 +62,8 @@ export default function Certificates() {
     if (!row.certified_grade || !row.quality_classification || row.certification_status !== 'certified') return;
     setBusyId(row.id);
     try {
-      const verifyUrl = (process.env.EXPO_PUBLIC_CERTIFICATE_VERIFY_BASE_URL || 'https://bunalens.vercel.app/verify').replace(/\/$/, '') + '/' + encodeURIComponent(row.verification_id);
+      const verifyBase = process.env.EXPO_PUBLIC_CERTIFICATE_VERIFY_BASE_URL || (process.env.EXPO_PUBLIC_SUPABASE_URL ? process.env.EXPO_PUBLIC_SUPABASE_URL.replace(/\/$/, '') + '/functions/v1/certificate-verify' : 'https://bunalens.vercel.app/verify');
+      const verifyUrl = verifyBase.replace(/\/$/, '') + '/' + encodeURIComponent(row.verification_id);
       const originZone = row.certification_origin_zone || row.stations?.zone || 'Jimma';
       const html = `<!doctype html><html><head><meta charset="utf-8"><style>
         body{font-family:Arial,sans-serif;color:#26372d;padding:34px} .brand{text-align:center;font-size:26px;font-weight:800;color:#365b42}

@@ -101,12 +101,24 @@ export default function CoffeePlantMonitor() {
     const nasaUrl = 'https://power.larc.nasa.gov/api/temporal/daily/point?parameters=GWETROOT,ALLSKY_SFC_PAR_TOT&community=AG&longitude='+site.lon+'&latitude='+site.lat+'&start='+ymd(ago14)+'&end='+ymd(yesterday)+'&format=JSON';
     const soilUrl = 'https://rest.isric.org/soilgrids/v2.0/properties/query?lon='+site.lon+'&lat='+site.lat+'&property=phh2o&property=soc&property=clay&depth=0-5cm&depth=15-30cm&value=mean';
     const gbifUrl = 'https://api.gbif.org/v1/occurrence/search?scientificName=Coffea%20arabica&decimalLatitude=7.2,8.15&decimalLongitude=36.05,37.45&hasCoordinate=true&occurrenceStatus=PRESENT&establishmentMeans=NATIVE&limit=300';
-    const settled = await Promise.allSettled([fetch(forecastUrl).then(r=>{if(!r.ok)throw new Error('Open-Meteo forecast '+r.status);return r.json();}),fetch(archiveUrl).then(r=>{if(!r.ok)throw new Error('Open-Meteo archive '+r.status);return r.json();}),fetch(nasaUrl).then(r=>{if(!r.ok)throw new Error('NASA POWER '+r.status);return r.json();}),fetch(soilUrl).then(r=>{if(!r.ok)throw new Error('SoilGrids '+r.status);return r.json();}),fetch(gbifUrl).then(r=>{if(!r.ok)throw new Error('GBIF '+r.status);return r.json();})]);
+    const tasks: Promise<any>[] = [
+      fetch(forecastUrl).then(r=>{if(!r.ok)throw new Error('Open-Meteo forecast '+r.status);return r.json();}),
+      fetch(archiveUrl).then(r=>{if(!r.ok)throw new Error('Open-Meteo archive '+r.status);return r.json();}),
+      fetch(nasaUrl).then(r=>{if(!r.ok)throw new Error('NASA POWER '+r.status);return r.json();}),
+      fetch(soilUrl).then(r=>{if(!r.ok)throw new Error('SoilGrids '+r.status);return r.json();}),
+      fetch(gbifUrl).then(r=>{if(!r.ok)throw new Error('GBIF '+r.status);return r.json();}),
+    ];
+    const keys = ['forecast','archive','nasa','soil','gbif'] as const;
+    tasks.forEach((task,index)=>{void task.then(result=>{
+      const value = index===4 ? (result?.results||[]).filter((p:Point)=>Number.isFinite(p.decimalLatitude)&&Number.isFinite(p.decimalLongitude)&&p.establishmentMeans?.toUpperCase()==='NATIVE') : result;
+      setData(old=>({...old,[keys[index]]:value}));
+    }).catch(error=>setData(old=>({...old,errors:[...old.errors,String(error?.message||error)]})));});
+    const settled = await Promise.allSettled(tasks);
     const errors:string[]=[];
-    const value=(i:number)=>{const v=settled[i];if(v.status==='rejected'){errors.push(String(v.reason?.message||v.reason));return undefined;}return v.value;};
-    const forecast=value(0), archive=value(1), nasa=value(2), soil=value(3), gbif=value(4);
-    const records=(gbif?.results||[]).filter((p:Point)=>Number.isFinite(p.decimalLatitude)&&Number.isFinite(p.decimalLongitude)&&p.establishmentMeans?.toUpperCase()==='NATIVE');
-    setData({forecast,archive,nasa,soil,gbif:records,errors,fetchedAt:new Date().toISOString()});
+    settled.forEach((result,index)=>{if(result.status==='rejected')errors.push(keys[index]+': '+String(result.reason?.message||result.reason));});
+    const values = settled.map(result=>result.status==='fulfilled'?result.value:undefined);
+    const records=(values[4]?.results||[]).filter((p:Point)=>Number.isFinite(p.decimalLatitude)&&Number.isFinite(p.decimalLongitude)&&p.establishmentMeans?.toUpperCase()==='NATIVE');
+    setData({forecast:values[0],archive:values[1],nasa:values[2],soil:values[3],gbif:records,errors,fetchedAt:new Date().toISOString()});
     setLoading(false);setRefreshing(false);
   },[site]);
   useEffect(()=>{void load();},[load]);

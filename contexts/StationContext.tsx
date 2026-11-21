@@ -32,6 +32,7 @@ export function StationProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let active = true;
+    let realtimeChannel: any = null;
     AsyncStorage.multiGet([...STORAGE_KEYS])
       .then(async (values) => {
         if (!active) return;
@@ -54,11 +55,12 @@ export function StationProvider({ children }: { children: React.ReactNode }) {
         }
       })
       .then(async () => {
-        if (!active || !supabase) return;
-        const { data: sessionData } = await supabase.auth.getSession();
+        const client = supabase;
+        if (!active || !client) return;
+        const { data: sessionData } = await client.auth.getSession();
         const user = sessionData.session?.user;
         if (!user || !active) return;
-        const { data: remoteStation, error } = await supabase
+        const { data: remoteStation, error } = await client
           .from('stations')
           .select('id,name,manager,woreda,credits,pro_expires_at')
           .eq('owner_id', user.id)
@@ -76,9 +78,62 @@ export function StationProvider({ children }: { children: React.ReactNode }) {
         };
         setStationState(hydrated);
         await AsyncStorage.setItem(STORAGE_KEYS[0], JSON.stringify(hydrated));
+
+        // The station's history is cloud-backed. Keep demo/offline-only rows
+        // clearly separated, but replace stale local "synced" copies with the
+        // authoritative records for this signed-in station.
+        const refreshCloudBatches = async () => {
+          const { data: cloudRows, error: cloudError } = await client
+            .from('coffee_batches')
+            .select('id,batch_code,sample_type,woreda,created_at,image_path,gps_latitude,gps_longitude,latitude,longitude,lot_weight_kg,grading_result,pricing_result,verification_id,station_id,is_demo')
+            .eq('station_id', remoteStation.id)
+            .order('created_at', { ascending: false })
+            .limit(500);
+          if (cloudError || !cloudRows) return;
+          const cloudBatches: CoffeeBatch[] = cloudRows.map((row: any) => ({
+            id: row.id,
+            batch_code: row.batch_code,
+            sample_type: row.sample_type,
+            woreda: row.woreda,
+            created_at: row.created_at,
+            image_path: row.image_path || undefined,
+            origin_coordinates: (row.gps_latitude ?? row.latitude) != null && (row.gps_longitude ?? row.longitude) != null &&
+              Number.isFinite(Number(row.gps_latitude ?? row.latitude)) && Number.isFinite(Number(row.gps_longitude ?? row.longitude))
+              ? { latitude: Number(row.gps_latitude ?? row.latitude), longitude: Number(row.gps_longitude ?? row.longitude) }
+              : undefined,
+            result: row.grading_result,
+            lot_weight_kg: Number(row.lot_weight_kg),
+            status: row.is_demo ? 'demo' : 'synced',
+            station_id: row.station_id,
+            pricing: row.pricing_result || undefined,
+            verification_id: row.verification_id || undefined,
+          }));
+          const cloudIds = new Set(cloudBatches.map((batch) => batch.id));
+          setBatches((current) => {
+            const localOnly = current.filter((batch) => !cloudIds.has(batch.id) && batch.status !== 'synced');
+            const nextBatches = [...cloudBatches, ...localOnly]
+              .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            void AsyncStorage.setItem(STORAGE_KEYS[1], JSON.stringify(nextBatches));
+            return nextBatches;
+          });
+        };
+        await refreshCloudBatches();
+        // Keep the scan history current when this station receives another
+        // scan from a second signed-in device.
+        realtimeChannel = client
+          .channel('coffee-batches-' + remoteStation.id)
+          .on('postgres_changes', {
+            event: '*', schema: 'public', table: 'coffee_batches',
+            filter: 'station_id=eq.' + remoteStation.id,
+          }, () => { void refreshCloudBatches(); })
+          .subscribe();
+        if (!active && realtimeChannel) void client.removeChannel(realtimeChannel);
       })
       .catch(() => undefined);
-    return () => { active = false; };
+    return () => {
+      active = false;
+      if (supabase && realtimeChannel) void supabase.removeChannel(realtimeChannel);
+    };
   }, []);
 
   const setStation = (next: Station) => {

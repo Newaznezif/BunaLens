@@ -29,6 +29,7 @@ export default function AdminScanReview() {
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
   const [notice, setNotice] = useState('');
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
+  const [rescanMessages, setRescanMessages] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     const client = supabase;
@@ -110,6 +111,25 @@ export default function AdminScanReview() {
     }
   };
 
+  const requestRescan = async (row: ScanRow) => {
+    if (!supabase) return;
+    setBusyId(row.id);
+    setRowErrors((old) => ({ ...old, [row.id]: '' }));
+    setNotice('');
+    try {
+      const { data, error: rpcError } = await supabase.rpc('bunalens_admin_request_rescan', {
+        p_batch_id: row.id,
+        p_reason: (rescanMessages[row.id] || '').trim() || 'A fresh live AI screening assessment is required before certification.',
+      });
+      if (rpcError) throw rpcError;
+      setNotice((data as any)?.already_notified
+        ? 'A rescan request was already sent for ' + row.batch_code + ' within the last 24 hours.'
+        : 'Rescan request sent to the station owner for ' + row.batch_code + '.');
+    } catch (e) {
+      setRowErrors((old) => ({ ...old, [row.id]: e instanceof Error ? e.message : 'The rescan request could not be sent.' }));
+    } finally { setBusyId(''); }
+  };
+
   const approveSeller = async (row: ScanRow) => {
     if (!supabase) return;
     if (!row.station_id) { setError('Station identifier is unavailable for this scan.'); return; }
@@ -169,7 +189,7 @@ export default function AdminScanReview() {
             {imageUrls[row.id] ? <Image source={{ uri: imageUrls[row.id] }} accessibilityLabel={'Stored sample photograph for ' + row.batch_code} resizeMode="contain" style={{ width: '100%', height: 190, borderRadius: 12, backgroundColor: '#F3F4F1' }} /> : <Text style={{ color: muted, fontSize: 10 }}>{row.image_path ? 'Stored photograph is not currently accessible. Refresh or check storage permissions.' : 'No photograph is attached to this scan.'}</Text>}
             {row.is_demo ? <Text style={{ color: '#A34F3E', fontSize: 11 }}>Demonstration record. It cannot be published as real coffee.</Text> : null}
             {!row.is_demo && sellerStatus !== 'approved' ? <Pressable disabled={busyId === row.id} onPress={() => void approveSeller(row)} style={{ backgroundColor: '#F6EFE3', borderRadius: 11, padding: 11, alignItems: 'center' }}><Text style={{ color: '#805B2D', fontSize: 11, fontWeight: '900' }}>{busyId === row.id ? 'Saving…' : 'Approve marketplace seller'}</Text></Pressable> : null}
-            {!row.is_demo && pending ? <>
+            {!row.is_demo && pending && liveEvidence && photoUsable ? <>
               <Text style={{ color: ink, fontSize: 11, fontWeight: '800' }}>Administrator-certified coffee grade</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
                 {gradeOptions.map((grade) => <Pressable key={grade} onPress={() => { setGrades((old) => ({ ...old, [row.id]: grade })); setRowErrors((old) => ({ ...old, [row.id]: '' })); }} style={{ borderRadius: 9, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: (grades[row.id] || row.certified_grade) === grade ? green : '#F1F4EF' }}><Text style={{ color: (grades[row.id] || row.certified_grade) === grade ? '#FFFFFF' : ink, fontSize: 10, fontWeight: '800' }}>{grade}</Text></Pressable>)}
@@ -188,8 +208,24 @@ export default function AdminScanReview() {
                 <Pressable testID={'publish-' + row.batch_code} accessibilityRole="button" disabled={busyId === row.id} onPress={() => void decide(row, 'eligible')} style={{ flex: 1, backgroundColor: busyId === row.id ? '#AAB3A8' : green, borderRadius: 11, padding: 12, alignItems: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '900' }}>{busyId === row.id ? 'Processing…' : row.certification_status === 'certified' ? 'Publish certified lot' : 'Approve & certify'}</Text></Pressable>
                 <Pressable testID={'reject-' + row.batch_code} accessibilityRole="button" disabled={busyId === row.id} onPress={() => void decide(row, 'rejected')} style={{ backgroundColor: '#F7EAE5', borderRadius: 11, paddingHorizontal: 16, justifyContent: 'center' }}><Text style={{ color: '#A34F3E', fontSize: 11, fontWeight: '900' }}>Reject</Text></Pressable>
               </View>
-              {!liveEvidence ? <Text style={{ color: '#9A6A37', fontSize: 10 }}>This record has no live screening evidence. Press Approve &amp; publish to see the exact requirement; it must be reassessed with a real scan first.</Text> : null}
-              {liveEvidence && !photoUsable ? <Text style={{ color: '#9A6A37', fontSize: 10 }}>{screening?.photo?.retake_guidance || 'The AI screening marked this photo as unusable or requiring review. Retake the sample photo before publication.'}</Text> : null}
+            </> : null}
+            {!row.is_demo && pending && (!liveEvidence || !photoUsable) ? <>
+              <Text style={{ color: ink, fontSize: 11, fontWeight: '800' }}>Rescan required</Text>
+              <Text style={{ color: muted, fontSize: 11, lineHeight: 16 }}>
+                {liveEvidence
+                  ? (screening?.photo?.retake_guidance || 'The station must retake the sample photograph and submit a new scan.')
+                  : 'This older record has no structured AI screening result. The station must capture and submit a new real coffee scan. The old record will remain in the review history.'}
+              </Text>
+              <TextInput value={rescanMessages[row.id] || ''} onChangeText={(value) => setRescanMessages((old) => ({ ...old, [row.id]: value }))} placeholder="Optional instruction for the station owner" multiline style={{ borderWidth: 1, borderColor: '#E5E9E0', borderRadius: 11, padding: 11, color: ink, minHeight: 54 }} />
+              {rowErrors[row.id] ? <View accessibilityRole="alert" style={{ backgroundColor: '#FFF1ED', borderColor: '#E7B7A9', borderWidth: 1, borderRadius: 10, padding: 11 }}><Text style={{ color: '#963F2D', fontSize: 11, lineHeight: 16, fontWeight: '700' }}>{rowErrors[row.id]}</Text></View> : null}
+              <Pressable testID={'request-rescan-' + row.batch_code} accessibilityRole="button" disabled={busyId === row.id} onPress={() => void requestRescan(row)} style={{ backgroundColor: busyId === row.id ? '#AAB3A8' : '#805B2D', borderRadius: 11, padding: 12, alignItems: 'center' }}>
+                <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '900' }}>{busyId === row.id ? 'Sending request…' : 'Request new scan from station'}</Text>
+              </Pressable>
+              <Text style={{ color: ink, fontSize: 11, fontWeight: '800' }}>Administrator rejection note</Text>
+              <TextInput value={reasons[row.id] || ''} onChangeText={(value) => { setReasons((old) => ({ ...old, [row.id]: value })); setRowErrors((old) => ({ ...old, [row.id]: '' })); }} placeholder="Required only if rejecting (minimum 10 characters)" multiline style={{ borderWidth: 1, borderColor: '#E5E9E0', borderRadius: 11, padding: 11, color: ink, minHeight: 54 }} />
+              <Pressable testID={'reject-' + row.batch_code} accessibilityRole="button" disabled={busyId === row.id} onPress={() => void decide(row, 'rejected')} style={{ backgroundColor: '#F7EAE5', borderRadius: 11, padding: 12, alignItems: 'center' }}>
+                <Text style={{ color: '#A34F3E', fontSize: 11, fontWeight: '900' }}>Reject sample</Text>
+              </Pressable>
             </> : null}
             {row.eligibility_status === 'eligible' ? <Text style={{ color: green, fontSize: 11, fontWeight: '800' }}>Approved. Check the public marketplace listing status below.</Text> : null}
           </View>

@@ -105,9 +105,11 @@ function EthiopiaMap({ site, points, zoom, onToggle }: { site: Site; points: Poi
         const jimmaCollection = { type: 'FeatureCollection', features };
         map.data.addGeoJson(jimmaCollection);
         map.data.setStyle((feature: any) => {
-          const props = feature.getProperty ? feature : null;
-          const isJimma = features.some((f: any) => String(f.properties?.shapeName || f.properties?.ADM2_EN || '').toLowerCase().includes('jimma'));
-          return { fillColor: '#1F8A50', fillOpacity: 0.25, strokeColor: '#0B6B3A', strokeOpacity: 1, strokeWeight: 3, zIndex: isJimma ? 5 : 2 };
+          const name = String(feature.getProperty('shapeName') || feature.getProperty('ADM2_EN') || feature.getProperty('name') || '').toLowerCase();
+          const isJimma = name.includes('jimma');
+          return isJimma
+            ? { fillColor: '#1F8A50', fillOpacity: 0.28, strokeColor: '#0B6B3A', strokeOpacity: 1, strokeWeight: 3, zIndex: 5 }
+            : { fillColor: '#D9E0D8', fillOpacity: 0.12, strokeColor: '#7D8A7D', strokeOpacity: 0.8, strokeWeight: 1, zIndex: 1 };
         });
         const info = new window.google.maps.InfoWindow();
         const bounds = new window.google.maps.LatLngBounds();
@@ -126,8 +128,8 @@ function EthiopiaMap({ site, points, zoom, onToggle }: { site: Site; points: Poi
           const marker = new window.google.maps.Marker({ map, position: { lat: p.decimalLatitude, lng: p.decimalLongitude }, title: 'GBIF Coffea arabica · ' + (p.establishmentMeans || 'occurrence'), icon: { path: window.google.maps.SymbolPath.CIRCLE, scale: 3.5, fillColor: '#8B4D36', fillOpacity: 0.9, strokeColor: '#FFFFFF', strokeWeight: 1 } });
           overlaysRef.current.push(marker);
         });
-        if (!bounds.isEmpty()) map.fitBounds(bounds, 45);
-        if (!zoom) map.setZoom(6);
+        if (zoom && !bounds.isEmpty()) map.fitBounds(bounds, 45);
+        if (!zoom) { map.setCenter({ lat: 9.15, lng: 40.49 }); map.setZoom(6); }
         setMapReady(true);
       } catch (error: any) {
         if (active) setMapError(error?.message || 'Unable to load Google Maps and verified administrative boundaries.');

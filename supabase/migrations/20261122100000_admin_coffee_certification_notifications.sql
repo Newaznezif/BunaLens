@@ -112,6 +112,7 @@ declare
   v_notification_type text;
   v_notification_title text;
   v_notification_message text;
+  v_was_certified boolean;
 begin
   if (select auth.uid()) is null or public.bunalens_jwt_role() <> 'admin' then
     raise exception 'Only an administrator can review and certify coffee scans.' using errcode = '42501';
@@ -126,6 +127,7 @@ begin
   select * into v_lot from public.coffee_batches b where b.id = p_batch_id for update;
   if not found then raise exception 'Coffee scan not found.' using errcode = 'P0002'; end if;
   if v_lot.is_demo then raise exception 'Demonstration scans cannot be certified.' using errcode = '22023'; end if;
+  v_was_certified := v_lot.certification_status = 'certified';
   select * into v_station from public.stations s where s.id = v_lot.station_id for update;
   if not found then raise exception 'The scan has no registered station.' using errcode = '23503'; end if;
 
@@ -155,12 +157,9 @@ begin
   if p_quality_classification = 'Reject / Re-sort' then
     raise exception 'A Reject / Re-sort classification cannot be certified or published. Use the rejection action.' using errcode = '22023';
   end if;
-  if p_price_per_kg_etb is null or p_price_per_kg_etb <= 0
-     or p_price_per_kg_etb > 100000 or p_price_per_kg_etb <> round(p_price_per_kg_etb, 2) then
-    raise exception 'Set a valid public price per kg in ETB before publishing.' using errcode = '22023';
-  end if;
-  if v_station.marketplace_seller_status <> 'approved' then
-    raise exception 'Approve this station as a marketplace seller before publishing its scans.' using errcode = '42501';
+  if p_price_per_kg_etb is not null and (p_price_per_kg_etb <= 0
+     or p_price_per_kg_etb > 100000 or p_price_per_kg_etb <> round(p_price_per_kg_etb, 2)) then
+    raise exception 'Enter a valid public price per kg in ETB, or leave it blank to certify without publishing.' using errcode = '22023';
   end if;
 
   v_screening := v_lot.grading_result -> 'screening';
@@ -203,39 +202,46 @@ begin
     'uses_simulated_evidence',false
   );
 
-  insert into public.marketplace_listings as l (
-    batch_id,station_id,seller_display_name,origin_woreda,coffee_stage,
-    available_kg,price_per_kg_etb,screening_summary,assessed_at,
-    is_demo,status,batch_code,evidence_summary
-  ) values (
-    v_lot.id,v_lot.station_id,
-    coalesce(nullif(btrim(v_station.station_name),''),nullif(btrim(v_station.name),''),'Jimma Coffee Station'),
-    v_lot.woreda,v_lot.sample_type,v_lot.lot_weight_kg,p_price_per_kg_etb,
-    v_summary,nullif(v_screening ->> 'assessed_at','')::timestamptz,
-    false,'published',v_lot.batch_code,v_evidence
-  )
-  on conflict (batch_id) do update set
-    seller_display_name=excluded.seller_display_name,
-    origin_woreda=excluded.origin_woreda,
-    coffee_stage=excluded.coffee_stage,
-    available_kg=excluded.available_kg,
-    price_per_kg_etb=excluded.price_per_kg_etb,
-    screening_summary=excluded.screening_summary,
-    assessed_at=excluded.assessed_at,
-    is_demo=false,status='published',batch_code=excluded.batch_code,
-    evidence_summary=excluded.evidence_summary
-  returning * into v_listing;
+  if v_station.marketplace_seller_status = 'approved' and p_price_per_kg_etb is not null then
+    insert into public.marketplace_listings as l (
+      batch_id,station_id,seller_display_name,origin_woreda,coffee_stage,
+      available_kg,price_per_kg_etb,screening_summary,assessed_at,
+      is_demo,status,batch_code,evidence_summary
+    ) values (
+      v_lot.id,v_lot.station_id,
+      coalesce(nullif(btrim(v_station.station_name),''),nullif(btrim(v_station.name),''),'Jimma Coffee Station'),
+      v_lot.woreda,v_lot.sample_type,v_lot.lot_weight_kg,p_price_per_kg_etb,
+      v_summary,nullif(v_screening ->> 'assessed_at','')::timestamptz,
+      false,'published',v_lot.batch_code,v_evidence
+    )
+    on conflict (batch_id) do update set
+      seller_display_name=excluded.seller_display_name,
+      origin_woreda=excluded.origin_woreda,
+      coffee_stage=excluded.coffee_stage,
+      available_kg=excluded.available_kg,
+      price_per_kg_etb=excluded.price_per_kg_etb,
+      screening_summary=excluded.screening_summary,
+      assessed_at=excluded.assessed_at,
+      is_demo=false,status='published',batch_code=excluded.batch_code,
+      evidence_summary=excluded.evidence_summary
+    returning * into v_listing;
+  else
+    v_listing := null;
+  end if;
 
-  insert into public.user_notifications(user_id,batch_id,notification_type,title,message,metadata)
-  values (v_station.owner_id,v_lot.id,'certified','Your coffee sample is certified',
-    'Your sample ' || v_lot.batch_code || ' has been verified by a BunaLens administrator. Your certificate is ready.',
-    jsonb_build_object('batch_code',v_lot.batch_code,'grade',p_certified_grade,
-      'quality_classification',p_quality_classification,
-      'origin_zone',coalesce(nullif(btrim(v_station.zone),''),'Jimma')));
+  if not v_was_certified then
+    insert into public.user_notifications(user_id,batch_id,notification_type,title,message,metadata)
+    values (v_station.owner_id,v_lot.id,'certified','Your coffee sample is certified',
+      'Your sample ' || v_lot.batch_code || ' has been verified by a BunaLens administrator. Your certificate is ready.',
+      jsonb_build_object('batch_code',v_lot.batch_code,'grade',p_certified_grade,
+        'quality_classification',p_quality_classification,
+        'origin_zone',coalesce(nullif(btrim(v_station.zone),''),'Jimma')));
+  end if;
 
   return jsonb_build_object('decision','eligible','review',v_review,'listing',to_jsonb(v_listing),
     'certification_status','certified','certified_grade',p_certified_grade,
-    'quality_classification',p_quality_classification);
+    'quality_classification',p_quality_classification,
+    'listing_published',v_listing.id is not null);
 end;
 $$;
 

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, Text, TextInput, View } from 'react-native';
 import { FileText, Download, RefreshCw, Users, CreditCard, MapPin, Sprout, Thermometer, BarChart3, AlertCircle } from 'lucide-react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
@@ -107,7 +107,7 @@ export default function ReportingAnalytics() {
     rows=data.map((u:any)=>({name:u.full_name||'—',email:u.email||'—',role:u.role,status:u.status,station:u.station?.name||'—',woreda:u.station?.woreda||'—',registered:fmtDate(u.created_at)}));
     metrics=[{label:'Registrations',value:String(data.length)},{label:'Verified',value:String(data.filter((u:any)=>u.status==='verified').length)},{label:'Suspended',value:String(data.filter((u:any)=>u.status==='suspended').length)}]; recordCount=rows.length;
    } else if (kind==='payments') {
-    const data=(await payments()).filter((p:any)=>!location || [rel(p.stations)?.name,rel(p.stations)?.woreda].some((v:string)=>v?.toLowerCase().includes(location.toLowerCase())));
+    const data=(await payments()).filter((p:any)=>!location || [p.station_name,p.woreda,p.payer].some((v:string)=>v?.toLowerCase().includes(location.toLowerCase())));
     const verified=data.filter((p:any)=>p.status==='verified' && !p.is_test), total=verified.reduce((s:number,p:any)=>s+Number(p.amount_etb||0),0);
     rows=data.map((p:any)=>({source:p.payment_source,reference:p.chapa_tx_ref,payer:p.payer,station:p.station_name,woreda:p.woreda,package:p.package_id||'Marketplace order',amount:Number(p.amount_etb).toLocaleString()+' '+p.currency,status:p.status,test_mode:p.is_test?'yes':'no',created:fmtDate(p.created_at),verified:p.verified_at?fmtDate(p.verified_at):'—'}));
     metrics=[{label:'All transactions',value:String(data.length)},{label:'Verified non-test collections',value:fmtETB(total)},{label:'Pending',value:String(data.filter((p:any)=>p.status==='pending').length)},{label:'Failed / expired',value:String(data.filter((p:any)=>['failed','expired'].includes(p.status)).length)}];
@@ -149,7 +149,7 @@ export default function ReportingAnalytics() {
   } catch(e) { setError(e instanceof Error?e.message:'Report generation failed. Check administrator data permissions.'); }
   finally { setLoading(false); }
  };
- const exportPdf=async()=>{if(!report)return;setExporting(true);try{const content=makeHtml(report,admin),file=await Print.printToFileAsync({html:content});if(await Sharing.isAvailableAsync())await Sharing.shareAsync(file.uri,{mimeType:'application/pdf',dialogTitle:'BunaLens '+report.title});else await Print.printAsync({html:content});setNotice('PDF export is ready.');}catch(e){setError(e instanceof Error?e.message:'PDF export failed.');}finally{setExporting(false);}};
+ const exportPdf=async()=>{if(!report)return;setExporting(true);try{const content=makeHtml(report,admin);if(Platform.OS==='web'){await Print.printAsync({html:content});setNotice('Print preview opened. Choose Save as PDF in your browser.');}else{const file=await Print.printToFileAsync({html:content});if(await Sharing.isAvailableAsync())await Sharing.shareAsync(file.uri,{mimeType:'application/pdf',dialogTitle:'BunaLens '+report.title});else await Print.printAsync({html:content});setNotice('PDF export is ready.');}}catch(e){setError(e instanceof Error?e.message:'PDF export failed.');}finally{setExporting(false);}};
  const periods:Period[]=['daily','weekly','monthly','annual','custom'];
  return <View style={{gap:14}}>
   <View style={{...panel,padding:16,backgroundColor:'#26372D',borderColor:'#26372D',flexDirection:'row',alignItems:'center',gap:10}}><FileText color="#FFFFFF" size={23}/><View style={{flex:1}}><Text style={{color:'#FFFFFF',fontSize:16,fontWeight:'900'}}>Reporting & Analytics</Text><Text style={{color:'#C3D0C1',fontSize:10}}>Live BunaLens operational reports</Text></View><Text style={{color:'#C3D0C1',fontSize:9}}>LIVE</Text></View>

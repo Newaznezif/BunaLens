@@ -4,7 +4,7 @@ import type { ViewStyle } from 'react-native';
 import { router } from 'expo-router';
 import {
   Activity, Building2, CheckCircle2, ChevronRight, CircleAlert, Coffee, CreditCard, FileText,
-  Database, LayoutDashboard, LogOut, RefreshCw, Search, ShieldCheck, Sprout, TrendingUp, Users, ClipboardCheck,
+  Database, LayoutDashboard, LogOut, RefreshCw, Search, ShieldCheck, Sprout, TrendingUp, Users, ClipboardCheck, Settings as SettingsIcon,
 } from 'lucide-react-native';
 import { isSupabaseConfigured, supabase } from '@/services/supabaseClient';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -163,6 +163,9 @@ export default function AdminDashboard() {
             <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E9E0', borderRadius: 99, paddingHorizontal: 12, paddingVertical: 8 }}><View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: '#55765D', marginRight: 7 }} /><Text style={{ color: '#55765D', fontSize: 10, fontWeight: '800' }}>LIVE DATA</Text></View>
             <Pressable onPress={() => void load(true)} disabled={refreshing} style={{ flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: '#26372D', borderRadius: 12, paddingHorizontal: 13, paddingVertical: 11 }}><RefreshCw size={14} color="#FFFFFF" /><Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '800' }}>{refreshing ? 'Refreshing' : 'Refresh'}</Text></Pressable>
           </View> : null}
+          <Pressable accessibilityRole="button" accessibilityLabel="Account settings" onPress={() => router.push('/settings')} style={{ flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E9E0', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, marginLeft: 8 }}>
+            <SettingsIcon size={15} color="#26372D" /><Text style={{ color: '#26372D', fontSize: 11, fontWeight: '800' }}>Account settings</Text>
+          </Pressable>
         </View>
 
         {!isSupabaseConfigured ? <View style={{ ...card, padding: 18, borderColor: '#E7C783', backgroundColor: '#FBF5E9', marginBottom: 18 }}><Text style={{ color: '#745528', fontWeight: '800' }}>Connect Supabase to load live operational data.</Text></View> : null}

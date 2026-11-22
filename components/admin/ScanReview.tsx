@@ -93,7 +93,6 @@ export default function AdminScanReview() {
     if (!supabase) return;
     const fail = (message: string) => { setRowErrors((old) => ({ ...old, [row.id]: message })); setError(''); };
     const reason = (reasons[row.id] || '').trim();
-    const sellerStatus = row.stations?.[0]?.marketplace_seller_status || 'pending';
     const screening = row.grading_result?.screening;
     if (decision === 'eligible' && screening?.source !== 'live_inference') { fail('Cannot certify yet: this record has no live AI screening evidence. The station must retake and submit a real coffee sample scan.'); return; }
     if (decision === 'eligible' && (screening?.photo?.usable !== true || screening?.needs_review === true)) { fail('Cannot certify this photo yet: ' + (screening?.photo?.retake_guidance || 'the photo-quality check requires a clearer sample photograph.')); return; }
@@ -103,7 +102,7 @@ export default function AdminScanReview() {
     if (decision === 'eligible' && (classifications[row.id] || row.quality_classification) === 'Reject / Re-sort') { fail('Reject / Re-sort is not a certificate outcome. Use the Reject button for this sample.'); return; }
     setBusyId(row.id); setError(''); setRowErrors((old) => ({ ...old, [row.id]: '' })); setNotice('');
     try {
-      const { data, error: rpcError } = await supabase.rpc('bunalens_admin_certify_and_publish_lot', {
+      const { error: rpcError } = await supabase.rpc('bunalens_admin_certify_and_publish_lot', {
         p_batch_id: row.id, p_decision: decision, p_reason: reason,
         p_price_per_kg_etb: null,
         p_certified_grade: decision === 'eligible' ? (grades[row.id] || row.certified_grade) : null,
@@ -188,7 +187,7 @@ export default function AdminScanReview() {
         const hasListing = listingRows.length > 0;
         const consentRows = Array.isArray(row.marketplace_publication_consents) ? row.marketplace_publication_consents : row.marketplace_publication_consents ? [row.marketplace_publication_consents] : [];
         const sellerConsent = consentRows.find((item) => item.agreed);
-        const pending = row.certification_status !== 'certified' && (row.eligibility_status === 'unreviewed' || row.eligibility_status === 'needs_review');
+        const pending = !row.is_demo && row.certification_status !== 'certified' && row.eligibility_status !== 'rejected';
         return (
           <View key={row.id} style={{ ...panel, padding: 16, gap: 10 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>

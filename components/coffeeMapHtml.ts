@@ -24,6 +24,7 @@ html,body,#map{height:100%;width:100%;margin:0;padding:0;overflow:hidden;font-fa
  const report=message=>{status.textContent=message;try{window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({type:'status',message}));}catch(_){}};
  const map=new maplibregl.Map({container:'map',style:'https://tiles.openfreemap.org/styles/liberty',center:config.zoom?[36.72,7.72]:[40.49,9.15],zoom:config.zoom?8.5:5.2,attributionControl:true});
  map.addControl(new maplibregl.NavigationControl({showCompass:true}),'top-left');
+ map.addControl(new maplibregl.FullscreenControl(),'top-left');
  const bounds=new maplibregl.LngLatBounds();
  const escapeText=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  function addMarker(lon,lat,title,description,selected,color){

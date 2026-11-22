@@ -139,10 +139,10 @@ export default function AdminDashboard() {
           {narrow ? <Pressable onPress={() => void load(true)} accessibilityLabel="Refresh dashboard" style={{ padding: 10 }}><RefreshCw size={17} color="#FFFFFF" /></Pressable> : null}
         </View>
         {!narrow ? <Text style={{ color: '#9CAA9B', fontSize: 9, fontWeight: '900', letterSpacing: 1.3, marginHorizontal: 11, marginBottom: 10 }}>WORKSPACE</Text> : null}
-        <View style={{ flexDirection: narrow ? 'row' : 'column', gap: 5 }}>
+        <View style={{ flexDirection: narrow ? 'row' : 'column', flexWrap: narrow ? 'wrap' : 'nowrap', gap: 5 }}>
           {tabs.map(({ key, label, icon: Icon }) => {
             const selected = tab === key;
-            return <Pressable key={key} onPress={() => { if (key === 'coffeePlants') { router.push('/admin/coffee-plants'); return; } setTab(key); setSearch(''); }} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 11, borderRadius: 12, backgroundColor: selected ? '#3C5142' : 'transparent', flex: narrow ? 1 : undefined }}>
+            return <Pressable key={key} onPress={() => { if (key === 'coffeePlants') { router.push('/admin/coffee-plants'); return; } setTab(key); setSearch(''); }} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 11, borderRadius: 12, backgroundColor: selected ? '#3C5142' : 'transparent', flex: narrow ? 1 : undefined, minWidth: narrow ? 88 : undefined }}>
               <Icon size={16} color={selected ? '#FFFFFF' : '#AFB9AE'} /><Text style={{ color: selected ? '#FFFFFF' : '#AFB9AE', fontSize: 12, fontWeight: selected ? '800' : '600', marginLeft: 10 }}>{label}</Text>
             </Pressable>;
           })}

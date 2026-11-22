@@ -59,7 +59,7 @@ export default function ReportingAnalytics() {
  const [error,setError] = useState(''), [notice,setNotice] = useState(''), [warning,setWarning] = useState('');
  const loadHistory = useCallback(async () => {
   if (!supabase) return;
-  const { data, error: e } = await supabase.from('admin_report_history').select('id,report_reference,report_type,period_start,period_end,record_count,created_at').order('created_at',{ascending:false}).limit(15);
+  const { data, error: e } = await supabase.from('admin_report_history').select('id,report_reference,report_type,period_start,period_end,record_count,created_by_label,generation_status,created_at').order('created_at',{ascending:false}).limit(15);
   if (e) { setWarning('Apply the admin reporting migration to enable report history.'); return; }
   setWarning(''); setHistory(data || []);
  },[]);
@@ -149,7 +149,7 @@ export default function ReportingAnalytics() {
    const id='BNL-RPT-'+new Date().toISOString().replace(/[-:.TZ]/g,'').slice(0,14)+'-'+Math.random().toString(36).slice(2,6).toUpperCase();
    const next:Report={id,title:(kinds.find(x=>x.key===kind)?.label||'System')+' Report',period:d.label,generated:new Date().toISOString(),rows,metrics,notes,count:recordCount}; setReport(next);
    const {data:auth}=await supabase.auth.getUser();
-   const {error:historyError}=await supabase.from('admin_report_history').insert({report_reference:id,report_type:kind,period_start:from.slice(0,10),period_end:to.slice(0,10),record_count:recordCount,filters:{period,location:location.trim()||null},created_by:auth.user?.id});
+   const {error:historyError}=await supabase.from('admin_report_history').insert({report_reference:id,report_type:kind,period_start:from.slice(0,10),period_end:to.slice(0,10),record_count:recordCount,filters:{period,location:location.trim()||null},created_by:auth.user?.id,created_by_label:admin,generation_status:'completed'});
    if(historyError)setWarning('Report generated. Apply the admin reporting migration to save history.');else await loadHistory();
    setNotice('Report generated from live system records.');
   } catch(e) { setError(e instanceof Error?e.message:'Report generation failed. Check administrator data permissions.'); }
@@ -171,6 +171,6 @@ export default function ReportingAnalytics() {
   {report.notes.map((n,i)=><Text key={i} style={{color:MUTED,fontSize:9}}>• {n}</Text>)}<Text style={{color:INK,fontWeight:'900',fontSize:12}}>Preview</Text>
   {report.rows.slice(0,8).map((row,i)=><View key={i} style={{borderTopWidth:1,borderColor:'#EEF0EC',paddingVertical:7}}><Text style={{color:INK,fontSize:10,fontWeight:'800'}}>{String(Object.values(row)[0]??'Record')}</Text><Text numberOfLines={2} style={{color:MUTED,fontSize:9}}>{Object.entries(row).slice(1,5).map(([k,v])=>k.replaceAll('_',' ')+': '+String(v??'—')).join(' · ')}</Text></View>)}
   <Text style={{color:MUTED,fontSize:8}}>Ref: {report.id} · Retrieved: {fmtDate(report.generated)}</Text></View>:null}
-  <View style={{...panel,padding:14,gap:8}}><View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}><Text style={{color:INK,fontSize:14,fontWeight:'900'}}>Report history</Text><Pressable onPress={()=>void loadHistory()}><RefreshCw size={15} color={GREEN}/></Pressable></View>{warning?<Text style={{color:'#9A6A37',fontSize:9}}>{warning}</Text>:null}{history.length?history.map(h=><View key={h.id} style={{borderTopWidth:1,borderColor:'#EEF0EC',paddingVertical:8}}><Text style={{color:INK,fontSize:10,fontWeight:'800'}}>{h.report_type.replaceAll('_',' ')} · {h.record_count} records</Text><Text style={{color:MUTED,fontSize:9}}>{h.report_reference} · {h.period_start} – {h.period_end}</Text></View>):<Text style={{color:MUTED,fontSize:10}}>No reports generated yet.</Text>}</View>
+  <View style={{...panel,padding:14,gap:8}}><View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}><Text style={{color:INK,fontSize:14,fontWeight:'900'}}>Report history</Text><Pressable onPress={()=>void loadHistory()}><RefreshCw size={15} color={GREEN}/></Pressable></View>{warning?<Text style={{color:'#9A6A37',fontSize:9}}>{warning}</Text>:null}{history.length?history.map(h=><View key={h.id} style={{borderTopWidth:1,borderColor:'#EEF0EC',paddingVertical:8}}><Text style={{color:INK,fontSize:10,fontWeight:'800'}}>{h.report_type.replaceAll('_',' ')} · {h.record_count} records · {h.generation_status}</Text><Text style={{color:MUTED,fontSize:9}}>{h.report_reference} · {h.period_start} – {h.period_end} · by {h.created_by_label}</Text></View>):<Text style={{color:MUTED,fontSize:10}}>No reports generated yet.</Text>}</View>
  </View>;
 }

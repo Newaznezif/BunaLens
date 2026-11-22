@@ -11,7 +11,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import DirectoryManager from '@/components/admin/DirectoryManager';
 import UserManagement from '@/components/admin/UserManagement';
 import AdminScanReview from '@/components/admin/ScanReview';
-import ReportingAnalytics from '@/components/admin/ReportingAnalytics';
+import ReportingAnalytics from '@/features/admin/ReportingAnalytics';
 
 type AdminTab = 'overview' | 'stations' | 'payments' | 'directory' | 'users' | 'reviews' | 'coffeePlants' | 'reporting';
 type StationRow = { id: string; name: string | null; manager: string | null; email: string | null; phone: string | null; woreda: string; credits: number; pro_expires_at: string | null; created_at: string };

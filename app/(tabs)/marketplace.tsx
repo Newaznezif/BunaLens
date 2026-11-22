@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { JIMMA_WOREDAS } from '@/constants/jimmaData';
 import { fetchListings, type Listing } from '@/services/marketplace';
@@ -20,6 +20,8 @@ function Chip({ label, selected, onPress, testID }: { label: string; selected: b
 
 /** Buyer browse: published listings with origin, stage and price filters applied on the server. */
 export default function Marketplace() {
+  const { width } = useWindowDimensions();
+  const narrow = width < 390;
   const [origin, setOrigin] = useState<string | undefined>();
   const [stage, setStage] = useState<SampleType | undefined>();
   const [maxPrice, setMaxPrice] = useState('');
@@ -50,8 +52,8 @@ export default function Marketplace() {
   }, [load]));
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: '#FAF7F2' }} contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+    <ScrollView style={{ flex: 1, backgroundColor: '#FAF7F2' }} contentContainerStyle={{ padding: narrow ? 14 : 20, paddingBottom: 40 }}>
+      <View style={{ flexDirection: narrow ? 'column' : 'row', alignItems: narrow ? 'stretch' : 'center', gap: 10 }}>
         <View><Text style={{ fontSize: 22, fontWeight: '900', color: '#1C1917' }}>Coffee marketplace</Text><Text style={{ fontSize: 10, color: '#78716C', marginTop: 3 }}>Open catalogue · visible to every visitor</Text></View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Pressable accessibilityLabel="Refresh public marketplace" disabled={refreshing} onPress={() => void load()} style={{ padding: 7 }}><RefreshCw size={16} color="#7C2D12" /></Pressable>
@@ -88,7 +90,7 @@ export default function Marketplace() {
         <Pressable key={item.id} testID={'market-listing-' + item.batch_code} onPress={() => router.push({ pathname: '/market/[id]', params: { id: item.id } })}
           style={{ backgroundColor: '#FFFFFF', borderRadius: 16, borderWidth: 1, borderColor: '#E7E5E4', padding: 14, marginBottom: 12 }}>
           {item.image_url ? <Image source={{ uri: item.image_url }} accessibilityLabel={'Coffee sample photograph for lot ' + item.batch_code} resizeMode="cover" style={{ width: '100%', height: 170, borderRadius: 11, backgroundColor: '#F3F0EA', marginBottom: 10 }} /> : <View style={{ width: '100%', height: 110, borderRadius: 11, backgroundColor: '#F3F0EA', marginBottom: 10, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#78716C', fontSize: 11 }}>Coffee photograph unavailable</Text></View>}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <View style={{ flexDirection: narrow ? 'column' : 'row', alignItems: narrow ? 'flex-start' : 'center', gap: 4 }}>
             <Text style={{ fontSize: 15, fontWeight: '900', color: '#1C1917' }}>{stageLabel(item.coffee_stage)} · {item.origin_woreda}</Text>
             <Text style={{ fontSize: 15, fontWeight: '900', color: '#166534' }}>{item.price_per_kg_etb.toLocaleString()} ETB/kg</Text>
           </View>

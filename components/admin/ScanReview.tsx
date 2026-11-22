@@ -74,6 +74,7 @@ export default function AdminScanReview() {
         return { ...row, stations: [{ ...(related || { name: null, manager: null }), marketplace_seller_status: currentStatus }] };
       });
       const isPublished = (row: ScanRow) => {
+        if (row.is_demo) return false;
         const listings = Array.isArray(row.marketplace_listings) ? row.marketplace_listings : row.marketplace_listings ? [row.marketplace_listings] : [];
         return listings.some((listing) => listing.status === 'published');
       };

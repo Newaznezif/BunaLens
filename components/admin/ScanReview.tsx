@@ -36,12 +36,21 @@ export default function AdminScanReview() {
     if (!client) { setError('Supabase is not configured.'); setLoading(false); return; }
     setLoading(true); setError('');
     try {
-      const { data, error: queryError } = await client
-        .from('coffee_batches')
-        .select('id,station_id,batch_code,sample_type,woreda,lot_weight_kg,image_path,grading_status,eligibility_status,is_demo,created_at,grading_result,certification_status,certified_grade,quality_classification,marketplace_listings(status),stations(name,station_name,manager,marketplace_seller_status)')
-        .order('created_at', { ascending: false }).limit(500);
-      if (queryError) throw queryError;
-      const scans = (data || []) as unknown as ScanRow[];
+      // Fetch the entire review history in bounded pages. A single .limit(500)
+      // silently hides older submissions once a station network grows.
+      const scans: ScanRow[] = [];
+      const pageSize = 500;
+      for (let offset = 0; ; offset += pageSize) {
+        const { data, error: queryError } = await client
+          .from('coffee_batches')
+          .select('id,station_id,batch_code,sample_type,woreda,lot_weight_kg,image_path,grading_status,eligibility_status,is_demo,created_at,grading_result,certification_status,certified_grade,quality_classification,marketplace_listings(status),stations(name,station_name,manager,marketplace_seller_status)')
+          .order('created_at', { ascending: false })
+          .range(offset, offset + pageSize - 1);
+        if (queryError) throw queryError;
+        const page = (data || []) as unknown as ScanRow[];
+        scans.push(...page);
+        if (page.length < pageSize) break;
+      }
       const stationIds = [...new Set(scans.map((row) => row.station_id).filter(Boolean))];
       const statusByStation = new Map<string, string>();
       if (stationIds.length) {
@@ -169,6 +178,7 @@ export default function AdminScanReview() {
       </View>
       {error ? <Text accessibilityRole="alert" style={{ color: '#A34F3E', fontSize: 12 }}>{error}</Text> : null}
       {notice ? <Text accessibilityLiveRegion="polite" style={{ color: green, fontSize: 12, fontWeight: '800' }}>{notice}</Text> : null}
+      {!loading ? <Text style={{ color: muted, fontSize: 11, fontWeight: '700' }}>{rows.length.toLocaleString()} total submitted scans · {rows.filter((row) => !row.is_demo && (row.eligibility_status === 'unreviewed' || row.eligibility_status === 'needs_review' || (row.certification_status === 'certified' && !(Array.isArray(row.marketplace_listings) ? row.marketplace_listings.length : row.marketplace_listings ? 1 : 0)))).length.toLocaleString()} awaiting review or publication</Text> : null}
       {loading ? <View style={{ padding: 36, alignItems: 'center' }}><ActivityIndicator color={green} /><Text style={{ color: muted, marginTop: 9 }}>Loading submitted scans…</Text></View> : rows.map((row) => {
         const station = row.stations?.[0];
         const sellerStatus = station?.marketplace_seller_status || 'pending';

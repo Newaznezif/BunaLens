@@ -4,7 +4,7 @@ import type { ViewStyle } from 'react-native';
 import { router } from 'expo-router';
 import {
   Activity, Award, Building2, CheckCircle2, ChevronRight, CircleAlert, Coffee, CreditCard, FileText,
-  Database, LayoutDashboard, LogOut, RefreshCw, Search, ShieldCheck, Sprout, TrendingUp, Users, ClipboardCheck, Settings as SettingsIcon,
+  Database, LayoutDashboard, LogOut, Menu, RefreshCw, Search, ShieldCheck, Sprout, TrendingUp, Users, ClipboardCheck, Settings as SettingsIcon, X,
 } from 'lucide-react-native';
 import { isSupabaseConfigured, supabase } from '@/services/supabaseClient';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -71,6 +71,7 @@ export default function AdminDashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const narrow = width < 760;
 
   const load = useCallback(async (quiet = false) => {
@@ -134,38 +135,40 @@ export default function AdminDashboard() {
 
   return (
     <View style={{ flex: 1, flexDirection: narrow ? 'column' : 'row', backgroundColor: '#F3F5EF' }}>
-      <View style={{ width: narrow ? '100%' : 248, minHeight: narrow ? undefined : '100%', backgroundColor: '#26372D', paddingHorizontal: 17, paddingTop: narrow ? 14 : 28, paddingBottom: narrow ? 10 : 20 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: narrow ? 12 : 38 }}>
+      {!narrow ? <View style={{ width: 248, minHeight: '100%', backgroundColor: '#26372D', paddingHorizontal: 17, paddingTop: 28, paddingBottom: 20 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 38 }}>
           <View style={{ width: 42, height: 42, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: '#55765D', marginRight: 11 }}><Coffee size={22} color="#FFFFFF" /></View>
           <View style={{ flex: 1 }}><Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '900', letterSpacing: -0.4 }}>BunaLens</Text><Text style={{ color: '#C3D0C1', fontSize: 9, fontWeight: '700', letterSpacing: 1.1 }}>ADMIN CONSOLE</Text></View>
-          {narrow ? <Pressable onPress={() => void load(true)} accessibilityLabel="Refresh dashboard" style={{ padding: 10 }}><RefreshCw size={17} color="#FFFFFF" /></Pressable> : null}
         </View>
-        {!narrow ? <Text style={{ color: '#9CAA9B', fontSize: 9, fontWeight: '900', letterSpacing: 1.3, marginHorizontal: 11, marginBottom: 10 }}>WORKSPACE</Text> : null}
-        <View style={{ flexDirection: narrow ? 'row' : 'column', flexWrap: narrow ? 'wrap' : 'nowrap', gap: 5 }}>
+        <Text style={{ color: '#9CAA9B', fontSize: 9, fontWeight: '900', letterSpacing: 1.3, marginHorizontal: 11, marginBottom: 10 }}>WORKSPACE</Text>
+        <View style={{ flexDirection: 'column', gap: 5 }}>
           {tabs.map(({ key, label, icon: Icon }) => {
             const selected = tab === key;
-            return <Pressable key={key} onPress={() => { if (key === 'coffeePlants') { router.push('/admin/coffee-plants'); return; } setTab(key); setSearch(''); }} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 11, borderRadius: 12, backgroundColor: selected ? '#3C5142' : 'transparent', flex: narrow ? 1 : undefined, minWidth: narrow ? 88 : undefined }}>
-              <Icon size={16} color={selected ? '#FFFFFF' : '#AFB9AE'} /><Text style={{ color: selected ? '#FFFFFF' : '#AFB9AE', fontSize: 12, fontWeight: selected ? '800' : '600', marginLeft: 10 }}>{label}</Text>
+            return <Pressable key={key} onPress={() => { if (key === 'coffeePlants') { router.push('/admin/coffee-plants'); return; } setTab(key); setSearch(''); }} accessibilityRole="button" accessibilityState={{ selected }} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 12, borderRadius: 12, backgroundColor: selected ? '#3C5142' : 'transparent' }}>
+              <Icon size={17} color={selected ? '#FFFFFF' : '#AFB9AE'} /><Text style={{ color: selected ? '#FFFFFF' : '#AFB9AE', fontSize: 12, fontWeight: selected ? '800' : '600', marginLeft: 11 }}>{label}</Text>
+              {selected ? <View style={{ marginLeft: 'auto', width: 6, height: 6, borderRadius: 4, backgroundColor: '#BBD3B3' }} /> : null}
             </Pressable>;
           })}
         </View>
-        {!narrow ? <View style={{ marginTop: 'auto' as any }}>
+        <View style={{ marginTop: 'auto' as any }}>
           <View style={{ backgroundColor: '#35473A', borderRadius: 16, padding: 13, marginBottom: 14 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 7 }}><ShieldCheck size={15} color="#BBD3B3" /><Text style={{ color: '#DCE7D8', fontSize: 10, fontWeight: '800', marginLeft: 7 }}>Protected workspace</Text></View>
             <Text style={{ color: '#AEBBAD', fontSize: 9, lineHeight: 14 }}>Admin access is verified by your secure Supabase role.</Text>
           </View>
+          <Pressable onPress={() => router.push('/settings')} style={{ flexDirection: 'row', alignItems: 'center', padding: 11 }}><SettingsIcon size={16} color="#B7C0B5" /><Text style={{ color: '#B7C0B5', fontSize: 11, fontWeight: '700', marginLeft: 10 }}>Account settings</Text></Pressable>
           <Pressable onPress={() => void signOut()} style={{ flexDirection: 'row', alignItems: 'center', padding: 11 }}><LogOut size={16} color="#B7C0B5" /><Text style={{ color: '#B7C0B5', fontSize: 11, fontWeight: '700', marginLeft: 10 }}>Sign out</Text></Pressable>
-        </View> : null}
-      </View>
+        </View>
+      </View> : null}
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ width: '100%', maxWidth: 1500, alignSelf: 'center', padding: narrow ? 17 : 30, paddingBottom: 50 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
-          <View style={{ flex: 1 }}><Text style={{ color: theme.colors.secondary, fontSize: 11, fontWeight: '700' }}>BUNALENS / ADMIN</Text><Text style={{ color: theme.colors.espresso, fontSize: narrow ? 26 : 31, fontWeight: '900', letterSpacing: -0.8, marginTop: 5 }}>{tab === 'overview' ? 'Operations overview' : tab === 'stations' ? 'Coffee stations' : tab === 'payments' ? 'Payment activity' : tab === 'users' ? 'User management' : tab === 'reviews' ? 'Scan review queue' : tab === 'reporting' ? 'Reporting & Analytics' : 'Location directory'}</Text><Text style={{ color: theme.colors.secondary, fontSize: 12, marginTop: 4 }}>{tab === 'overview' ? 'A live view of the BunaLens network in Jimma.' : tab === 'stations' ? 'Station accounts registered across the network.' : tab === 'payments' ? 'Verified and pending station transactions.' : tab === 'users' ? 'Monitor every registered account, station association and user activity.' : tab === 'reviews' ? 'Review every submitted coffee scan and approve eligible lots for public marketplace publication.' : tab === 'reporting' ? 'Generate and export live operational reports.' : 'Manage woredas and the station options shown during registration.'}</Text></View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: narrow ? 17 : 22, gap: 10 }}>
+          {narrow ? <Pressable accessibilityRole="button" accessibilityLabel="Open admin navigation" accessibilityState={{ expanded: mobileMenuOpen }} onPress={() => setMobileMenuOpen(true)} style={{ width: 46, height: 46, borderRadius: 15, backgroundColor: '#26372D', alignItems: 'center', justifyContent: 'center' }}><Menu size={22} color="#FFFFFF" /></Pressable> : null}
+          <View style={{ flex: 1, minWidth: 0 }}><Text style={{ color: theme.colors.secondary, fontSize: 10, fontWeight: '800', letterSpacing: 0.5 }}>BUNALENS / ADMIN</Text><Text numberOfLines={2} style={{ color: theme.colors.espresso, fontSize: narrow ? 22 : 31, fontWeight: '900', letterSpacing: -0.8, marginTop: 5 }}>{tab === 'overview' ? 'Operations overview' : tab === 'stations' ? 'Coffee stations' : tab === 'payments' ? 'Payment activity' : tab === 'users' ? 'User management' : tab === 'reviews' ? 'Scan review queue' : tab === 'certificates' ? 'Published Certificates' : tab === 'reporting' ? 'Reporting & Analytics' : tab === 'coffeePlants' ? 'Coffee Plant Monitor' : tab === 'directory' ? 'Location directory' : 'Admin workspace'}</Text><Text numberOfLines={narrow ? 2 : 3} style={{ color: theme.colors.secondary, fontSize: narrow ? 10 : 12, marginTop: 4 }}>{tab === 'overview' ? 'A live view of the BunaLens network in Jimma.' : tab === 'stations' ? 'Station accounts registered across the network.' : tab === 'payments' ? 'Verified and pending station transactions.' : tab === 'users' ? 'Monitor every registered account, station association and user activity.' : tab === 'reviews' ? 'Review submitted scans and certify eligible coffee lots.' : tab === 'certificates' ? 'Certified lots currently visible to Marketplace visitors.' : tab === 'reporting' ? 'Generate and export live operational reports.' : 'Manage woredas and station options.'}</Text></View>
           {!narrow ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E9E0', borderRadius: 99, paddingHorizontal: 12, paddingVertical: 8 }}><View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: '#55765D', marginRight: 7 }} /><Text style={{ color: '#55765D', fontSize: 10, fontWeight: '800' }}>LIVE DATA</Text></View>
             <Pressable onPress={() => void load(true)} disabled={refreshing} style={{ flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: '#26372D', borderRadius: 12, paddingHorizontal: 13, paddingVertical: 11 }}><RefreshCw size={14} color="#FFFFFF" /><Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '800' }}>{refreshing ? 'Refreshing' : 'Refresh'}</Text></Pressable>
           </View> : null}
-          <Pressable accessibilityRole="button" accessibilityLabel="Account settings" onPress={() => router.push('/settings')} style={{ flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E9E0', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, marginLeft: 8 }}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Account settings" onPress={() => router.push('/settings')} style={{ flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E9E0', borderRadius: 12, paddingHorizontal: narrow ? 10 : 12, paddingVertical: 10, marginLeft: 4 }}>
             <SettingsIcon size={15} color="#26372D" /><Text style={{ color: '#26372D', fontSize: 11, fontWeight: '800' }}>Account settings</Text>
           </Pressable>
         </View>
@@ -251,6 +254,36 @@ export default function AdminDashboard() {
         <Text style={{ color: '#9AA298', fontSize: 9, lineHeight: 15, textAlign: 'center', marginTop: 24 }}>BunaLens provides preliminary visual screening only. Data excludes local demonstration records where indicated.</Text>
         {narrow ? <Pressable onPress={() => void signOut()} style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'center', padding: 15, marginTop: 4 }}><LogOut size={15} color="#727C70" /><Text style={{ color: '#727C70', fontSize: 11, fontWeight: '700', marginLeft: 8 }}>Sign out</Text></Pressable> : null}
       </ScrollView>
+      {narrow && mobileMenuOpen ? <View style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 100, flexDirection: 'row', backgroundColor: 'rgba(12,20,14,0.58)' }}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Close navigation" onPress={() => setMobileMenuOpen(false)} style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }} />
+        <View style={{ width: '86%', maxWidth: 340, height: '100%', backgroundColor: '#26372D', paddingTop: 18, paddingBottom: 16, paddingHorizontal: 17, shadowColor: '#000000', shadowOpacity: 0.24, shadowRadius: 24, elevation: 18 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', paddingBottom: 19, borderBottomWidth: 1, borderColor: '#405246' }}>
+            <View style={{ width: 44, height: 44, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: '#55765D', marginRight: 11 }}><Coffee size={23} color="#FFFFFF" /></View>
+            <View style={{ flex: 1 }}><Text style={{ color: '#FFFFFF', fontSize: 19, fontWeight: '900', letterSpacing: -0.4 }}>BunaLens</Text><Text style={{ color: '#BBD3B3', fontSize: 9, fontWeight: '800', letterSpacing: 1.3, marginTop: 2 }}>ADMIN WORKSPACE</Text></View>
+            <Pressable accessibilityRole="button" accessibilityLabel="Close navigation" onPress={() => setMobileMenuOpen(false)} style={{ width: 39, height: 39, borderRadius: 13, backgroundColor: '#35473A', alignItems: 'center', justifyContent: 'center' }}><X size={19} color="#FFFFFF" /></Pressable>
+          </View>
+          <View style={{ backgroundColor: '#35473A', borderRadius: 13, padding: 12, marginTop: 17, marginBottom: 17, flexDirection: 'row', alignItems: 'center' }}>
+            <View style={{ width: 8, height: 8, borderRadius: 5, backgroundColor: '#9FC59A', marginRight: 9 }} /><View style={{ flex: 1 }}><Text style={{ color: '#E0EADF', fontSize: 10, fontWeight: '900' }}>SECURE ADMIN SESSION</Text><Text style={{ color: '#AEBBAD', fontSize: 9, marginTop: 3 }}>Connected to live BunaLens data</Text></View><ShieldCheck size={17} color="#BBD3B3" />
+          </View>
+          <Text style={{ color: '#9CAA9B', fontSize: 9, fontWeight: '900', letterSpacing: 1.4, marginHorizontal: 9, marginBottom: 9 }}>WORKSPACE NAVIGATION</Text>
+          <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingBottom: 12 }}>
+            {tabs.map(({ key, label, icon: Icon }) => {
+              const selected = tab === key;
+              const subtitle = key === 'certificates' ? 'Certified lots live on Marketplace' : key === 'reviews' ? 'Review and certify incoming scans' : key === 'reporting' ? 'Reports, trends and exports' : key === 'stations' ? 'Station accounts and status' : key === 'payments' ? 'Transactions and verification' : key === 'users' ? 'Registered platform accounts' : key === 'directory' ? 'Woredas and station locations' : key === 'coffeePlants' ? 'Plant monitoring workspace' : 'Network health and activity';
+              return <Pressable key={key} onPress={() => { setMobileMenuOpen(false); if (key === 'coffeePlants') { router.push('/admin/coffee-plants'); return; } setTab(key); setSearch(''); }} accessibilityRole="button" accessibilityState={{ selected }} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 12, borderRadius: 14, backgroundColor: selected ? '#3C5142' : 'transparent', borderWidth: selected ? 1 : 1, borderColor: selected ? '#607966' : 'transparent' }}>
+                <View style={{ width: 37, height: 37, borderRadius: 12, backgroundColor: selected ? '#55765D' : '#35473A', alignItems: 'center', justifyContent: 'center', marginRight: 11 }}><Icon size={17} color={selected ? '#FFFFFF' : '#B7C4B4'} /></View>
+                <View style={{ flex: 1 }}><Text style={{ color: selected ? '#FFFFFF' : '#D0D9CE', fontSize: 12, fontWeight: selected ? '900' : '700' }}>{label}</Text><Text style={{ color: selected ? '#D2E2CF' : '#91A090', fontSize: 9, marginTop: 3 }}>{subtitle}</Text></View>
+                {selected ? <View style={{ width: 7, height: 7, borderRadius: 5, backgroundColor: '#C6E0BF' }} /> : <ChevronRight size={15} color="#718271" />}
+              </Pressable>;
+            })}
+          </ScrollView>
+          <View style={{ borderTopWidth: 1, borderColor: '#405246', paddingTop: 13, gap: 5 }}>
+            <Pressable onPress={() => { setMobileMenuOpen(false); router.push('/settings'); }} style={{ flexDirection: 'row', alignItems: 'center', borderRadius: 12, padding: 12, backgroundColor: '#35473A' }}><SettingsIcon size={17} color="#D0DCCB" /><Text style={{ color: '#E0EADF', fontSize: 12, fontWeight: '800', marginLeft: 11 }}>Account settings</Text><ChevronRight size={15} color="#91A090" style={{ marginLeft: 'auto' }} /></Pressable>
+            <Pressable onPress={() => { setMobileMenuOpen(false); void signOut(); }} style={{ flexDirection: 'row', alignItems: 'center', borderRadius: 12, padding: 12 }}><LogOut size={17} color="#D3B6AC" /><Text style={{ color: '#D3B6AC', fontSize: 12, fontWeight: '800', marginLeft: 11 }}>Sign out</Text></Pressable>
+            <Text style={{ color: '#809080', fontSize: 9, textAlign: 'center', marginTop: 3 }}>BunaLens · Protected administrator access</Text>
+          </View>
+        </View>
+      </View> : null}
     </View>
   );
 }

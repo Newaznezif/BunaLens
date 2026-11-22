@@ -68,6 +68,7 @@ function makeHtml(r: Report, admin: string) {
 export default function ReportingAnalytics() {
  const [kind,setKind] = useState<Kind>('general'), [period,setPeriod] = useState<Period>('monthly');
  const [start,setStart] = useState(''), [end,setEnd] = useState(''), [location,setLocation] = useState('');
+ const [roleFilter,setRoleFilter] = useState(''), [statusFilter,setStatusFilter] = useState('');
  const [report,setReport] = useState<Report|null>(null), [history,setHistory] = useState<any[]>([]);
  const [admin,setAdmin] = useState('BunaLens administrator'), [loading,setLoading] = useState(false), [exporting,setExporting] = useState(false);
  const [error,setError] = useState(''), [notice,setNotice] = useState(''), [warning,setWarning] = useState('');
@@ -118,18 +119,19 @@ export default function ReportingAnalytics() {
    };
 
    if (kind==='users') {
-    const data=(await users()).filter((u:any)=>!location || [u.station?.woreda,u.station?.name].some((v:string)=>v?.toLowerCase().includes(location.toLowerCase())));
+    const data=(await users()).filter((u:any)=>(!location || [u.station?.woreda,u.station?.name].some((v:string)=>v?.toLowerCase().includes(location.toLowerCase())))&&(!roleFilter||String(u.role||'').toLowerCase().includes(roleFilter.toLowerCase()))&&(!statusFilter||String(u.status||'').toLowerCase().includes(statusFilter.toLowerCase())));
     rows=data.map((u:any)=>({name:u.full_name||'—',email:u.email||'—',role:u.role,status:u.status,station:u.station?.name||'—',woreda:u.station?.woreda||'—',registered:fmtDate(u.created_at)}));
     metrics=[{label:'Registrations',value:String(data.length)},{label:'Verified',value:String(data.filter((u:any)=>u.status==='verified').length)},{label:'Suspended',value:String(data.filter((u:any)=>u.status==='suspended').length)}]; recordCount=rows.length;
    } else if (kind==='payments') {
-    const data=(await payments()).filter((p:any)=>!location || [p.station_name,p.woreda,p.payer].some((v:string)=>v?.toLowerCase().includes(location.toLowerCase())));
+    const data=(await payments()).filter((p:any)=>(!location || [p.station_name,p.woreda,p.payer].some((v:string)=>v?.toLowerCase().includes(location.toLowerCase())))&&(!statusFilter||String(p.status||'').toLowerCase().includes(statusFilter.toLowerCase())));
     const verified=data.filter((p:any)=>p.status==='verified' && !p.is_test), total=verified.reduce((s:number,p:any)=>s+Number(p.amount_etb||0),0);
     rows=data.map((p:any)=>({source:p.payment_source,reference:p.chapa_tx_ref,payer:p.payer,station:p.station_name,woreda:p.woreda,package:p.package_id||'Marketplace order',amount:Number(p.amount_etb).toLocaleString()+' '+p.currency,status:p.status,test_mode:p.is_test?'yes':'no',created:fmtDate(p.created_at),verified:p.verified_at?fmtDate(p.verified_at):'—'}));
     metrics=[{label:'All transactions',value:String(data.length)},{label:'Verified non-test collections',value:fmtETB(total)},{label:'Pending',value:String(data.filter((p:any)=>p.status==='pending').length)},{label:'Failed / expired',value:String(data.filter((p:any)=>['failed','expired'].includes(p.status)).length)}];
     notes.push('Includes station subscription payments and marketplace order payments. Verified test-mode marketplace payments are listed but excluded from collected revenue. Pending, failed and expired transactions are excluded from revenue.');
    } else if (kind==='directory') {
     const x=await directory(), w=x.w.filter((v:any)=>!location||[v.name,v.zone].some((z:string)=>z?.toLowerCase().includes(location.toLowerCase()))), ids=new Set(w.map((v:any)=>v.id)), ds=x.d.filter((v:any)=>ids.has(v.woreda_id));
-    rows=[...w.map((v:any)=>({type:'Woreda',name:v.name,zone:v.zone,status:v.is_active?'active':'inactive'})),...ds.map((v:any)=>({type:'Directory station',name:v.name,woreda:w.find((z:any)=>z.id===v.woreda_id)?.name||'—',status:v.is_active?'active':'inactive'})),...x.s.filter((v:any)=>!location||[v.woreda,v.zone,v.name,v.station_name].some((z:string)=>z?.toLowerCase().includes(location.toLowerCase()))).map((v:any)=>({type:'Registered station',name:v.station_name||v.name,woreda:v.woreda,zone:v.zone,registered:fmtDate(v.created_at)}))];
+    rows=[...w.map((v:any)=>({type:'Woreda',name:v.name,zone:v.zone,status:v.is_active?'active':'inactive'})),...ds.map((v:any)=>({type:'Directory station',name:v.name,woreda:w.find((z:any)=>z.id===v.woreda_id)?.name||'—',status:v.is_active?'active':'inactive'})),...x.s.filter((v:any)=>!location||[v.woreda,v.zone,v.name,v.station_name].some((z:string)=>z?.toLowerCase().includes(location.toLowerCase()))).map((v:any)=>({type:'Registered station',name:v.station_name||v.name,woreda:v.woreda,zone:v.zone,status:'registered',registered:fmtDate(v.created_at)}))];
+    if(statusFilter) rows=rows.filter(r=>String(r.status||'').toLowerCase().includes(statusFilter.toLowerCase()));
     metrics=[{label:'Woredas',value:String(w.length)},{label:'Directory stations',value:String(ds.length)},{label:'Registered stations',value:String(x.s.length)}]; recordCount=rows.length;
    } else if (kind==='coffee_plants') {
     const res=await fetch('https://api.gbif.org/v1/occurrence/search?scientificName=Coffea%20arabica&decimalLatitude=7.2,8.15&decimalLongitude=36.05,37.45&hasCoordinate=true&occurrenceStatus=PRESENT&establishmentMeans=NATIVE&limit=300');
@@ -139,7 +141,7 @@ export default function ReportingAnalytics() {
     metrics=[{label:'Occurrence records',value:String(rows.length)}]; recordCount=rows.length;
     notes.push('GBIF biodiversity occurrence data for the Jimma area. These are not BunaLens plant-health inspections or farm-level monitoring records.');
    } else if (kind==='climate') {
-    const data=(await climate()).filter((x:any)=>!location||[rel(x.stations)?.name,rel(x.stations)?.woreda,rel(x.warehouse_zones)?.name].some((v:string)=>v?.toLowerCase().includes(location.toLowerCase())));
+    const data=(await climate()).filter((x:any)=>(!location||[rel(x.stations)?.name,rel(x.stations)?.woreda,rel(x.warehouse_zones)?.name].some((v:string)=>v?.toLowerCase().includes(location.toLowerCase())))&&(!statusFilter||String(x.source||'').toLowerCase().includes(statusFilter.toLowerCase())));
     rows=data.map((x:any)=>({recorded:fmtDate(x.recorded_at),station:rel(x.stations)?.name||'—',woreda:rel(x.stations)?.woreda||'—',zone:rel(x.warehouse_zones)?.name||'—',temperature_c:x.temperature_c,humidity_pct:x.humidity_pct,source:x.source}));
     const live=data.filter((x:any)=>x.source==='live'), simulated=data.filter((x:any)=>x.source==='simulated');
     const liveAvg=live.length?live.reduce((s:number,x:any)=>s+Number(x.temperature_c),0)/live.length:0;
@@ -164,7 +166,7 @@ export default function ReportingAnalytics() {
    const id='BNL-RPT-'+new Date().toISOString().replace(/[-:.TZ]/g,'').slice(0,14)+'-'+Math.random().toString(36).slice(2,6).toUpperCase();
    const next:Report={id,title:(kinds.find(x=>x.key===kind)?.label||'System')+' Report',period:d.label,generated:new Date().toISOString(),rows,metrics,notes,count:recordCount}; setReport(next);
    const {data:auth}=await client.auth.getUser();
-   const {error:historyError}=await client.from('admin_report_history').insert({report_reference:id,report_type:kind,period_start:from.slice(0,10),period_end:to.slice(0,10),record_count:recordCount,filters:{period,location:location.trim()||null},created_by:auth.user?.id,created_by_label:admin,generation_status:'completed'});
+   const {error:historyError}=await client.from('admin_report_history').insert({report_reference:id,report_type:kind,period_start:from.slice(0,10),period_end:to.slice(0,10),record_count:recordCount,filters:{period,location:location.trim()||null,role:roleFilter.trim()||null,status:statusFilter.trim()||null},created_by:auth.user?.id,created_by_label:admin,generation_status:'completed'});
    if(historyError)setWarning('Report generated. Apply the admin reporting migration to save history.');else await loadHistory();
    setNotice('Report generated from live system records.');
   } catch(e) { setError(e instanceof Error?e.message:'Report generation failed. Check administrator data permissions.'); }
@@ -178,6 +180,8 @@ export default function ReportingAnalytics() {
   <View style={{...panel,padding:14,gap:10}}><Text style={{color:INK,fontSize:14,fontWeight:'900'}}>Report filters</Text><View style={{flexDirection:'row',flexWrap:'wrap',gap:6}}>{periods.map(p=><Pressable key={p} onPress={()=>setPeriod(p)} style={{paddingHorizontal:11,paddingVertical:8,borderRadius:9,borderWidth:1,borderColor:period===p?GREEN:BORDER,backgroundColor:period===p?'#EFF5ED':'#FFFFFF'}}><Text style={{color:period===p?GREEN:MUTED,fontSize:10,fontWeight:'800'}}>{p[0]!.toUpperCase()+p.slice(1)}</Text></Pressable>)}</View>
   {period==='custom'?<View style={{flexDirection:'row',gap:8}}><TextInput value={start} onChangeText={setStart} placeholder="Start YYYY-MM-DD" style={{flex:1,borderWidth:1,borderColor:BORDER,borderRadius:9,padding:10,color:INK,fontSize:11}}/><TextInput value={end} onChangeText={setEnd} placeholder="End YYYY-MM-DD" style={{flex:1,borderWidth:1,borderColor:BORDER,borderRadius:9,padding:10,color:INK,fontSize:11}}/></View>:null}
   <TextInput value={location} onChangeText={setLocation} placeholder="Optional location: station, woreda or zone" style={{borderWidth:1,borderColor:BORDER,borderRadius:9,padding:11,color:INK,fontSize:11}}/>
+  {kind==='users'?<TextInput value={roleFilter} onChangeText={setRoleFilter} placeholder="Optional user role: farmer, buyer, admin…" style={{borderWidth:1,borderColor:BORDER,borderRadius:9,padding:11,color:INK,fontSize:11}}/>:null}
+  {['users','payments','directory','climate'].includes(kind)?<TextInput value={statusFilter} onChangeText={setStatusFilter} placeholder={kind==='climate'?'Optional source: live or simulated':'Optional status: verified, pending, active…'} style={{borderWidth:1,borderColor:BORDER,borderRadius:9,padding:11,color:INK,fontSize:11}}/>:null}
   <Pressable onPress={()=>void generate()} disabled={loading} style={{backgroundColor:'#26372D',borderRadius:11,padding:13,alignItems:'center',flexDirection:'row',justifyContent:'center',gap:8}}>{loading?<ActivityIndicator color="#FFFFFF"/>:<BarChart3 color="#FFFFFF" size={16}/>}<Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:11}}>{loading?'Generating…':'Generate report'}</Text></Pressable></View>
   {error?<View style={{...panel,padding:12,borderColor:'#E7BDB3',flexDirection:'row',gap:7}}><AlertCircle color="#A34F3E"/><Text style={{color:'#7D3C32',fontSize:10,flex:1}}>{error}</Text></View>:null}
   {notice?<Text style={{color:GREEN,fontSize:10,fontWeight:'800'}}>{notice}</Text>:null}

@@ -3,8 +3,9 @@ import { ActivityIndicator, Platform, Pressable, Text, TextInput, View } from 'r
 import { FileText, Download, RefreshCw, Users, CreditCard, MapPin, Sprout, Thermometer, BarChart3, AlertCircle } from 'lucide-react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-const reportTemplate = require('./report-template.json') as { template: string };
 import { supabase } from '@/services/supabaseClient';
+
+const reportTemplate = require('./report-template.json') as { template: string };
 
 type Kind = 'general' | 'users' | 'payments' | 'directory' | 'coffee_plants' | 'climate';
 type Period = 'daily' | 'weekly' | 'monthly' | 'annual' | 'custom';

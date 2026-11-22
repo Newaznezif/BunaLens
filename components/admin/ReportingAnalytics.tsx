@@ -69,36 +69,37 @@ export default function ReportingAnalytics() {
  },[loadHistory]);
 
  const generate = async () => {
-  if (!supabase) { setError('Supabase is not configured.'); return; }
+  const client = supabase;
+  if (!client) { setError('Supabase is not configured.'); return; }
   setLoading(true); setError(''); setNotice(''); setReport(null);
   try {
    const d = getRange(period,start,end), from=d.from, to=d.to, notes:string[]=[];
    let rows:Row[]=[]; let metrics:{label:string;value:string}[]=[]; let recordCount=0;
    const users = async () => {
-    const first = await supabase.functions.invoke('admin-users',{body:{action:'list',page:1,perPage:100}});
+    const first = await client.functions.invoke('admin-users',{body:{action:'list',page:1,perPage:100}});
     if (first.error) throw first.error; if (first.data?.error) throw new Error(first.data.error);
     const out = [...(first.data.users || [])];
-    for (let p=2;p<=(first.data.totalPages||1);p++) { const n=await supabase.functions.invoke('admin-users',{body:{action:'list',page:p,perPage:100}}); if(n.error)throw n.error; if(n.data?.error)throw new Error(n.data.error); out.push(...(n.data.users||[])); }
+    for (let p=2;p<=(first.data.totalPages||1);p++) { const n=await client.functions.invoke('admin-users',{body:{action:'list',page:p,perPage:100}}); if(n.error)throw n.error; if(n.data?.error)throw new Error(n.data.error); out.push(...(n.data.users||[])); }
     return out.filter((u:any)=>u.created_at>=from && u.created_at<=to);
    };
    const payments = async () => {
     const [stationPayments, orderPayments] = await Promise.all([
-     fetchAll<any>((a,b)=>supabase.from('station_payments').select('id,package_id,amount_etb,currency,chapa_tx_ref,status,created_at,verified_at,stations(name,woreda)').gte('created_at',from).lte('created_at',to).order('created_at',{ascending:false}).range(a,b)),
-     fetchAll<any>((a,b)=>supabase.from('coffee_order_payments').select('id,order_id,chapa_tx_ref,amount_etb,currency,status,is_test,created_at,verified_at,coffee_orders(buyer_name,stations(name,woreda))').gte('created_at',from).lte('created_at',to).order('created_at',{ascending:false}).range(a,b))
+     fetchAll<any>((a,b)=>client.from('station_payments').select('id,package_id,amount_etb,currency,chapa_tx_ref,status,created_at,verified_at,stations(name,woreda)').gte('created_at',from).lte('created_at',to).order('created_at',{ascending:false}).range(a,b)),
+     fetchAll<any>((a,b)=>client.from('coffee_order_payments').select('id,order_id,chapa_tx_ref,amount_etb,currency,status,is_test,created_at,verified_at,coffee_orders(buyer_name,stations(name,woreda))').gte('created_at',from).lte('created_at',to).order('created_at',{ascending:false}).range(a,b))
     ]);
     return [
      ...stationPayments.map((p:any)=>({...p,payment_source:'Station subscription',payer:rel(p.stations)?.name||'—',station_name:rel(p.stations)?.name||'—',woreda:rel(p.stations)?.woreda||'—',is_test:false})),
      ...orderPayments.map((p:any)=>({...p,payment_source:p.is_test?'Marketplace order (test)':'Marketplace order',payer:rel(p.coffee_orders)?.buyer_name||'—',station_name:rel(rel(p.coffee_orders)?.stations)?.name||'—',woreda:rel(rel(p.coffee_orders)?.stations)?.woreda||'—'}))
     ];
    };
-   const stations = () => fetchAll<any>((a,b)=>supabase.from('stations').select('id,name,station_name,woreda,zone,created_at').gte('created_at',from).lte('created_at',to).range(a,b));
-   const batches = () => fetchAll<any>((a,b)=>supabase.from('coffee_batches').select('id,batch_code,sample_type,woreda,grading_status,ecx_grade,quality_score,lot_weight_kg,created_at,is_demo').eq('is_demo',false).gte('created_at',from).lte('created_at',to).range(a,b));
-   const climate = () => fetchAll<any>((a,b)=>supabase.from('device_readings').select('id,recorded_at,temperature_c,humidity_pct,source,warehouse_zones(name),stations(name,woreda)').gte('recorded_at',from).lte('recorded_at',to).range(a,b));
+   const stations = () => fetchAll<any>((a,b)=>client.from('stations').select('id,name,station_name,woreda,zone,created_at').gte('created_at',from).lte('created_at',to).range(a,b));
+   const batches = () => fetchAll<any>((a,b)=>client.from('coffee_batches').select('id,batch_code,sample_type,woreda,grading_status,ecx_grade,quality_score,lot_weight_kg,created_at,is_demo').eq('is_demo',false).gte('created_at',from).lte('created_at',to).range(a,b));
+   const climate = () => fetchAll<any>((a,b)=>client.from('device_readings').select('id,recorded_at,temperature_c,humidity_pct,source,warehouse_zones(name),stations(name,woreda)').gte('recorded_at',from).lte('recorded_at',to).range(a,b));
    const directory = async () => {
     const [w,d,s] = await Promise.all([
-     fetchAll<any>((a,b)=>supabase.from('woredas').select('id,name,zone,is_active').range(a,b)),
-     fetchAll<any>((a,b)=>supabase.from('station_directory').select('id,name,woreda_id,is_active,created_at').range(a,b)),
-     fetchAll<any>((a,b)=>supabase.from('stations').select('id,name,station_name,woreda,zone,created_at').range(a,b))
+     fetchAll<any>((a,b)=>client.from('woredas').select('id,name,zone,is_active').range(a,b)),
+     fetchAll<any>((a,b)=>client.from('station_directory').select('id,name,woreda_id,is_active,created_at').range(a,b)),
+     fetchAll<any>((a,b)=>client.from('stations').select('id,name,station_name,woreda,zone,created_at').range(a,b))
     ]); return {w,d,s};
    };
 
@@ -148,8 +149,8 @@ export default function ReportingAnalytics() {
    if(location.trim())notes.push('Location filter: '+location.trim()+'.');
    const id='BNL-RPT-'+new Date().toISOString().replace(/[-:.TZ]/g,'').slice(0,14)+'-'+Math.random().toString(36).slice(2,6).toUpperCase();
    const next:Report={id,title:(kinds.find(x=>x.key===kind)?.label||'System')+' Report',period:d.label,generated:new Date().toISOString(),rows,metrics,notes,count:recordCount}; setReport(next);
-   const {data:auth}=await supabase.auth.getUser();
-   const {error:historyError}=await supabase.from('admin_report_history').insert({report_reference:id,report_type:kind,period_start:from.slice(0,10),period_end:to.slice(0,10),record_count:recordCount,filters:{period,location:location.trim()||null},created_by:auth.user?.id,created_by_label:admin,generation_status:'completed'});
+   const {data:auth}=await client.auth.getUser();
+   const {error:historyError}=await client.from('admin_report_history').insert({report_reference:id,report_type:kind,period_start:from.slice(0,10),period_end:to.slice(0,10),record_count:recordCount,filters:{period,location:location.trim()||null},created_by:auth.user?.id,created_by_label:admin,generation_status:'completed'});
    if(historyError)setWarning('Report generated. Apply the admin reporting migration to save history.');else await loadHistory();
    setNotice('Report generated from live system records.');
   } catch(e) { setError(e instanceof Error?e.message:'Report generation failed. Check administrator data permissions.'); }

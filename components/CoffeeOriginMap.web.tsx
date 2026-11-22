@@ -26,6 +26,7 @@ export default function CoffeeOriginMap({ site, points, zoom, onToggle }: Props)
           title: 'BunaLens Ethiopia and Jimma coffee origin map',
           srcDoc: html,
           sandbox: 'allow-scripts allow-same-origin',
+          allow: 'geolocation',
           style: { width: '100%', height: '100%', border: 0, display: 'block' },
           loading: 'lazy',
         })}

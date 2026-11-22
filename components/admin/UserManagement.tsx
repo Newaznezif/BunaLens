@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { Activity, CheckCircle2, ChevronLeft, ChevronRight, Clock3, RefreshCw, Search, ShieldAlert, UserRound, Users, XCircle } from 'lucide-react-native';
 import { supabase } from '@/services/supabaseClient';
 

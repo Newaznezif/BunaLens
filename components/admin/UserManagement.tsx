@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { Activity, CheckCircle2, ChevronLeft, ChevronRight, Clock3, RefreshCw, Search, ShieldAlert, UserRound, Users, XCircle } from 'lucide-react-native';
 import { supabase } from '@/services/supabaseClient';
 
@@ -27,6 +27,8 @@ function Metric({ label, value, detail, icon: Icon }: { label: string; value: nu
 }
 
 export default function UserManagement() {
+  const { width } = useWindowDimensions();
+  const narrow = width < 390;
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [activity, setActivity] = useState<ActivityRow[]>([]);
   const [summary, setSummary] = useState<Payload['summary']>({ total: 0, active30d: 0, verified: 0, unverified: 0, suspended: 0 });
@@ -86,7 +88,7 @@ export default function UserManagement() {
 
   const button = { borderWidth: 1, borderColor: '#DDE4DA', borderRadius: 10, paddingHorizontal: 11, paddingVertical: 9, flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6 };
   return <View style={{ gap: 15 }}>
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+    <View style={{ flexDirection: narrow ? 'column' : 'row', alignItems: narrow ? 'stretch' : 'center', justifyContent: 'space-between', gap: 10 }}>
       <View style={{ flex: 1 }}><Text style={{ color: ink, fontSize: 18, fontWeight: '900' }}>User management</Text><Text style={{ color: muted, fontSize: 11, marginTop: 4 }}>Monitor registered accounts, station associations, sign-ins and assessment activity.</Text></View>
       <Pressable onPress={() => void load(page, true)} disabled={refreshing} style={button}><RefreshCw size={14} color={green} /><Text style={{ color: green, fontSize: 10, fontWeight: '800' }}>{refreshing ? 'Refreshing' : 'Refresh'}</Text></Pressable>
     </View>
@@ -109,9 +111,9 @@ export default function UserManagement() {
         {(['all', 'verified', 'unverified', 'suspended'] as const).map((value) => <Pressable key={value} onPress={() => setFilter(value)} style={{ borderRadius: 99, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: filter === value ? '#EAF1E8' : '#FFFFFF', borderWidth: 1, borderColor: filter === value ? green : '#E5E9E0' }}><Text style={{ color: filter === value ? green : muted, fontSize: 10, fontWeight: '800', textTransform: 'capitalize' }}>{value === 'all' ? 'All users' : value}</Text></Pressable>)}
       </View>
       <View style={{ ...panel, overflow: 'hidden' }}>
-        {filtered.map((user, index) => <Pressable key={user.id} onPress={() => setSelected(user)} style={{ padding: 14, borderBottomWidth: index === filtered.length - 1 ? 0 : 1, borderColor: '#EEF0EC', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        {filtered.map((user, index) => <Pressable key={user.id} onPress={() => setSelected(user)} style={{ padding: 14, borderBottomWidth: index === filtered.length - 1 ? 0 : 1, borderColor: '#EEF0EC', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
           <View style={{ width: 39, height: 39, borderRadius: 14, backgroundColor: '#EAF1E8', alignItems: 'center', justifyContent: 'center' }}><UserRound size={18} color={green} /></View>
-          <View style={{ flex: 1, minWidth: 100 }}><Text style={{ color: ink, fontSize: 12, fontWeight: '900' }}>{user.full_name || user.email || 'Unnamed user'}</Text><Text style={{ color: muted, fontSize: 10, marginTop: 3 }}>{user.email || user.phone || user.id}</Text><Text style={{ color: muted, fontSize: 9, marginTop: 2 }}>{user.station?.name || 'No station linked'}{user.station?.woreda ? ' · ' + user.station.woreda : ''}</Text></View>
+          <View style={{ flex: 1, minWidth: narrow ? '65%' : 100 }}><Text style={{ color: ink, fontSize: 12, fontWeight: '900' }}>{user.full_name || user.email || 'Unnamed user'}</Text><Text style={{ color: muted, fontSize: 10, marginTop: 3 }}>{user.email || user.phone || user.id}</Text><Text style={{ color: muted, fontSize: 9, marginTop: 2 }}>{user.station?.name || 'No station linked'}{user.station?.woreda ? ' · ' + user.station.woreda : ''}</Text></View>
           <View style={{ alignItems: 'flex-end', gap: 5 }}><Text style={{ color: statusColor(user.status), fontSize: 9, fontWeight: '900', textTransform: 'uppercase' }}>{user.status}</Text><Text style={{ color: muted, fontSize: 9 }}> {user.batch_count} batches</Text></View>
           <ChevronRight size={15} color="#9AA298" />
         </Pressable>)}

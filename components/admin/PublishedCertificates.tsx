@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { Award, BadgeCheck, CalendarDays, Coffee, ExternalLink, RefreshCw, Search, ShieldCheck } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { supabase } from '@/services/supabaseClient';
@@ -26,6 +26,8 @@ function formatDate(value?: string | null) {
 
 /** Administrator archive of lots that have passed certification and are publicly published. */
 export default function PublishedCertificates() {
+  const { width } = useWindowDimensions();
+  const narrow = width < 390;
   const [rows, setRows] = useState<CertificateRow[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -67,7 +69,7 @@ export default function PublishedCertificates() {
   return (
     <View style={{ gap: 15 }}>
       <View style={{ ...card, padding: 19, backgroundColor: '#26372D', borderColor: '#26372D', overflow: 'hidden' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={{ flexDirection: narrow ? 'column' : 'row', alignItems: narrow ? 'stretch' : 'center', justifyContent: 'space-between', gap: 10 }}>
           <View style={{ flex: 1 }}>
             <Text style={{ color: '#BBD3B3', fontSize: 9, fontWeight: '900', letterSpacing: 1.5 }}>CERTIFICATION ARCHIVE</Text>
             <Text style={{ color: '#FFFFFF', fontSize: 22, fontWeight: '900', marginTop: 6 }}>Published Certificates</Text>
@@ -75,7 +77,7 @@ export default function PublishedCertificates() {
           </View>
           <View style={{ width: 54, height: 54, borderRadius: 18, backgroundColor: '#3C5142', alignItems: 'center', justifyContent: 'center', marginLeft: 12 }}><Award size={27} color="#DDEAD6" /></View>
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 18, gap: 9 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginTop: 18, gap: 9 }}>
           <View style={{ flex: 1, backgroundColor: '#35473A', borderRadius: 13, padding: 12 }}>
             <Text style={{ color: '#BBD3B3', fontSize: 9, fontWeight: '800' }}>PUBLIC CERTIFICATES</Text>
             <Text style={{ color: '#FFFFFF', fontSize: 25, fontWeight: '900', marginTop: 3 }}>{rows.length.toLocaleString()}</Text>
@@ -102,7 +104,7 @@ export default function PublishedCertificates() {
         const verificationId = batch?.verification_id || row.batch_id;
         return (
           <View key={row.id} testID={'published-certificate-' + (row.batch_code || row.batch_id)} style={{ ...card, padding: 16, gap: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
                 <View style={{ width: 39, height: 39, borderRadius: 13, backgroundColor: '#EAF1E8', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}><Coffee size={18} color="#55765D" /></View>
                 <View style={{ flex: 1 }}><Text style={{ color: '#26372D', fontSize: 13, fontWeight: '900' }}>{row.batch_code || 'Certified coffee lot'}</Text><Text style={{ color: '#727C70', fontSize: 10, marginTop: 3 }}>{station?.name || row.seller_display_name} · {row.origin_woreda}</Text></View>

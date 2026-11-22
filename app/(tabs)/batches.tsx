@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ScrollView, Text, View, Pressable, TextInput } from 'react-native';
+import { ScrollView, Text, View, Pressable, TextInput, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
 import { Search, Coffee, ChevronRight, Clock3, ScanLine, ArrowDownUp } from 'lucide-react-native';
 import { useStation } from '@/contexts/StationContext';
@@ -16,6 +16,8 @@ function FilterChip({ label, active, onPress }: { label: string; active: boolean
 }
 
 export default function Batches() {
+  const { width } = useWindowDimensions();
+  const narrow = width < 370;
   const { batches } = useStation();
   const { t } = useLanguage();
   const { theme } = useTheme();
@@ -33,7 +35,7 @@ export default function Batches() {
   }).sort((a, b) => newestFirst ? new Date(b.created_at).getTime() - new Date(a.created_at).getTime() : new Date(a.created_at).getTime() - new Date(b.created_at).getTime()), [batches, q, sample, grade, woreda, status, newestFirst]);
 
   return (
-    <ScrollView className="flex-1" style={{ backgroundColor: theme.colors.parchment }} contentContainerStyle={{ padding: 20, paddingBottom: 36 }} showsVerticalScrollIndicator={false}>
+    <ScrollView className="flex-1" style={{ backgroundColor: theme.colors.parchment }} contentContainerStyle={{ padding: narrow ? 14 : 20, paddingBottom: 36 }} showsVerticalScrollIndicator={false}>
       <View className="flex-row items-center justify-between mb-5"><View><Text className="text-2xl font-black" style={{ color: theme.colors.espresso }}>{t('batches')}</Text><Text className="text-xs mt-1" style={{ color: theme.colors.secondary }}>{t('scanHistory')}</Text></View><LanguageToggle /></View>
       <View className="rounded-3xl p-5 mb-4 flex-row items-center" style={{ backgroundColor: theme.colors.espresso }}><View className="flex-1"><Text className="text-[11px] font-semibold text-stone-300">{t('totalBatches')}</Text><Text className="text-3xl font-black text-white mt-1">{batches.length}</Text><Text className="text-[10px] text-stone-300 mt-1">{batches.filter((b) => b.status === 'demo').length} {t('demoRecords')}</Text></View><Coffee size={23} color="#FFFFFF" /></View>
       <OfflineBanner />
@@ -50,9 +52,9 @@ export default function Batches() {
       </View>
       <View className="flex-row items-center justify-between mt-3 mb-3"><Text className="text-sm font-extrabold" style={{ color: theme.colors.espresso }}>{t('filterResults')}: {rows.length}</Text><Pressable onPress={() => setNewestFirst((v) => !v)} className="flex-row items-center rounded-lg px-3 py-2" style={{ backgroundColor: theme.colors.surface }}><ArrowDownUp size={13} color={theme.colors.cherry} /><Text className="text-[10px] font-bold ml-2" style={{ color: theme.colors.cherry }}>{newestFirst ? t('sortNewest') : t('sortOldest')}</Text></Pressable></View>
       {rows.length === 0 ? <View className="rounded-3xl border p-7 items-center mt-2" style={{ backgroundColor: theme.colors.surface, borderColor: theme.colors.line }}><View className="h-14 w-14 rounded-2xl items-center justify-center" style={{ backgroundColor: theme.colors.cherrySoft }}><ScanLine size={25} color={theme.colors.cherry} /></View><Text className="text-sm font-extrabold mt-4" style={{ color: theme.colors.espresso }}>{q || sample !== 'all' || grade !== 'all' || woreda !== 'all' || status !== 'all' ? t('noMatches') : t('noBatchesYet')}</Text><Text className="text-xs text-center leading-5 mt-1" style={{ color: theme.colors.secondary }}>{t('tryDifferentSearch')}</Text></View> : rows.map((batch) => (
-        <Pressable key={batch.id} onPress={() => router.push({ pathname: '/batch/[id]', params: { id: batch.id } })} className="rounded-3xl border p-4 mb-3 flex-row items-center" style={{ backgroundColor: theme.colors.surface, borderColor: theme.colors.line }}>
+        <Pressable key={batch.id} onPress={() => router.push({ pathname: '/batch/[id]', params: { id: batch.id } })} className="rounded-3xl border p-4 mb-3 flex-row items-center" style={{ backgroundColor: theme.colors.surface, borderColor: theme.colors.line, flexWrap: narrow ? 'wrap' : 'nowrap' }}>
           <View className="h-11 w-11 rounded-xl items-center justify-center mr-3" style={{ backgroundColor: theme.colors.parchment }}><Coffee size={20} color={theme.colors.espresso} /></View>
-          <View className="flex-1"><Text className="text-sm font-extrabold" style={{ color: theme.colors.espresso }}>{batch.batch_code}</Text><View className="flex-row items-center mt-1"><Clock3 size={11} color={theme.colors.secondary} /><Text className="text-[11px] ml-1" style={{ color: theme.colors.secondary }}>{batch.woreda} · {new Date(batch.created_at).toLocaleDateString()}</Text></View><Text className="text-[10px] mt-1" style={{ color: theme.colors.secondary }}>{batch.sample_type === 'red_cherry' ? t('redCoffeeCherries') : t('greenCoffeeBeans')} · {batch.lot_weight_kg} kg</Text></View>
+          <View className="flex-1" style={{ minWidth: narrow ? 145 : 0 }}><Text className="text-sm font-extrabold" style={{ color: theme.colors.espresso }}>{batch.batch_code}</Text><View className="flex-row items-center mt-1"><Clock3 size={11} color={theme.colors.secondary} /><Text className="text-[11px] ml-1" style={{ color: theme.colors.secondary }}>{batch.woreda} · {new Date(batch.created_at).toLocaleDateString()}</Text></View><Text className="text-[10px] mt-1" style={{ color: theme.colors.secondary }}>{batch.sample_type === 'red_cherry' ? t('redCoffeeCherries') : t('greenCoffeeBeans')} · {batch.lot_weight_kg} kg</Text></View>
           <View className="items-end mr-2"><View className="rounded-lg px-2.5 py-1.5" style={{ backgroundColor: batch.status === 'demo' ? '#FFFBEB' : batch.status === 'failed' ? '#FEF2F2' : theme.colors.emeraldSoft }}><Text className="text-xs font-black" style={{ color: batch.status === 'demo' ? theme.colors.harvest : batch.status === 'failed' ? '#B91C1C' : theme.colors.emerald }}>{batch.status === 'demo' ? t('demoLabel') : batch.result?.ecx_grade ?? t('pending')}</Text></View><Text className="text-[9px] mt-1 font-semibold" style={{ color: theme.colors.secondary }}>{batch.status === 'demo' ? t('statusDemo') : batch.status === 'synced' ? t('synced') : batch.status === 'queued' ? t('statusPending') : batch.status === 'failed' ? t('statusFailed') : batch.status === 'processing' ? t('statusProcessing') : t('local')}</Text></View><ChevronRight size={16} color={theme.colors.muted} />
         </Pressable>
       ))}

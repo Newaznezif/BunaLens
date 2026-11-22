@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { CircleAlert, Plus, RefreshCw, X } from 'lucide-react-native';
 import { supabase } from '@/services/supabaseClient';
 
@@ -12,6 +12,8 @@ const ink = '#26372D';
 const muted = '#727C70';
 
 export default function DirectoryManager() {
+  const { width } = useWindowDimensions();
+  const narrow = width < 390;
   const [woredas, setWoredas] = useState<Woreda[]>([]);
   const [directoryStations, setDirectoryStations] = useState<DirectoryStation[]>([]);
   const [selectedWoreda, setSelectedWoreda] = useState('');
@@ -120,7 +122,7 @@ export default function DirectoryManager() {
 
   return (
     <View style={{ gap: 16 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+      <View style={{ flexDirection: narrow ? 'column' : 'row', alignItems: narrow ? 'stretch' : 'center', justifyContent: 'space-between', gap: 10 }}>
         <View style={{ flex: 1 }}>
           <Text style={{ color: ink, fontSize: 18, fontWeight: '900' }}>Location directory</Text>
           <Text style={{ color: muted, fontSize: 11, marginTop: 4 }}>Manage the woredas and coffee stations available during registration.</Text>
@@ -160,12 +162,12 @@ export default function DirectoryManager() {
         <View style={{ gap: 11 }}>
           <View><Text style={{ color: ink, fontSize: 17, fontWeight: '900' }}>Directory entries</Text><Text style={{ color: muted, fontSize: 10, marginTop: 3 }}>Deactivate entries to hide them from registration without deleting records.</Text></View>
           {groupedStations.map(({ woreda, stations }) => <View key={woreda.id} style={{ ...panel, overflow: 'hidden' }}>
-            <View style={{ padding: 14, backgroundColor: '#F7F8F5', borderBottomWidth: 1, borderColor: '#EEF0EC', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={{ padding: 14, backgroundColor: '#F7F8F5', borderBottomWidth: 1, borderColor: '#EEF0EC', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
               <View style={{ flex: 1 }}><Text style={{ color: ink, fontSize: 13, fontWeight: '900' }}>{woreda.name}</Text><Text style={{ color: muted, fontSize: 9, marginTop: 2 }}>{woreda.zone} zone · {stations.length} station{stations.length === 1 ? '' : 's'}</Text></View>
               <View style={{ backgroundColor: woreda.is_active ? '#EAF1E8' : '#F7EAE5', paddingHorizontal: 8, paddingVertical: 5, borderRadius: 99 }}><Text style={{ color: woreda.is_active ? green : '#A34F3E', fontSize: 9, fontWeight: '900' }}>{woreda.is_active ? 'ACTIVE' : 'INACTIVE'}</Text></View>
               <Pressable onPress={() => void toggleWoreda(woreda)} style={secondaryButton}><Text style={{ color: green, fontSize: 9, fontWeight: '800' }}>{woreda.is_active ? 'Deactivate' : 'Activate'}</Text></Pressable>
             </View>
-            {stations.map((item) => <View key={item.id} style={{ paddingHorizontal: 14, paddingVertical: 11, borderBottomWidth: 1, borderColor: '#F0F2EE', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            {stations.map((item) => <View key={item.id} style={{ paddingHorizontal: 14, paddingVertical: 11, borderBottomWidth: 1, borderColor: '#F0F2EE', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
               <View style={{ flex: 1 }}><Text style={{ color: ink, fontSize: 11, fontWeight: '800' }}>{item.name}</Text><Text style={{ color: muted, fontSize: 9, marginTop: 3 }}>{item.is_active ? 'Visible during registration' : 'Hidden from registration'}</Text></View>
               <Pressable onPress={() => void toggleStation(item)} style={secondaryButton}><Text style={{ color: green, fontSize: 9, fontWeight: '800' }}>{item.is_active ? 'Deactivate' : 'Activate'}</Text></Pressable>
             </View>)}

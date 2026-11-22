@@ -104,7 +104,7 @@ export default function ReportingAnalytics() {
 
    if (kind==='users') {
     const data=(await users()).filter((u:any)=>!location || [u.station?.woreda,u.station?.name].some((v:string)=>v?.toLowerCase().includes(location.toLowerCase())));
-    rows=data.map((u:any)=>({name:u.full_name||'—',email:u.email||'—',phone:u.phone||'—',role:u.role,status:u.status,station:u.station?.name||'—',woreda:u.station?.woreda||'—',registered:fmtDate(u.created_at)}));
+    rows=data.map((u:any)=>({name:u.full_name||'—',email:u.email||'—',role:u.role,status:u.status,station:u.station?.name||'—',woreda:u.station?.woreda||'—',registered:fmtDate(u.created_at)}));
     metrics=[{label:'Registrations',value:String(data.length)},{label:'Verified',value:String(data.filter((u:any)=>u.status==='verified').length)},{label:'Suspended',value:String(data.filter((u:any)=>u.status==='suspended').length)}]; recordCount=rows.length;
    } else if (kind==='payments') {
     const data=(await payments()).filter((p:any)=>!location || [rel(p.stations)?.name,rel(p.stations)?.woreda].some((v:string)=>v?.toLowerCase().includes(location.toLowerCase())));
@@ -133,7 +133,7 @@ export default function ReportingAnalytics() {
     notes.push('Warehouse-zone air temperature and relative humidity readings; not outdoor weather forecasts or bean-moisture measurements. Simulated readings are identified separately and are not treated as live sensor data.'); recordCount=rows.length;
    } else {
     const [u,p,s,b,c,d]=await Promise.all([users(),payments(),stations(),batches(),climate(),directory()]);
-    const verified=p.filter((x:any)=>x.status==='verified'), total=verified.reduce((sum:number,x:any)=>sum+Number(x.amount_etb||0),0);
+    const verified=p.filter((x:any)=>x.status==='verified' && !x.is_test), total=verified.reduce((sum:number,x:any)=>sum+Number(x.amount_etb||0),0);
     rows=[{metric:'New users',value:u.length},{metric:'Station payment transactions',value:p.length},{metric:'Verified collections',value:fmtETB(total)},{metric:'New registered stations',value:s.length},{metric:'Non-demo coffee batches',value:b.length},{metric:'Climate sensor readings',value:c.length},{metric:'Directory woredas',value:d.w.length},{metric:'Directory stations',value:d.d.length}];
     metrics=[{label:'New users',value:String(u.length)},{label:'Verified ETB',value:fmtETB(total)},{label:'Coffee batches',value:String(b.length)},{label:'Climate readings',value:String(c.length)}];
     recordCount=u.length+p.length+s.length+b.length+c.length+d.w.length+d.d.length;

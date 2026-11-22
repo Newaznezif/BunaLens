@@ -24,7 +24,8 @@ const ymd = (d: Date) => isoDate(d).replaceAll('-', '');
 const lastValid = (series: Record<string, number> | undefined) => {
   if (!series) return null;
   const entries = Object.entries(series).filter(([, v]) => typeof v === 'number' && v !== -999 && Number.isFinite(v)).sort(([a], [b]) => b.localeCompare(a));
-  return entries.length ? { date: entries[0][0], value: entries[0][1] } : null;
+  const latest = entries[0];
+  return latest ? { date: latest[0], value: latest[1] } : null;
 };
 const soilValue = (soil: any, property: string, depth: string) => {
   const depths = soil?.properties?.[property]?.depths || [];
@@ -49,7 +50,7 @@ export default function CoffeePlantMonitor() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [zoom, setZoom] = useState(false);
-  const site = SITES.find(s => s.id === siteId) || SITES[0];
+  const site = SITES.find(s => s.id === siteId) ?? SITES[0]!;
   const load = useCallback(async (quiet = false) => {
     if (!supabase) return;
     if (quiet) setRefreshing(true); else setLoading(true);
@@ -72,11 +73,11 @@ export default function CoffeePlantMonitor() {
     const keys = ['forecast','archive','nasa','soil','gbif'] as const;
     tasks.forEach((task,index)=>{void task.then(result=>{
       const value = index===4 ? (result?.results||[]).filter((p:Point)=>Number.isFinite(p.decimalLatitude)&&Number.isFinite(p.decimalLongitude)&&p.establishmentMeans?.toUpperCase()==='NATIVE') : result;
-      setData(old=>({...old,[keys[index]]:value}));
+      setData(old=>({...old,[keys[index]!]:value}));
     }).catch(error=>setData(old=>({...old,errors:[...old.errors,String(error?.message||error)]})));});
     const settled = await Promise.allSettled(tasks);
     const errors:string[]=[];
-    settled.forEach((result,index)=>{if(result.status==='rejected')errors.push(keys[index]+': '+String(result.reason?.message||result.reason));});
+    settled.forEach((result,index)=>{if(result.status==='rejected')errors.push(keys[index]!+': '+String(result.reason?.message||result.reason));});
     const values = settled.map(result=>result.status==='fulfilled'?result.value:undefined);
     const records=(values[4]?.results||[]).filter((p:Point)=>Number.isFinite(p.decimalLatitude)&&Number.isFinite(p.decimalLongitude)&&p.establishmentMeans?.toUpperCase()==='NATIVE');
     setData({forecast:values[0],archive:values[1],nasa:values[2],soil:values[3],gbif:records,errors,fetchedAt:new Date().toISOString()});

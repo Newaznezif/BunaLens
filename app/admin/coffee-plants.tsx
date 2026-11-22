@@ -49,7 +49,7 @@ export default function CoffeePlantMonitor() {
   const [data, setData] = useState<PlantData>({ errors: [] });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [zoom, setZoom] = useState(false);
+  const [zoom, setZoom] = useState(true);
   const site = SITES.find(s => s.id === siteId) ?? SITES[0]!;
   const load = useCallback(async (quiet = false) => {
     if (!supabase) return;

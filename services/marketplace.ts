@@ -66,6 +66,35 @@ export interface CoffeeOrder {
 
 export interface ListingFilters { origin?: string; stage?: SampleType; minPrice?: number; maxPrice?: number }
 
+export interface MarketplacePublicationConsent {
+  batch_id: string;
+  agreed: boolean;
+  price_per_kg_etb: number;
+  available_kg: number;
+  agreed_at: string | null;
+  revoked_at: string | null;
+}
+
+export async function fetchPublicationConsentForLot(batchId: string): Promise<MarketplacePublicationConsent | null> {
+  const { data, error } = await client().from('marketplace_publication_consents')
+    .select('batch_id,agreed,price_per_kg_etb,available_kg,agreed_at,revoked_at')
+    .eq('batch_id', batchId).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? { ...data, price_per_kg_etb: Number(data.price_per_kg_etb), available_kg: Number(data.available_kg) } as MarketplacePublicationConsent : null;
+}
+
+/** Records the station owner's explicit, auditable consent and seller-approved listing terms. */
+export async function recordMarketplacePublicationConsent(
+  batchId: string, agreed: boolean, availableKg?: number, pricePerKgEtb?: number,
+): Promise<{ consent_recorded: boolean; published?: boolean; listing_status?: string; message?: string }> {
+  const { data, error } = await client().rpc('bunalens_record_marketplace_publication_consent', {
+    p_batch_id: batchId, p_agreed: agreed,
+    p_available_kg: availableKg ?? null, p_price_per_kg_etb: pricePerKgEtb ?? null,
+  });
+  if (error) throw new Error(error.message);
+  return data as { consent_recorded: boolean; published?: boolean; listing_status?: string; message?: string };
+}
+
 const client = () => {
   if (!supabase) throw new Error('The marketplace needs a configured Supabase connection.');
   return supabase;

@@ -13,7 +13,7 @@ type Report = {
   count: number;
 };
 
-const reportTemplate = require('../components/admin/report-template.json') as { template: string };
+const reportTemplate = require('./admin-report-template.json') as { template: string };
 const escape = (value: unknown) => String(value ?? '—').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] || char));
 const dateText = (value: string) => new Date(value).toLocaleString();
 

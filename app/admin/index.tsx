@@ -1,3 +1,4 @@
+// Temporary bundle-isolation checkpoint: admin report navigation is being tested separately.
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import type { ViewStyle } from 'react-native';

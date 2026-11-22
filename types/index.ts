@@ -61,6 +61,13 @@ export interface CoffeeBatch {
   station_id: string;
   pricing?: PricingAssessment;
   verification_id?: string;
+  certification_status?: 'pending' | 'certified' | 'rejected';
+  certified_grade?: string | null;
+  quality_classification?: string | null;
+  certification_origin_zone?: string | null;
+  certified_at?: string | null;
+  certification_note?: string | null;
+  eligibility_status?: 'unreviewed' | 'eligible' | 'rejected' | 'needs_review';
 }
 
 export interface Station {

@@ -8,6 +8,8 @@ create table if not exists public.admin_report_history (
   record_count integer not null default 0 check (record_count >= 0),
   filters jsonb not null default '{}'::jsonb check (jsonb_typeof(filters) = 'object'),
   created_by uuid not null references auth.users(id) on delete restrict,
+  created_by_label text not null,
+  generation_status text not null default 'completed' check (generation_status in ('completed', 'failed')),
   created_at timestamptz not null default now(),
   constraint admin_report_history_period_valid check (period_end >= period_start)
 );

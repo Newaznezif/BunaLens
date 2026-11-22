@@ -1,11 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 import { FileText, Download, RefreshCw, Users, CreditCard, MapPin, Sprout, Thermometer, BarChart3, AlertCircle } from 'lucide-react-native';
-import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
 import { supabase } from '@/services/supabaseClient';
-
-const reportTemplate = require('./report-template.json') as { template: string };
+import { exportAdminReportPdf } from '@/services/adminReportPdf';
 
 type Kind = 'general' | 'users' | 'payments' | 'directory' | 'coffee_plants' | 'climate';
 type Period = 'daily' | 'weekly' | 'monthly' | 'annual' | 'custom';
@@ -47,24 +44,7 @@ function getRange(period: Period, start: string, end: string) {
  } else b.setHours(23,59,59,999);
  return { from: a.toISOString(), to: b.toISOString(), label: a.toLocaleDateString() + ' – ' + b.toLocaleDateString() };
 }
-function makeHtml(r: Report, admin: string) {
- const cols = r.rows.length ? Object.keys(r.rows[0]!).slice(0,8) : [];
- const table = cols.length
-  ? '<table><thead><tr>' + cols.map(c => '<th>' + escape(c.replaceAll('_',' ')) + '</th>').join('') + '</tr></thead><tbody>' +
-    r.rows.slice(0,5000).map(row => '<tr>' + cols.map(c => '<td>' + escape(row[c]) + '</td>').join('') + '</tr>').join('') + '</tbody></table>'
-  : '<p>No matching records were found.</p>';
- const metrics = r.metrics.map(m => '<div data-metric="1"><span>' + escape(m.label) + '</span><strong>' + escape(m.value) + '</strong></div>').join('');
- const notes = r.notes.map(n => '<li>' + escape(n) + '</li>').join('');
- let output = reportTemplate.template;
- const replacements: Record<string,string> = {
-  TITLE: escape(r.title), PERIOD: escape(r.period), REFERENCE: escape(r.id), ADMIN: escape(admin),
-  GENERATED: escape(fmtDate(r.generated)), METRICS: metrics, NOTES: notes,
-  COUNT: r.count.toLocaleString(), TABLE: table,
-  TRUNCATION: r.rows.length > 5000 ? '<p>Detail is limited to the first 5,000 rows; summary uses all ' + r.count.toLocaleString() + ' source records.</p>' : ''
- };
- for (const [key,value] of Object.entries(replacements)) output = output.replaceAll('__' + key + '__', value);
- return output;
-}
+
 export default function ReportingAnalytics() {
  const [kind,setKind] = useState<Kind>('general'), [period,setPeriod] = useState<Period>('monthly');
  const [start,setStart] = useState(''), [end,setEnd] = useState(''), [location,setLocation] = useState('');
@@ -172,7 +152,7 @@ export default function ReportingAnalytics() {
   } catch(e) { setError(e instanceof Error?e.message:'Report generation failed. Check administrator data permissions.'); }
   finally { setLoading(false); }
  };
- const exportPdf=async()=>{if(!report)return;setExporting(true);try{const content=makeHtml(report,admin);if(Platform.OS==='web'){await Print.printAsync({html:content});setNotice('Print preview opened. Choose Save as PDF in your browser.');}else{const file=await Print.printToFileAsync({html:content});if(await Sharing.isAvailableAsync())await Sharing.shareAsync(file.uri,{mimeType:'application/pdf',dialogTitle:'BunaLens '+report.title});else await Print.printAsync({html:content});setNotice('PDF export is ready.');}}catch(e){setError(e instanceof Error?e.message:'PDF export failed.');}finally{setExporting(false);}};
+ const exportPdf=async()=>{if(!report)return;setExporting(true);try{const result=await exportAdminReportPdf(report,admin);setNotice(result==='print'?'Print preview opened. Choose Save as PDF in your browser.':'PDF export is ready to download or share.');}catch(e){setError(e instanceof Error?e.message:'PDF export failed.');}finally{setExporting(false);}};
  const periods:Period[]=['daily','weekly','monthly','annual','custom'];
  return <View style={{gap:14}}>
   <View style={{...panel,padding:16,backgroundColor:'#26372D',borderColor:'#26372D',flexDirection:'row',alignItems:'center',gap:10}}><FileText color="#FFFFFF" size={23}/><View style={{flex:1}}><Text style={{color:'#FFFFFF',fontSize:16,fontWeight:'900'}}>Reporting & Analytics</Text><Text style={{color:'#C3D0C1',fontSize:10}}>Live BunaLens operational reports</Text></View><Text style={{color:'#C3D0C1',fontSize:9}}>LIVE</Text></View>

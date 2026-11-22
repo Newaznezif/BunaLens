@@ -117,26 +117,32 @@ export default function ReportingAnalytics() {
     rows=[...w.map((v:any)=>({type:'Woreda',name:v.name,zone:v.zone,status:v.is_active?'active':'inactive'})),...ds.map((v:any)=>({type:'Directory station',name:v.name,woreda:w.find((z:any)=>z.id===v.woreda_id)?.name||'—',status:v.is_active?'active':'inactive'})),...x.s.filter((v:any)=>!location||[v.woreda,v.zone,v.name,v.station_name].some((z:string)=>z?.toLowerCase().includes(location.toLowerCase()))).map((v:any)=>({type:'Registered station',name:v.station_name||v.name,woreda:v.woreda,zone:v.zone,registered:fmtDate(v.created_at)}))];
     metrics=[{label:'Woredas',value:String(w.length)},{label:'Directory stations',value:String(ds.length)},{label:'Registered stations',value:String(x.s.length)}]; recordCount=rows.length;
    } else if (kind==='coffee_plants') {
-    const res=await fetch('https://api.gbif.org/v1/occurrence/search?scientificName=Coffea%20arabica&decimalLatitude=7.2,8.15&decimalLongitude=36.05,37.45&hasCoordinate=true&occurrenceStatus=PRESENT&limit=300');
+    const res=await fetch('https://api.gbif.org/v1/occurrence/search?scientificName=Coffea%20arabica&decimalLatitude=7.2,8.15&decimalLongitude=36.05,37.45&hasCoordinate=true&occurrenceStatus=PRESENT&establishmentMeans=NATIVE&limit=300');
     if(!res.ok)throw new Error('GBIF occurrence service returned '+res.status);
-    const payload=await res.json(), plants=(payload.results||[]).filter((p:any)=>{const dt=p.eventDate||(p.year?String(p.year)+'-01-01':'');return (!dt||(dt>=from.slice(0,10)&&dt<=to.slice(0,10)))&&(!location||[p.locality,p.stateProvince,p.municipality].some((v:string)=>v?.toLowerCase().includes(location.toLowerCase())));});
+    const payload=await res.json(), plants=(payload.results||[]).filter((p:any)=>{const dt=p.eventDate||(p.year?String(p.year)+'-01-01':'');return p.establishmentMeans?.toUpperCase()==='NATIVE'&&(!dt||(dt>=from.slice(0,10)&&dt<=to.slice(0,10)))&&(!location||[p.locality,p.stateProvince,p.municipality].some((v:string)=>v?.toLowerCase().includes(location.toLowerCase())));});
     rows=plants.map((p:any)=>({scientific_name:p.scientificName||'Coffea arabica',locality:p.locality||p.municipality||'—',region:p.stateProvince||'—',latitude:p.decimalLatitude,longitude:p.decimalLongitude,date:p.eventDate||p.year||'—',record_basis:p.basisOfRecord||'—'}));
     metrics=[{label:'Occurrence records',value:String(rows.length)}]; recordCount=rows.length;
     notes.push('GBIF biodiversity occurrence data for the Jimma area. These are not BunaLens plant-health inspections or farm-level monitoring records.');
    } else if (kind==='climate') {
     const data=(await climate()).filter((x:any)=>!location||[rel(x.stations)?.name,rel(x.stations)?.woreda,rel(x.warehouse_zones)?.name].some((v:string)=>v?.toLowerCase().includes(location.toLowerCase())));
-    const avg=data.length?data.reduce((s:number,x:any)=>s+Number(x.temperature_c),0)/data.length:0;
     rows=data.map((x:any)=>({recorded:fmtDate(x.recorded_at),station:rel(x.stations)?.name||'—',woreda:rel(x.stations)?.woreda||'—',zone:rel(x.warehouse_zones)?.name||'—',temperature_c:x.temperature_c,humidity_pct:x.humidity_pct,source:x.source}));
     const live=data.filter((x:any)=>x.source==='live'), simulated=data.filter((x:any)=>x.source==='simulated');
     const liveAvg=live.length?live.reduce((s:number,x:any)=>s+Number(x.temperature_c),0)/live.length:0;
     metrics=[{label:'All sensor readings',value:String(data.length)},{label:'Live readings',value:String(live.length)},{label:'Simulated readings',value:String(simulated.length)},{label:'Live average temperature',value:live.length?liveAvg.toFixed(1)+' °C':'No live data'}];
     notes.push('Warehouse-zone air temperature and relative humidity readings; not outdoor weather forecasts or bean-moisture measurements. Simulated readings are identified separately and are not treated as live sensor data.'); recordCount=rows.length;
    } else {
-    const [u,p,s,b,c,d]=await Promise.all([users(),payments(),stations(),batches(),climate(),directory()]);
+    const [u0,p0,s0,b0,c0,d]=await Promise.all([users(),payments(),stations(),batches(),climate(),directory()]);
+    const u=u0.filter((x:any)=>!location||[x.station?.woreda,x.station?.name].some((v:string)=>v?.toLowerCase().includes(location.toLowerCase())));
+    const p=p0.filter((x:any)=>!location||[x.station_name,x.woreda,x.payer].some((v:string)=>v?.toLowerCase().includes(location.toLowerCase())));
+    const s=s0.filter((x:any)=>!location||[x.woreda,x.zone,x.name,x.station_name].some((v:string)=>v?.toLowerCase().includes(location.toLowerCase())));
+    const b=b0.filter((x:any)=>!location||x.woreda?.toLowerCase().includes(location.toLowerCase()));
+    const c=c0.filter((x:any)=>!location||[rel(x.stations)?.name,rel(x.stations)?.woreda,rel(x.warehouse_zones)?.name].some((v:string)=>v?.toLowerCase().includes(location.toLowerCase())));
+    const w=d.w.filter((x:any)=>!location||[x.name,x.zone].some((v:string)=>v?.toLowerCase().includes(location.toLowerCase())));
+    const ids=new Set(w.map((x:any)=>x.id)), dirs=d.d.filter((x:any)=>ids.has(x.woreda_id));
     const verified=p.filter((x:any)=>x.status==='verified' && !x.is_test), total=verified.reduce((sum:number,x:any)=>sum+Number(x.amount_etb||0),0);
-    rows=[{metric:'New users',value:u.length},{metric:'Station payment transactions',value:p.length},{metric:'Verified collections',value:fmtETB(total)},{metric:'New registered stations',value:s.length},{metric:'Non-demo coffee batches',value:b.length},{metric:'Climate sensor readings',value:c.length},{metric:'Directory woredas',value:d.w.length},{metric:'Directory stations',value:d.d.length}];
+    rows=[{metric:'New users',value:u.length},{metric:'Payment transactions',value:p.length},{metric:'Verified collections',value:fmtETB(total)},{metric:'New registered stations',value:s.length},{metric:'Non-demo coffee batches',value:b.length},{metric:'Climate sensor readings',value:c.length},{metric:'Directory woredas',value:w.length},{metric:'Directory stations',value:dirs.length}];
     metrics=[{label:'New users',value:String(u.length)},{label:'Verified ETB',value:fmtETB(total)},{label:'Coffee batches',value:String(b.length)},{label:'Climate readings',value:String(c.length)}];
-    recordCount=u.length+p.length+s.length+b.length+c.length+d.w.length+d.d.length;
+    recordCount=u.length+p.length+s.length+b.length+c.length+w.length+dirs.length;
     notes.push('Overview combines registrations, both payment streams, stations, non-demo batches, device readings and directory totals. Only verified non-test payments count as collections.');
    }
    if(location.trim())notes.push('Location filter: '+location.trim()+'.');

@@ -3,6 +3,7 @@ import { ActivityIndicator, Image, Pressable, ScrollView, Text, TextInput, View 
 import { router, useFocusEffect } from 'expo-router';
 import { JIMMA_WOREDAS } from '@/constants/jimmaData';
 import { fetchListings, type Listing } from '@/services/marketplace';
+import { RefreshCw, Store, ShieldCheck } from 'lucide-react-native';
 import type { SampleType } from '@/types';
 
 const STAGES: { value: SampleType; label: string }[] = [{ value: 'green_bean', label: 'Green beans' }, { value: 'red_cherry', label: 'Red cherries' }];
@@ -25,15 +26,21 @@ export default function Marketplace() {
   const [minPrice, setMinPrice] = useState('');
   const [listings, setListings] = useState<Listing[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
+    setRefreshing(true);
     const max = Number(maxPrice);
     const min = Number(minPrice);
     try {
       setListings(await fetchListings({ origin, stage, maxPrice: maxPrice && Number.isFinite(max) ? max : undefined, minPrice: minPrice && Number.isFinite(min) ? min : undefined }));
       setError(null);
     } catch (e) { setError(e instanceof Error ? e.message : 'Listings could not be loaded.'); }
+    finally { setRefreshing(false); }
   }, [origin, stage, maxPrice, minPrice]);
+
+  const hasFilters = Boolean(origin || stage || minPrice || maxPrice);
+  const clearFilters = () => { setOrigin(undefined); setStage(undefined); setMinPrice(''); setMaxPrice(''); };
 
   // Tabs can remain mounted while the admin publishes a lot. Refetch whenever
   // the marketplace comes back into focus so the newly published listing appears.
@@ -45,8 +52,11 @@ export default function Marketplace() {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: '#FAF7F2' }} contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Text style={{ fontSize: 22, fontWeight: '900', color: '#1C1917' }}>Coffee marketplace</Text>
-        <Pressable testID="market-orders-link" onPress={() => router.push('/market/orders')}><Text style={{ color: '#7C2D12', fontWeight: '800' }}>Orders ›</Text></Pressable>
+        <View><Text style={{ fontSize: 22, fontWeight: '900', color: '#1C1917' }}>Coffee marketplace</Text><Text style={{ fontSize: 10, color: '#78716C', marginTop: 3 }}>Open catalogue · visible to every visitor</Text></View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <Pressable accessibilityLabel="Refresh public marketplace" disabled={refreshing} onPress={() => void load()} style={{ padding: 7 }}><RefreshCw size={16} color="#7C2D12" /></Pressable>
+          <Pressable testID="market-orders-link" onPress={() => router.push('/market/orders')}><Text style={{ color: '#7C2D12', fontWeight: '800' }}>Orders ›</Text></Pressable>
+        </View>
       </View>
       <Text style={{ fontSize: 12, color: '#57534E', marginTop: 4, marginBottom: 14 }}>Lots listed directly by Jimma zone stations. Order from the seller; no broker in between.</Text>
 
@@ -68,7 +78,12 @@ export default function Marketplace() {
 
       {error ? <Text style={{ color: '#991B1B', fontSize: 12 }}>{error}</Text> : null}
       {!listings && !error ? <ActivityIndicator color="#7C2D12" /> : null}
-      {listings && listings.length === 0 ? <Text testID="market-empty" style={{ color: '#57534E', fontSize: 13 }}>No published lot matches these filters.</Text> : null}
+      {listings && listings.length === 0 ? <View testID="market-empty" style={{ backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E7E5E4', borderRadius: 18, padding: 24, alignItems: 'center', marginTop: 4 }}>
+        <View style={{ width: 52, height: 52, borderRadius: 17, backgroundColor: '#F5EEE7', alignItems: 'center', justifyContent: 'center' }}><Store size={24} color="#7C2D12" /></View>
+        <Text style={{ color: '#1C1917', fontSize: 15, fontWeight: '900', marginTop: 13 }}>{hasFilters ? 'No lots match these filters' : 'The next great coffee lot will appear here'}</Text>
+        <Text style={{ color: '#57534E', fontSize: 12, lineHeight: 18, textAlign: 'center', marginTop: 6 }}>{hasFilters ? 'There are published lots in the catalogue, but none match the selected origin, coffee stage or price range. Clear filters to see the full catalogue.' : 'No seller has completed publication yet. Once a station owner agrees to list a lot and the lot is administrator-certified, it will appear here automatically for everyone to browse — no sign-in required.'}</Text>
+        {hasFilters ? <Pressable testID="market-clear-filters" onPress={clearFilters} style={{ marginTop: 14, borderRadius: 11, backgroundColor: '#1C1917', paddingHorizontal: 15, paddingVertical: 10 }}><Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '900' }}>Clear all filters</Text></Pressable> : <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 13, backgroundColor: '#F5F7F3', borderRadius: 10, padding: 9 }}><ShieldCheck size={14} color="#55765D" /><Text style={{ color: '#536054', fontSize: 10, fontWeight: '700', marginLeft: 6 }}>Public listings · live database</Text></View>}
+      </View> : null}
       {(listings ?? []).map((item) => (
         <Pressable key={item.id} testID={'market-listing-' + item.batch_code} onPress={() => router.push({ pathname: '/market/[id]', params: { id: item.id } })}
           style={{ backgroundColor: '#FFFFFF', borderRadius: 16, borderWidth: 1, borderColor: '#E7E5E4', padding: 14, marginBottom: 12 }}>

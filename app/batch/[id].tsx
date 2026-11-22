@@ -65,15 +65,17 @@ export default function Detail() {
   const [cloudBatch, setCloudBatch] = useState<CoffeeBatch | null>(null);
   const [cloudLoading, setCloudLoading] = useState(false);
   useEffect(() => {
-    if (localBatch || !id) return;
+    if (!id) return;
     let active = true;
     setCloudLoading(true);
+    // Always refresh server-side certification and publication fields, even when
+    // the original scan is already present in local device history.
     fetchCloudLot(id)
       .then((found) => { if (active) setCloudBatch(found); })
       .finally(() => { if (active) setCloudLoading(false); });
     return () => { active = false; };
-  }, [id, localBatch]);
-  const batch = localBatch ?? cloudBatch;
+  }, [id]);
+  const batch = cloudBatch ? { ...(localBatch || cloudBatch), ...cloudBatch } : localBatch;
   const captureCertificatePng = async (): Promise<string> => {
     if (!cert.current) throw new Error('The certificate is not ready.');
     if (Platform.OS === 'web') {
@@ -89,7 +91,7 @@ export default function Detail() {
     try {
       if (!batch) return;
       const pricing = batch.pricing;
-      const html = `<html><body style="font-family:Arial;padding:32px;color:#2C1810"><h1>BUNALENS DIGITAL COFFEE QUALITY CERTIFICATE</h1><h2>${escapeHtml(batch.batch_code)}</h2><p>Jimma Zone, Oromia · ${escapeHtml(batch.woreda)} · ${batch.sample_type === 'red_cherry' ? 'Red Cherry' : 'Green Bean'} · ${escapeHtml(new Date(batch.created_at).toLocaleString())}</p><h2>${escapeHtml(batch.result.ecx_grade)} · ${batch.result.quality_score}/100</h2><p>Confidence: ${batch.result.confidence_score ?? Math.round((batch.result.confidence ?? 0) * 100)}%</p><p>Lot: ${batch.lot_weight_kg} kg (${(batch.lot_weight_kg / 17).toFixed(2)} Feresula)</p><p>Estimated price: ${pricing?.estimated_price_per_feresula_etb?.toLocaleString() ?? 'Not available'} ETB / Feresula</p><p>Estimated lot value: ${pricing?.estimated_lot_value_etb?.toLocaleString() ?? 'Not available'} ETB</p><p>Verification ID: ${escapeHtml(batch.verification_id || batch.id)}</p><hr/><p>${escapeHtml(batch.result.sorting_action_advice || batch.result.assessment_note || '')}</p><p>Limitations: ${(batch.result.assessment_limitations || []).map(escapeHtml).join('; ')}</p><hr/><p>This certificate represents an AI-assisted visual assessment and is not an official Ethiopian Commodity Exchange certificate or laboratory quality report.</p></body></html>`;
+      const html = `<html><body style="font-family:Arial;padding:32px;color:#2C1810"><h1>BUNALENS DIGITAL COFFEE QUALITY CERTIFICATE</h1><h2>${escapeHtml(batch.batch_code)}</h2><p>Jimma Zone, Oromia · ${escapeHtml(batch.woreda)} · ${batch.sample_type === 'red_cherry' ? 'Red Cherry' : 'Green Bean'} · ${escapeHtml(new Date(batch.created_at).toLocaleString())}</p><h2>${escapeHtml(batch.certified_grade || batch.result.ecx_grade)} · ${batch.result.quality_score}/100</h2><p>Certification status: ${escapeHtml(batch.certification_status || 'Not yet administrator-certified')}</p><p>Quality classification: ${escapeHtml(batch.quality_classification || 'Not assigned')}</p><p>Certified at: ${escapeHtml(batch.certified_at ? new Date(batch.certified_at).toLocaleString() : 'Not certified')}</p><p>Confidence: ${batch.result.confidence_score ?? Math.round((batch.result.confidence ?? 0) * 100)}%</p><p>Lot: ${batch.lot_weight_kg} kg (${(batch.lot_weight_kg / 17).toFixed(2)} Feresula)</p><p>Estimated price: ${pricing?.estimated_price_per_feresula_etb?.toLocaleString() ?? 'Not available'} ETB / Feresula</p><p>Estimated lot value: ${pricing?.estimated_lot_value_etb?.toLocaleString() ?? 'Not available'} ETB</p><p>Verification ID: ${escapeHtml(batch.verification_id || batch.id)}</p><hr/><p>${escapeHtml(batch.result.sorting_action_advice || batch.result.assessment_note || '')}</p><p>Limitations: ${(batch.result.assessment_limitations || []).map(escapeHtml).join('; ')}</p><hr/><p>This certificate represents an AI-assisted visual assessment and is not an official Ethiopian Commodity Exchange certificate or laboratory quality report.</p></body></html>`;
       if (Platform.OS === 'web') {
         const printWindow = window.open('', '_blank');
         if (!printWindow) throw new Error('Allow pop-ups to print or save the certificate.');
@@ -184,8 +186,15 @@ export default function Detail() {
           <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 13 }}>{batch.result.screening ? 'Photograph this lot again' : 'Photograph a sample for this lot'}</Text>
         </Pressable>
       ) : null}
-      {batch.id.startsWith('lot_') ? <LotEligibilityCard batchId={batch.id} /> : null}
-      {batch.id.startsWith('lot_') ? <LotListingCard batchId={batch.id} lotWeightKg={batch.lot_weight_kg} /> : null}
+      {batch.status !== 'demo' && batch.station_id ? <LotEligibilityCard batchId={batch.id} /> : null}
+      {batch.status !== 'demo' && batch.station_id ? <LotListingCard
+        batchId={batch.id}
+        lotWeightKg={batch.lot_weight_kg}
+        certificationStatus={batch.certification_status}
+        certifiedGrade={batch.certified_grade}
+        qualityClassification={batch.quality_classification}
+        eligibilityStatus={batch.eligibility_status}
+      /> : null}
       <LotEnvironmentCard batchId={batch.id} />
 
       <View className="border p-5 rounded-3xl mt-4" style={{ backgroundColor: theme.colors.surface, borderColor: theme.colors.line }}>

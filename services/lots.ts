@@ -68,6 +68,13 @@ export async function fetchCloudLot(id: string): Promise<CoffeeBatch | null> {
     image_path: data.image_path ?? undefined,
     result: assessed ? ({ ...UNASSESSED_RESULT, ...raw } as GradingResult) : UNASSESSED_RESULT,
     pricing: (data.pricing_result as PricingAssessment | null) ?? undefined,
+    certification_status: data.certification_status,
+    certified_grade: data.certified_grade,
+    quality_classification: data.quality_classification,
+    certification_origin_zone: data.certification_origin_zone,
+    certified_at: data.certified_at,
+    certification_note: data.certification_note,
+    eligibility_status: data.eligibility_status,
   };
 }
 

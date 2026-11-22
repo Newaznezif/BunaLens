@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View, useWin
 import type { ViewStyle } from 'react-native';
 import { router } from 'expo-router';
 import {
-  Activity, Building2, CheckCircle2, ChevronRight, CircleAlert, Coffee, CreditCard, FileText,
+  Activity, Award, Building2, CheckCircle2, ChevronRight, CircleAlert, Coffee, CreditCard, FileText,
   Database, LayoutDashboard, LogOut, RefreshCw, Search, ShieldCheck, Sprout, TrendingUp, Users, ClipboardCheck, Settings as SettingsIcon,
 } from 'lucide-react-native';
 import { isSupabaseConfigured, supabase } from '@/services/supabaseClient';
@@ -12,8 +12,9 @@ import DirectoryManager from '@/components/admin/DirectoryManager';
 import UserManagement from '@/components/admin/UserManagement';
 import AdminScanReview from '@/components/admin/ScanReview';
 import ReportingAnalytics from '@/features/admin/ReportingAnalytics';
+import PublishedCertificates from '@/components/admin/PublishedCertificates';
 
-type AdminTab = 'overview' | 'stations' | 'payments' | 'directory' | 'users' | 'reviews' | 'coffeePlants' | 'reporting';
+type AdminTab = 'overview' | 'stations' | 'payments' | 'directory' | 'users' | 'reviews' | 'certificates' | 'coffeePlants' | 'reporting';
 type StationRow = { id: string; name: string | null; manager: string | null; email: string | null; phone: string | null; woreda: string; credits: number; pro_expires_at: string | null; created_at: string };
 type BatchRow = { id: string; batch_code: string; sample_type: string; woreda: string; grading_status: string; ecx_grade: string; quality_score: number | null; created_at: string; stations?: { name: string | null; manager: string | null }[] | null };
 type PaymentRow = { id: string; package_id: string; amount_etb: number; currency: string; chapa_tx_ref: string; status: string; created_at: string; verified_at: string | null; stations?: { name: string | null }[] | null };
@@ -125,7 +126,8 @@ export default function AdminDashboard() {
     { key: 'payments', label: 'Payments', icon: CreditCard },
     { key: 'directory', label: 'Directory', icon: Database },
     { key: 'users', label: 'Users', icon: Users },
-    { key: 'reviews', label: 'Scan reviews', icon: ClipboardCheck },
+    { key: 'reviews', label: 'Scan Review', icon: ClipboardCheck },
+    { key: 'certificates', label: 'Published Certificates', icon: Award },
     { key: 'coffeePlants', label: 'Coffee Plant Monitor', icon: Sprout },
     { key: 'reporting', label: 'Reporting & Analytics', icon: FileText },
   ];
@@ -243,6 +245,7 @@ export default function AdminDashboard() {
           {tab === 'directory' ? <DirectoryManager /> : null}
           {tab === 'users' ? <UserManagement /> : null}
           {tab === 'reviews' ? <AdminScanReview /> : null}
+          {tab === 'certificates' ? <PublishedCertificates /> : null}
           {tab === 'reporting' ? <ReportingAnalytics /> : null}
         </>}
         <Text style={{ color: '#9AA298', fontSize: 9, lineHeight: 15, textAlign: 'center', marginTop: 24 }}>BunaLens provides preliminary visual screening only. Data excludes local demonstration records where indicated.</Text>

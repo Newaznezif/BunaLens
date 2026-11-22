@@ -49,7 +49,7 @@ export async function fetchCloudLot(id: string): Promise<CoffeeBatch | null> {
   if (!supabase) return null;
   const { data, error } = await supabase
     .from('coffee_batches')
-    .select('id,batch_code,sample_type,woreda,created_at,lot_weight_kg,station_id,verification_id,grading_status,grading_result,pricing_result,image_path,is_demo')
+    .select('id,batch_code,sample_type,woreda,created_at,lot_weight_kg,station_id,verification_id,grading_status,grading_result,pricing_result,image_path,is_demo,certification_status,certified_grade,quality_classification,certification_origin_zone,certified_at,certification_note,eligibility_status')
     .eq('id', id)
     .maybeSingle();
   if (error || !data) return null;

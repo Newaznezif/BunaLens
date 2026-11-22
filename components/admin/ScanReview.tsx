@@ -99,7 +99,7 @@ export default function AdminScanReview() {
     try {
       const { data, error: rpcError } = await supabase.rpc('bunalens_admin_certify_and_publish_lot', {
         p_batch_id: row.id, p_decision: decision, p_reason: reason,
-        p_price_per_kg_etb: decision === 'eligible' && price !== null ? price : null,
+        p_price_per_kg_etb: decision === 'eligible' && publishToMarketplace && price !== null ? price : null,
         p_certified_grade: decision === 'eligible' ? (grades[row.id] || row.certified_grade) : null,
         p_quality_classification: decision === 'eligible' ? (classifications[row.id] || row.quality_classification) : null,
       });
